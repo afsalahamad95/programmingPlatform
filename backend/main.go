@@ -161,6 +161,14 @@ func main() {
 	students.Put("/:id", handlers.UpdateStudent)
 	students.Delete("/:id", handlers.DeleteStudent)
 
+	// Admin routes for student results
+	admin := api.Group("/admin")
+	admin.Get("/student-results", handlers.GetAllStudentResults)
+	admin.Get("/students", handlers.GetStudents)     // Reuse the existing handler
+	admin.Get("/challenges", handlers.GetChallenges) // Reuse the existing handler
+	admin.Get("/student-results/:studentId", handlers.GetStudentResultsByStudent)
+	admin.Get("/student-results/challenge/:challengeId", handlers.GetStudentResultsByChallenge)
+
 	// Log configuration
 	log.Printf("Environment: %s\n", getEnvWithDefault("GO_ENV", "development"))
 	log.Printf("Log Level: %s\n", logLevel)

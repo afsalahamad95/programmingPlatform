@@ -42,6 +42,7 @@ const StudentResults: React.FC = () => {
 	const fetchData = useCallback(async () => {
 		try {
 			setLoading(true);
+			console.log("Fetching student results data...");
 
 			// MOCK DATA - Use this until real API endpoints are working
 			const mockResults: StudentResult[] = [
@@ -106,12 +107,20 @@ const StudentResults: React.FC = () => {
 
 			try {
 				// Try to fetch from the real API
+				console.log("Attempting to fetch from API endpoints...");
+
+				// Add timestamps to avoid caching
+				const timestamp = new Date().getTime();
 				const [resultsRes, studentsRes, challengesRes] =
 					await Promise.all([
-						axios.get("/api/admin/student-results"),
-						axios.get("/api/admin/students"),
-						axios.get("/api/admin/challenges"),
+						axios.get(`/api/admin/student-results?t=${timestamp}`),
+						axios.get(`/api/admin/students?t=${timestamp}`),
+						axios.get(`/api/admin/challenges?t=${timestamp}`),
 					]);
+
+				console.log("API Response for results:", resultsRes.data);
+				console.log("API Response for students:", studentsRes.data);
+				console.log("API Response for challenges:", challengesRes.data);
 
 				// Ensure we have arrays even if the API returns null or undefined
 				setResults(
