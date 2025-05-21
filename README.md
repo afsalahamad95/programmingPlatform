@@ -38,17 +38,21 @@ A flexible and efficient platform designed for creating and attempting tests wit
   📚 Automatically categorizes questions by subject for better organization.  
 - **Test Scheduling**:  
   ⏲️ Allows scheduling of tests with defined time limits.  
-
----
-
-## 📝 TODO   
 - ✅ **Automated Grading & Results**: Automatically grade submissions and generate results.  
 - 📈 **Analytics & Reporting**: Provide insights into student performance and test metrics.  
 
 ---
 
+## 📝 TODO   
+- Authentication - Oauth2 support, JWT token
+- Improved state management
+- Multi language code execution
+- AI support - get help for questions
+- AI proctored tests
+---
+
 ## 🛠️ Tech Stack  
-- **Frontend**: React  
+- **Frontend**: React - typescript + vite
 - **Backend**: Go  
 - **Database**: MongoDB  
 
@@ -90,4 +94,4 @@ Default URL: http://localhost:8080
 Admin Frontend: http://localhost:5173
 Client Frontend: http://localhost:5173
 Backend: http://localhost:3000
-Code Execution Engine: http://localhost:8080
+Code Execution Engine: http://localhost:8081
