@@ -46,7 +46,60 @@ export interface Test {
 }
 
 export interface TestResult {
-  questionId: string;
-  points: number;
-  feedback?: string;
+  passed: boolean;
+  input: string;
+  expectedOutput: string;
+  actualOutput: string;
+  description: string;
+  hidden: boolean;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  createdAt: string;
+}
+
+export interface CodingChallenge {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  category: string;
+  timeLimit: number;
+  starterCode: string;
+  language: string;
+  testCases: ChallengeTestCase[];
+  memoryLimitMB: number;
+  timeoutSec: number;
+  createdAt: string;
+}
+
+export interface ChallengeTestCase {
+  input: string;
+  expectedOutput: string;
+  description: string;
+  hidden: boolean;
+}
+
+export interface ValidationResult {
+  passed: boolean;
+  testCases: TestResult[];
+  totalTests: number;
+  passedTests: number;
+  failedTests: number;
+}
+
+export interface ChallengeAttempt {
+  id: string;
+  userId: string;
+  challengeId: string;
+  code: string;
+  language: string;
+  status: 'Submitted' | 'Passed' | 'Failed';
+  result: ValidationResult;
+  timeSpent: number;
+  createdAt: string;
 }

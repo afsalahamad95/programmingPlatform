@@ -120,3 +120,43 @@ export const updateUser = async (id: string, data: any) => {
 export const deleteUser = async (id: string) => {
   await api.delete(`/users/${id}`);
 };
+
+// Challenges API
+export const createChallenge = async (data: any) => {
+  const response = await api.post('/challenges', data);
+  return response.data;
+};
+
+export const getChallenges = async (params?: { difficulty?: string; category?: string }) => {
+  const response = await api.get('/challenges', { params });
+  return response.data;
+};
+
+export const getChallenge = async (id: string) => {
+  const response = await api.get(`/challenges/${id}`);
+  return response.data;
+};
+
+export const updateChallenge = async (id: string, data: any) => {
+  const response = await api.put(`/challenges/${id}`, data);
+  return response.data;
+};
+
+export const deleteChallenge = async (id: string) => {
+  await api.delete(`/challenges/${id}`);
+};
+
+export const submitChallengeAttempt = async (id: string, data: any) => {
+  const response = await api.post(`/challenges/${id}/submit`, data);
+  return response.data;
+};
+
+export const getChallengeAttempts = async (id: string) => {
+  const response = await api.get(`/challenges/${id}/attempts`);
+  return response.data;
+};
+
+export const getUserChallengeAttempts = async (userId: string) => {
+  const response = await api.get(`/challenges/user/${userId}/attempts`);
+  return response.data;
+};

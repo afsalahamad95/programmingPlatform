@@ -142,6 +142,17 @@ func main() {
 	users.Put("/:id", handlers.UpdateUser)
 	users.Delete("/:id", handlers.DeleteUser)
 
+	// Coding Challenges routes
+	challenges := api.Group("/challenges")
+	challenges.Post("/", handlers.CreateChallenge)
+	challenges.Get("/", handlers.GetChallenges)
+	challenges.Get("/:id", handlers.GetChallenge)
+	challenges.Put("/:id", handlers.UpdateChallenge)
+	challenges.Delete("/:id", handlers.DeleteChallenge)
+	challenges.Post("/:id/submit", handlers.SubmitChallengeAttempt)
+	challenges.Get("/:id/attempts", handlers.GetChallengeAttempts)
+	challenges.Get("/user/:userId/attempts", handlers.GetUserChallengeAttempts)
+
 	// Log configuration
 	log.Printf("Environment: %s\n", getEnvWithDefault("GO_ENV", "development"))
 	log.Printf("Log Level: %s\n", logLevel)

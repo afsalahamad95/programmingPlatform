@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { Student } from '../types/student';
 
-const API_URL = 'http://localhost:8080/api';
+const API_URL = 'http://localhost:8081/api';
 const RETRY_DELAY = 2000;
 const MAX_RETRIES = 3;
 
@@ -35,8 +35,12 @@ api.interceptors.response.use(
   response => response,
   async (error: AxiosError) => {
     if (error.response) {
-      const message = error.response.data?.error?.message || 
-                     error.response.data?.message || 
+      const responseData = error.response.data as { 
+        error?: { message?: string };
+        message?: string;
+      };
+      const message = responseData.error?.message || 
+                     responseData.message || 
                      'Server error occurred';
       throw new Error(message);
     } else if (error.request) {
