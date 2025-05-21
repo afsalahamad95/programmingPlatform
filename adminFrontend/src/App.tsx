@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
 	Plus,
 	ListChecks,
@@ -15,6 +15,7 @@ import {
 	Link,
 	useLocation,
 	useNavigate,
+	Navigate,
 } from "react-router-dom";
 import QuestionForm from "./components/QuestionForm";
 import TestScheduler from "./components/TestScheduler";
@@ -26,6 +27,8 @@ import StudentResults from "./components/StudentResults";
 import { Question, QuestionType, Test } from "./types";
 import * as api from "./api";
 import ChallengeManagement from "./components/ChallengeManagement";
+import Login from "./components/Login";
+import OAuthCallback from "./components/OAuthCallback";
 
 // Custom properties for our implementation of QuestionBank
 interface CustomQuestionBankProps {
@@ -220,6 +223,38 @@ function App() {
 		setShowQuestionFormState(false);
 	};
 
+	// Authentication state
+	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+	const [authToken, setAuthToken] = useState<string | null>(null);
+	const [userRole, setUserRole] = useState<string | null>(null);
+
+	// Check if user is already authenticated
+	useEffect(() => {
+		const token = localStorage.getItem("authToken");
+		const role = localStorage.getItem("userRole");
+
+		if (token) {
+			setAuthToken(token);
+			setUserRole(role);
+			setIsAuthenticated(true);
+		}
+	}, []);
+
+	// Handle successful login
+	const handleLoginSuccess = (token: string) => {
+		setAuthToken(token);
+		setIsAuthenticated(true);
+	};
+
+	// Handle logout
+	const handleLogout = () => {
+		api.logout();
+		setAuthToken(null);
+		setUserRole(null);
+		setIsAuthenticated(false);
+		navigate("/login");
+	};
+
 	if (selectedTest) {
 		return (
 			<TestAttempt
@@ -261,116 +296,151 @@ function App() {
 
 	return (
 		<div className="min-h-screen bg-gray-100">
-			<header className="bg-white shadow">
-				<div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-					<div className="flex justify-between items-center">
-						<h1 className="text-2xl font-bold text-gray-900">
-							Admin Panel
-						</h1>
-						<div className="flex space-x-4">
-							<button
-								className={`px-4 py-2 rounded-md ${
-									isQuestions && location.pathname === "/"
-										? "bg-indigo-600 text-white"
-										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-								}`}
-								onClick={() => {
-									selectQuestions();
-									navigate("/");
-								}}
-							>
-								Question Bank
-							</button>
-							<button
-								className={`px-4 py-2 rounded-md ${
-									isTests
-										? "bg-indigo-600 text-white"
-										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-								}`}
-								onClick={() => {
-									selectTests();
-									navigate("/");
-								}}
-							>
-								Schedule Tests
-							</button>
-							<button
-								className={`px-4 py-2 rounded-md ${
-									isChallenges && location.pathname === "/"
-										? "bg-indigo-600 text-white"
-										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-								}`}
-								onClick={() => {
-									selectChallenges();
-									navigate("/");
-								}}
-							>
-								Coding Challenges
-							</button>
-							<button
-								className={`px-4 py-2 rounded-md ${
-									location.pathname === "/student-results"
-										? "bg-indigo-600 text-white"
-										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-								}`}
-								onClick={() => navigate("/student-results")}
-							>
-								Student Results
-							</button>
+			{isAuthenticated ? (
+				<>
+					<header className="bg-white shadow">
+						<div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+							<div className="flex justify-between items-center">
+								<h1 className="text-2xl font-bold text-gray-900">
+									Admin Panel
+								</h1>
+								<div className="flex space-x-4 items-center">
+									<button
+										className={`px-4 py-2 rounded-md ${
+											isQuestions &&
+											location.pathname === "/"
+												? "bg-indigo-600 text-white"
+												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+										}`}
+										onClick={() => {
+											selectQuestions();
+											navigate("/");
+										}}
+									>
+										Question Bank
+									</button>
+									<button
+										className={`px-4 py-2 rounded-md ${
+											isTests
+												? "bg-indigo-600 text-white"
+												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+										}`}
+										onClick={() => {
+											selectTests();
+											navigate("/");
+										}}
+									>
+										Schedule Tests
+									</button>
+									<button
+										className={`px-4 py-2 rounded-md ${
+											isChallenges &&
+											location.pathname === "/"
+												? "bg-indigo-600 text-white"
+												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+										}`}
+										onClick={() => {
+											selectChallenges();
+											navigate("/");
+										}}
+									>
+										Coding Challenges
+									</button>
+									<button
+										className={`px-4 py-2 rounded-md ${
+											location.pathname ===
+											"/student-results"
+												? "bg-indigo-600 text-white"
+												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+										}`}
+										onClick={() =>
+											navigate("/student-results")
+										}
+									>
+										Student Results
+									</button>
+									<button
+										onClick={handleLogout}
+										className="ml-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+									>
+										Logout
+									</button>
+								</div>
+							</div>
 						</div>
-					</div>
-				</div>
-			</header>
+					</header>
 
-			<main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+					<main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+						<Routes>
+							<Route
+								path="/login"
+								element={<Navigate to="/" replace />}
+							/>
+							<Route
+								path="/"
+								element={
+									<>
+										{isQuestions && (
+											<QuestionBank
+												questions={questions}
+												onSelect={(question) => {
+													// Handle question selection
+													showQuestionForm(
+														question.id,
+														false
+													);
+												}}
+											/>
+										)}
+
+										{isTests && (
+											<TestScheduler
+												onSchedule={handleTestSchedule}
+												onBack={selectQuestions}
+												questions={questions}
+											/>
+										)}
+
+										{isChallenges && (
+											<ChallengeManagement />
+										)}
+									</>
+								}
+							/>
+							<Route
+								path="/student-results"
+								element={<StudentResults />}
+							/>
+						</Routes>
+
+						{showQuestionFormState && (
+							<div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+								<div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+									<QuestionForm
+										type={selectedType || "mcq"}
+										onSubmit={handleQuestionSubmit}
+										onBack={() =>
+											setShowQuestionFormState(false)
+										}
+									/>
+								</div>
+							</div>
+						)}
+					</main>
+				</>
+			) : (
 				<Routes>
 					<Route
-						path="/"
-						element={
-							<>
-								{isQuestions && (
-									<QuestionBank
-										questions={questions}
-										onSelect={(question) => {
-											// Handle question selection
-											showQuestionForm(
-												question.id,
-												false
-											);
-										}}
-									/>
-								)}
-
-								{isTests && (
-									<TestScheduler
-										onSchedule={handleTestSchedule}
-										onBack={selectQuestions}
-										questions={questions}
-									/>
-								)}
-
-								{isChallenges && <ChallengeManagement />}
-							</>
-						}
+						path="/login"
+						element={<Login onLoginSuccess={handleLoginSuccess} />}
 					/>
+					<Route path="/oauth-callback" element={<OAuthCallback />} />
 					<Route
-						path="/student-results"
-						element={<StudentResults />}
+						path="*"
+						element={<Navigate to="/login" replace />}
 					/>
 				</Routes>
-
-				{showQuestionFormState && (
-					<div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
-						<div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
-							<QuestionForm
-								type={selectedType || "mcq"}
-								onSubmit={handleQuestionSubmit}
-								onBack={() => setShowQuestionFormState(false)}
-							/>
-						</div>
-					</div>
-				)}
-			</main>
+			)}
 		</div>
 	);
 }

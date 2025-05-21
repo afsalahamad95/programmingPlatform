@@ -23,7 +23,7 @@ func CreateUser(c *fiber.Ctx) error {
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
-	result, err := db.UserCollection.InsertOne(context.Background(), user)
+	result, err := db.UsersCollection.InsertOne(context.Background(), user)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user"})
 	}
@@ -34,7 +34,7 @@ func CreateUser(c *fiber.Ctx) error {
 
 func GetUsers(c *fiber.Ctx) error {
 	var users []models.User
-	cursor, err := db.UserCollection.Find(context.Background(), bson.M{})
+	cursor, err := db.UsersCollection.Find(context.Background(), bson.M{})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch users"})
 	}
@@ -54,7 +54,7 @@ func GetUser(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	err = db.UserCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
+	err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return c.Status(404).JSON(fiber.Map{"error": "User not found"})
@@ -80,7 +80,7 @@ func UpdateUser(c *fiber.Ctx) error {
 		"$set": updates,
 	}
 
-	result, err := db.UserCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
+	result, err := db.UsersCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to update user"})
 	}
@@ -99,7 +99,7 @@ func DeleteUser(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
-	result, err := db.UserCollection.DeleteOne(context.Background(), bson.M{"_id": id})
+	result, err := db.UsersCollection.DeleteOne(context.Background(), bson.M{"_id": id})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete user"})
 	}

@@ -7,7 +7,7 @@ import (
 var (
 	QuestionsCollection         *mongo.Collection
 	TestsCollection             *mongo.Collection
-	UserCollection              *mongo.Collection
+	UsersCollection             *mongo.Collection
 	AttemptCollection           *mongo.Collection
 	ChallengesCollection        *mongo.Collection
 	ChallengeAttemptsCollection *mongo.Collection
@@ -18,7 +18,7 @@ var (
 func InitDB(database *mongo.Database) {
 	QuestionsCollection = database.Collection("questions")
 	TestsCollection = database.Collection("tests")
-	UserCollection = database.Collection("users")
+	UsersCollection = database.Collection("users")
 	AttemptCollection = database.Collection("attempts")
 	ChallengesCollection = database.Collection("coding_challenges")
 	ChallengeAttemptsCollection = database.Collection("challenge_attempts")

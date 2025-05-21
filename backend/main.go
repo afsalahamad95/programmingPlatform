@@ -117,6 +117,22 @@ func main() {
 	// API routes
 	api := app.Group("/api")
 
+	// Auth routes
+	auth := api.Group("/auth")
+	auth.Post("/login", handlers.Login)
+	auth.Post("/register", handlers.Register)
+	auth.Get("/oauth/:provider", handlers.OAuthRedirect)
+	auth.Get("/oauth/:provider/callback", handlers.OAuthCallback)
+
+	// Protected routes - requires authentication middleware
+	protectedApi := api.Group("/protected")
+	protectedApi.Use(handlers.AuthMiddleware())
+	protectedApi.Get("/user", handlers.GetCurrentUser)
+
+	// Admin routes - requires authentication and admin role
+	adminApi := api.Group("/admin-protected")
+	adminApi.Use(handlers.AuthMiddleware(), handlers.RoleMiddleware("admin"))
+
 	// Questions routes
 	questions := api.Group("/questions")
 	questions.Post("/", handlers.CreateQuestion)
