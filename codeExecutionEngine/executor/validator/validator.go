@@ -2,6 +2,7 @@ package validator
 
 import (
 	"code-executor/models"
+	"fmt"
 	"strings"
 )
 
@@ -9,6 +10,23 @@ type CodeValidator struct{}
 
 func NewCodeValidator() *CodeValidator {
 	return &CodeValidator{}
+}
+
+// normalizeOutput standardizes output for comparison by:
+// - Trimming leading/trailing spaces
+// - Removing any trailing newlines
+// - Converting multiple whitespace to single space
+func normalizeOutput(output string) string {
+	// Trim spaces and remove trailing newlines
+	output = strings.TrimSpace(output)
+
+	// Remove carriage returns (Windows line endings)
+	output = strings.ReplaceAll(output, "\r", "")
+
+	// Replace multiple whitespace with single space
+	output = strings.Join(strings.Fields(output), " ")
+
+	return output
 }
 
 func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []models.TestCase) *models.ValidationResult {
@@ -23,9 +41,14 @@ func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []m
 	}
 
 	for i, testCase := range testCases {
-		// Clean up output by removing trailing newlines and spaces
-		actualOutput := strings.TrimSpace(result[i].Stdout)
-		expectedOutput := strings.TrimSpace(testCase.ExpectedOutput)
+		// Normalize outputs for comparison
+		actualOutput := normalizeOutput(result[i].Stdout)
+		expectedOutput := normalizeOutput(testCase.ExpectedOutput)
+
+		// Log for debugging
+		fmt.Printf("Comparing test case %d:\n", i)
+		fmt.Printf("  Expected (normalized): '%s'\n", expectedOutput)
+		fmt.Printf("  Actual (normalized): '%s'\n", actualOutput)
 
 		passed := actualOutput == expectedOutput
 
@@ -39,7 +62,7 @@ func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []m
 		validationResult.TestCases = append(validationResult.TestCases, models.Result{
 			Input:          testCase.Input,
 			ExpectedOutput: testCase.ExpectedOutput,
-			ActualOutput:   actualOutput,
+			ActualOutput:   result[i].Stdout, // Keep original output for display
 			Passed:         passed,
 			Description:    testCase.Description,
 		})

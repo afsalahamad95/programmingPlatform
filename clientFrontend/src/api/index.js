@@ -156,7 +156,36 @@ export const deleteChallenge = async (id) => {
 };
 
 export const submitChallengeAttempt = async (id, data) => {
-	const response = await api.post(`/challenges/${id}/submit`, data);
+	// Use a longer timeout for challenge submissions since code execution might take time
+	const response = await axios.post(
+		`${API_URL}/challenges/${id}/submit`,
+		data,
+		{
+			headers: {
+				"Content-Type": "application/json",
+			},
+			timeout: 30000, // 30 seconds timeout for code execution
+		}
+	);
+
+	// Log the raw response data for debugging
+	console.log("Raw challenge submission response:", response.data);
+
+	// If response has testCases array but actual outputs are empty, it's likely a processing issue
+	if (
+		response.data &&
+		response.data.result &&
+		Array.isArray(response.data.result.testCases)
+	) {
+		const hasEmptyOutputs = response.data.result.testCases.some(
+			(tc) => !tc.actualOutput || tc.actualOutput.trim() === ""
+		);
+
+		if (hasEmptyOutputs) {
+			console.warn("Warning: Some test cases have empty output values!");
+		}
+	}
+
 	return response.data;
 };
 

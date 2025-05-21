@@ -16,6 +16,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// Helper function for min of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // CreateChallenge creates a new coding challenge
 func CreateChallenge(c *fiber.Ctx) error {
 	challenge := new(models.CodingChallenge)
@@ -222,12 +230,30 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 
 	// Execute the code and get the validation result
 	executionService := services.NewCodeExecutionService()
+	fmt.Println("Executing code for challenge:", challengeID.Hex())
+	fmt.Println("Code snippet:", attempt.Code[:min(100, len(attempt.Code))]+"...")
 	validationResult, err := executionService.ExecuteCode(&challenge, attempt.Code)
 	if err != nil {
+		fmt.Println("Code execution failed:", err)
 		return c.Status(500).JSON(fiber.Map{
 			"error":   "Code execution failed",
 			"details": err.Error(),
 		})
+	}
+
+	// Log validation results for debugging
+	fmt.Println("Validation result:", validationResult.Passed)
+	fmt.Println("PassedTests:", validationResult.PassedTests, "FailedTests:", validationResult.FailedTests)
+
+	if len(validationResult.TestCases) > 0 {
+		for i, tc := range validationResult.TestCases {
+			fmt.Printf("Test case %d: Passed=%v\n", i+1, tc.Passed)
+			fmt.Printf("  Input: %s\n", tc.Input)
+			fmt.Printf("  Expected: %s\n", tc.ExpectedOutput)
+			fmt.Printf("  Actual: %s\n", tc.ActualOutput)
+		}
+	} else {
+		fmt.Println("No test cases in validation result")
 	}
 
 	// Update the attempt with the validation result

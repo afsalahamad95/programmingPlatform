@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 interface ChallengeTimerProps {
 	timeLimit: number; // in minutes
@@ -14,6 +14,7 @@ const ChallengeTimer: React.FC<ChallengeTimerProps> = ({
 	const [timeRemaining, setTimeRemaining] = useState<number>(timeLimit * 60); // convert to seconds
 	const [isWarning, setIsWarning] = useState<boolean>(false);
 	const [isAlmostExpired, setIsAlmostExpired] = useState<boolean>(false);
+	const timerRef = useRef<number | null>(null);
 
 	const formatTime = (seconds: number): string => {
 		const mins = Math.floor(seconds / 60);
@@ -27,37 +28,46 @@ const ChallengeTimer: React.FC<ChallengeTimerProps> = ({
 		return timeLimit * 60 - timeRemaining;
 	}, [timeLimit, timeRemaining]);
 
+	// Handle time updates
 	useEffect(() => {
-		const timer = setInterval(() => {
+		if (onTimeUpdate) {
+			onTimeUpdate(calculateTimeSpent());
+		}
+	}, [timeRemaining, calculateTimeSpent, onTimeUpdate]);
+
+	// Check for warning thresholds
+	useEffect(() => {
+		// Set warning state when less than 20% time remaining
+		if (timeRemaining <= timeLimit * 60 * 0.2) {
+			setIsAlmostExpired(true);
+		}
+		// Set warning state when less than 50% time remaining
+		else if (timeRemaining <= timeLimit * 60 * 0.5) {
+			setIsWarning(true);
+		}
+	}, [timeRemaining, timeLimit]);
+
+	// Timer effect
+	useEffect(() => {
+		timerRef.current = window.setInterval(() => {
 			setTimeRemaining((prev) => {
 				if (prev <= 1) {
-					clearInterval(timer);
+					if (timerRef.current) {
+						clearInterval(timerRef.current);
+					}
 					onTimeExpired();
 					return 0;
 				}
-
-				const newTime = prev - 1;
-
-				// Update time spent if callback provided
-				if (onTimeUpdate) {
-					onTimeUpdate(calculateTimeSpent());
-				}
-
-				// Set warning state when less than 20% time remaining
-				if (newTime <= timeLimit * 60 * 0.2) {
-					setIsAlmostExpired(true);
-				}
-				// Set warning state when less than 50% time remaining
-				else if (newTime <= timeLimit * 60 * 0.5) {
-					setIsWarning(true);
-				}
-
-				return newTime;
+				return prev - 1;
 			});
 		}, 1000);
 
-		return () => clearInterval(timer);
-	}, [timeLimit, onTimeExpired, onTimeUpdate, calculateTimeSpent]);
+		return () => {
+			if (timerRef.current) {
+				clearInterval(timerRef.current);
+			}
+		};
+	}, [timeLimit, onTimeExpired]);
 
 	const getTimerClasses = () => {
 		if (isAlmostExpired) {
