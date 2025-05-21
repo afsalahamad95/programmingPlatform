@@ -103,7 +103,6 @@ func GetTest(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Test not found"})
 	}
 
-
 	return c.JSON(test)
 }
 
@@ -190,7 +189,7 @@ func DeleteTest(c *fiber.Ctx) error {
 	return c.SendStatus(204)
 }
 
-// SubmitTest handles the submission of a test
+// SubmitTest handles a test submission
 func SubmitTest(c *fiber.Ctx) error {
 	// Parse the submission body into the TestSubmission struct
 	submission := new(models.TestSubmission)
@@ -208,7 +207,7 @@ func SubmitTest(c *fiber.Ctx) error {
 	}
 
 	// Insert the submission into the database
-	result, err := db.TestSubmissionsCollection.InsertOne(context.Background(), submission)
+	result, err := db.AttemptCollection.InsertOne(context.Background(), submission)
 	if err != nil {
 		log.Printf("Failed to submit test: %v", err)
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to submit test"})
@@ -220,7 +219,6 @@ func SubmitTest(c *fiber.Ctx) error {
 	// Respond with the submission details
 	return c.Status(201).JSON(submission)
 }
-
 
 func isValidObjectID(id string) bool {
 	// Regular expression to check for valid 24-character hex string

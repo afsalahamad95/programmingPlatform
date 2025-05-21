@@ -90,3 +90,56 @@ export const submitTest = async (id: string, answers: any) => {
     throw error;
   }
 };
+
+// Challenges API
+export const createChallenge = async (data: any) => {
+  try {
+    const response = await api.post('/challenges', data);
+    toast.success('Challenge created successfully');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to create challenge:', error);
+    throw error;
+  }
+};
+
+export const getChallenges = async (params?: { difficulty?: string; category?: string }) => {
+  try {
+    const response = await api.get('/challenges', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch challenges:', error);
+    throw error;
+  }
+};
+
+export const getChallenge = async (id: string) => {
+  try {
+    const response = await api.get(`/challenges/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Failed to fetch challenge with id ${id}:`, error);
+    throw error;
+  }
+};
+
+export const updateChallenge = async (id: string, data: any) => {
+  try {
+    const response = await api.put(`/challenges/${id}`, data);
+    toast.success('Challenge updated successfully');
+    return response.data;
+  } catch (error) {
+    console.error(`Failed to update challenge with id ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteChallenge = async (id: string) => {
+  try {
+    await api.delete(`/challenges/${id}`);
+    toast.success('Challenge deleted successfully');
+  } catch (error) {
+    console.error(`Failed to delete challenge with id ${id}:`, error);
+    throw error;
+  }
+};

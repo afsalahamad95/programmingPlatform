@@ -4,13 +4,16 @@ import (
 	"context"
 	"time"
 
+	"qms-backend/db"
+	"qms-backend/models"
+
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"qms-backend/db"
-	"qms-backend/models"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// CreateUser creates a new user
 func CreateUser(c *fiber.Ctx) error {
 	user := new(models.User)
 	if err := c.BodyParser(user); err != nil {
@@ -20,7 +23,7 @@ func CreateUser(c *fiber.Ctx) error {
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
-	result, err := db.UsersCollection.InsertOne(context.Background(), user)
+	result, err := db.UserCollection.InsertOne(context.Background(), user)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user"})
 	}
@@ -31,7 +34,7 @@ func CreateUser(c *fiber.Ctx) error {
 
 func GetUsers(c *fiber.Ctx) error {
 	var users []models.User
-	cursor, err := db.UsersCollection.Find(context.Background(), bson.M{})
+	cursor, err := db.UserCollection.Find(context.Background(), bson.M{})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch users"})
 	}
@@ -47,13 +50,16 @@ func GetUsers(c *fiber.Ctx) error {
 func GetUser(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
 	var user models.User
-	err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
+	err = db.UserCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
 	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+		if err == mongo.ErrNoDocuments {
+			return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+		}
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch user"})
 	}
 
 	return c.JSON(user)
@@ -62,21 +68,19 @@ func GetUser(c *fiber.Ctx) error {
 func UpdateUser(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
-	user := new(models.User)
-	if err := c.BodyParser(user); err != nil {
+	updates := new(models.User)
+	if err := c.BodyParser(updates); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	user.UpdatedAt = time.Now()
-
 	update := bson.M{
-		"$set": user,
+		"$set": updates,
 	}
 
-	result, err := db.UsersCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
+	result, err := db.UserCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to update user"})
 	}
@@ -85,16 +89,17 @@ func UpdateUser(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
 	}
 
-	return c.JSON(user)
+	return c.SendStatus(200)
 }
 
+// DeleteUser deletes a user by ID
 func DeleteUser(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
-	result, err := db.UsersCollection.DeleteOne(context.Background(), bson.M{"_id": id})
+	result, err := db.UserCollection.DeleteOne(context.Background(), bson.M{"_id": id})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete user"})
 	}

@@ -20,11 +20,12 @@ const ChallengeList: React.FC<ChallengeListProps> = ({ filter }) => {
 			try {
 				setLoading(true);
 				const data = await getChallenges(filter);
-				setChallenges(data);
+				setChallenges(data || []);
 				setError(null);
 			} catch (err) {
 				console.error("Failed to fetch challenges:", err);
 				setError("Failed to load challenges. Please try again later.");
+				setChallenges([]);
 			} finally {
 				setLoading(false);
 			}
@@ -41,7 +42,7 @@ const ChallengeList: React.FC<ChallengeListProps> = ({ filter }) => {
 		return <div className="text-red-500 p-4">{error}</div>;
 	}
 
-	if (challenges.length === 0) {
+	if (!challenges || challenges.length === 0) {
 		return <div className="text-center p-4">No challenges found.</div>;
 	}
 

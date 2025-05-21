@@ -7,17 +7,20 @@ import (
 var (
 	QuestionsCollection         *mongo.Collection
 	TestsCollection             *mongo.Collection
-	TestSubmissionsCollection   *mongo.Collection
-	UsersCollection             *mongo.Collection
+	UserCollection              *mongo.Collection
+	AttemptCollection           *mongo.Collection
 	ChallengesCollection        *mongo.Collection
 	ChallengeAttemptsCollection *mongo.Collection
+	StudentsCollection          *mongo.Collection
 )
 
+// InitDB initializes all the database collections
 func InitDB(database *mongo.Database) {
 	QuestionsCollection = database.Collection("questions")
 	TestsCollection = database.Collection("tests")
-	TestSubmissionsCollection = database.Collection("test_submissions")
-	UsersCollection = database.Collection("users")
+	UserCollection = database.Collection("users")
+	AttemptCollection = database.Collection("attempts")
 	ChallengesCollection = database.Collection("coding_challenges")
 	ChallengeAttemptsCollection = database.Collection("challenge_attempts")
+	StudentsCollection = database.Collection("students")
 }

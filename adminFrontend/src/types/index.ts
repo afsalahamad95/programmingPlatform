@@ -71,3 +71,25 @@ export interface Test {
   status: 'scheduled' | 'in-progress' | 'completed';
   allowedStudents: Student[];
 }
+
+export interface ChallengeTestCase {
+  input: string;
+  expectedOutput: string;
+  description: string;
+  hidden: boolean;
+}
+
+export interface CodingChallenge {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  category: string;
+  timeLimit: number;
+  starterCode: string;
+  language: string;
+  testCases: ChallengeTestCase[];
+  memoryLimitMB: number;
+  timeoutSec: number;
+  createdAt: string;
+}

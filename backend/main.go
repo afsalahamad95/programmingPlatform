@@ -153,6 +153,14 @@ func main() {
 	challenges.Get("/:id/attempts", handlers.GetChallengeAttempts)
 	challenges.Get("/user/:userId/attempts", handlers.GetUserChallengeAttempts)
 
+	// Students routes
+	students := api.Group("/students")
+	students.Post("/", handlers.CreateStudent)
+	students.Get("/", handlers.GetStudents)
+	students.Get("/:id", handlers.GetStudent)
+	students.Put("/:id", handlers.UpdateStudent)
+	students.Delete("/:id", handlers.DeleteStudent)
+
 	// Log configuration
 	log.Printf("Environment: %s\n", getEnvWithDefault("GO_ENV", "development"))
 	log.Printf("Log Level: %s\n", logLevel)
