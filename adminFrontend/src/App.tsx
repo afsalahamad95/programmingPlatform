@@ -9,12 +9,20 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import toast from "react-hot-toast";
+import {
+	Routes,
+	Route,
+	Link,
+	useLocation,
+	useNavigate,
+} from "react-router-dom";
 import QuestionForm from "./components/QuestionForm";
 import TestScheduler from "./components/TestScheduler";
 import QuestionBank from "./components/QuestionBank";
 import TestList from "./components/TestList";
 import TestAttempt from "./components/TestAttempt";
 import UserProfile, { UserData } from "./components/UserProfile";
+import StudentResults from "./components/StudentResults";
 import { Question, QuestionType, Test } from "./types";
 import * as api from "./api";
 import ChallengeManagement from "./components/ChallengeManagement";
@@ -65,6 +73,8 @@ function App() {
 	const [showTests, setShowTests] = React.useState(false);
 	const [showProfile, setShowProfile] = React.useState(false);
 	const [selectedTest, setSelectedTest] = React.useState<Test | null>(null);
+	const location = useLocation();
+	const navigate = useNavigate();
 
 	// Use the custom hook instead of raw useState
 	const {
@@ -260,11 +270,14 @@ function App() {
 						<div className="flex space-x-4">
 							<button
 								className={`px-4 py-2 rounded-md ${
-									isQuestions
+									isQuestions && location.pathname === "/"
 										? "bg-indigo-600 text-white"
 										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
 								}`}
-								onClick={selectQuestions}
+								onClick={() => {
+									selectQuestions();
+									navigate("/");
+								}}
 							>
 								Question Bank
 							</button>
@@ -274,19 +287,35 @@ function App() {
 										? "bg-indigo-600 text-white"
 										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
 								}`}
-								onClick={selectTests}
+								onClick={() => {
+									selectTests();
+									navigate("/");
+								}}
 							>
 								Schedule Tests
 							</button>
 							<button
 								className={`px-4 py-2 rounded-md ${
-									isChallenges
+									isChallenges && location.pathname === "/"
 										? "bg-indigo-600 text-white"
 										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
 								}`}
-								onClick={selectChallenges}
+								onClick={() => {
+									selectChallenges();
+									navigate("/");
+								}}
 							>
 								Coding Challenges
+							</button>
+							<button
+								className={`px-4 py-2 rounded-md ${
+									location.pathname === "/student-results"
+										? "bg-indigo-600 text-white"
+										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+								}`}
+								onClick={() => navigate("/student-results")}
+							>
+								Student Results
 							</button>
 						</div>
 					</div>
@@ -294,25 +323,41 @@ function App() {
 			</header>
 
 			<main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-				{isQuestions && (
-					<QuestionBank
-						questions={questions}
-						onSelect={(question) => {
-							// Handle question selection
-							showQuestionForm(question.id, false);
-						}}
-					/>
-				)}
+				<Routes>
+					<Route
+						path="/"
+						element={
+							<>
+								{isQuestions && (
+									<QuestionBank
+										questions={questions}
+										onSelect={(question) => {
+											// Handle question selection
+											showQuestionForm(
+												question.id,
+												false
+											);
+										}}
+									/>
+								)}
 
-				{isTests && (
-					<TestScheduler
-						onSchedule={handleTestSchedule}
-						onBack={selectQuestions}
-						questions={questions}
-					/>
-				)}
+								{isTests && (
+									<TestScheduler
+										onSchedule={handleTestSchedule}
+										onBack={selectQuestions}
+										questions={questions}
+									/>
+								)}
 
-				{isChallenges && <ChallengeManagement />}
+								{isChallenges && <ChallengeManagement />}
+							</>
+						}
+					/>
+					<Route
+						path="/student-results"
+						element={<StudentResults />}
+					/>
+				</Routes>
 
 				{showQuestionFormState && (
 					<div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">

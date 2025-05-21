@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getChallenges, deleteChallenge } from "../api";
 import { CodingChallenge } from "../types";
 import ChallengeForm from "./ChallengeForm";
 
 const ChallengeManagement: React.FC = () => {
+	const navigate = useNavigate();
 	const [challenges, setChallenges] = useState<CodingChallenge[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -106,12 +108,20 @@ const ChallengeManagement: React.FC = () => {
 						Manage timed coding challenges for students
 					</p>
 				</div>
-				<button
-					onClick={handleCreateClick}
-					className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-				>
-					Create New Challenge
-				</button>
+				<div className="flex space-x-4">
+					<button
+						onClick={() => navigate("/student-results")}
+						className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+					>
+						View Student Results
+					</button>
+					<button
+						onClick={handleCreateClick}
+						className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+					>
+						Create New Challenge
+					</button>
+				</div>
 			</div>
 
 			{error && (
