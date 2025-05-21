@@ -53,6 +53,9 @@ export interface TestResult {
   description: string;
   hidden: boolean;
   stderr?: string;
+  similarityScore?: number;
+  pointsAvailable?: number;
+  pointsScored?: number;
 }
 
 export interface User {
@@ -92,6 +95,9 @@ export interface ValidationResult {
   totalTests: number;
   passedTests: number;
   failedTests: number;
+  totalPoints?: number;
+  scoredPoints?: number;
+  percentageScore?: number;
 }
 
 export interface ChallengeAttempt {

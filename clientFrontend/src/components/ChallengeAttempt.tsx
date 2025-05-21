@@ -512,15 +512,44 @@ const ChallengeAttempt: React.FC = () => {
 								: "bg-red-100 text-red-800"
 						}`}
 					>
-						<p className="font-semibold">
-							{validationResult.passed
-								? "All tests passed!"
-								: "Some tests failed."}
-						</p>
-						<p>
-							{validationResult.passedTests} /{" "}
-							{validationResult.totalTests} tests passed
-						</p>
+						<div className="flex justify-between items-center">
+							<div>
+								<p className="font-semibold">
+									{validationResult.passed
+										? "All tests passed!"
+										: "Some tests failed."}
+								</p>
+								<p>
+									{validationResult.passedTests} /{" "}
+									{validationResult.totalTests} tests passed
+								</p>
+							</div>
+
+							{/* Overall Score Display */}
+							{validationResult.percentageScore !== undefined && (
+								<div className="text-right">
+									<p className="font-semibold">
+										Overall Score
+									</p>
+									<p className="text-xl font-bold">
+										{validationResult.percentageScore.toFixed(
+											1
+										)}
+										%
+									</p>
+									<p className="text-sm">
+										{validationResult.scoredPoints?.toFixed(
+											1
+										)}{" "}
+										/{" "}
+										{validationResult.totalPoints?.toFixed(
+											1
+										)}{" "}
+										points
+									</p>
+								</div>
+							)}
+						</div>
 					</div>
 
 					<div className="space-y-4">
@@ -535,20 +564,52 @@ const ChallengeAttempt: React.FC = () => {
 											: "border-red-200"
 									}`}
 								>
-									<div className="flex items-center mb-2">
-										<span
-											className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 ${
-												result.passed
-													? "bg-green-100 text-green-800"
-													: "bg-red-100 text-red-800"
-											}`}
-										>
-											{result.passed ? "✓" : "✗"}
-										</span>
-										<h3 className="font-medium">
-											Test Case {index + 1}{" "}
-											{result.hidden ? "(Hidden)" : ""}
-										</h3>
+									<div className="flex items-center justify-between mb-2">
+										<div className="flex items-center">
+											<span
+												className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 ${
+													result.passed
+														? "bg-green-100 text-green-800"
+														: "bg-red-100 text-red-800"
+												}`}
+											>
+												{result.passed ? "✓" : "✗"}
+											</span>
+											<h3 className="font-medium">
+												Test Case {index + 1}{" "}
+												{result.hidden
+													? "(Hidden)"
+													: ""}
+											</h3>
+										</div>
+
+										{/* Points Display */}
+										{result.pointsAvailable !==
+											undefined && (
+											<div className="text-sm font-medium">
+												Score:{" "}
+												{result.pointsScored?.toFixed(
+													1
+												)}{" "}
+												/{" "}
+												{result.pointsAvailable.toFixed(
+													1
+												)}{" "}
+												points
+												{result.similarityScore !==
+													undefined &&
+													!result.passed && (
+														<span className="ml-2 text-gray-500">
+															(Similarity:{" "}
+															{(
+																result.similarityScore *
+																100
+															).toFixed(0)}
+															%)
+														</span>
+													)}
+											</div>
+										)}
 									</div>
 
 									{!result.hidden && (

@@ -57,18 +57,24 @@ type ValidationResult struct {
 }
 
 type ValidationSummary struct {
-	TotalTests  int `json:"total_tests"`
-	PassedTests int `json:"passed_tests"`
-	FailedTests int `json:"failed_tests"`
+	TotalTests      int     `json:"total_tests"`
+	PassedTests     int     `json:"passed_tests"`
+	FailedTests     int     `json:"failed_tests"`
+	TotalPoints     float64 `json:"total_points"`
+	ScoredPoints    float64 `json:"scored_points"`
+	PercentageScore float64 `json:"percentage_score"`
 }
 
 type TestResult struct {
-	Passed         bool   `json:"passed"`
-	Input          string `json:"input"`
-	ExpectedOutput string `json:"expected_output"`
-	ActualOutput   string `json:"actual_output"`
-	Description    string `json:"description"`
-	Stderr         string `json:"stderr,omitempty"`
+	Passed          bool    `json:"passed"`
+	Input           string  `json:"input"`
+	ExpectedOutput  string  `json:"expected_output"`
+	ActualOutput    string  `json:"actual_output"`
+	Description     string  `json:"description"`
+	Stderr          string  `json:"stderr,omitempty"`
+	SimilarityScore float64 `json:"similarity_score,omitempty"`
+	PointsAvailable float64 `json:"points_available,omitempty"`
+	PointsScored    float64 `json:"points_scored,omitempty"`
 }
 
 func NewCodeExecutionService() *CodeExecutionService {
@@ -145,23 +151,29 @@ func (s *CodeExecutionService) ExecuteCode(challenge *models.CodingChallenge, co
 	testResults := make([]models.TestResult, 0, len(executionResponse.Validation.TestCases))
 	for i, tr := range executionResponse.Validation.TestCases {
 		testResults = append(testResults, models.TestResult{
-			Passed:         tr.Passed,
-			Input:          tr.Input,
-			ExpectedOutput: tr.ExpectedOutput,
-			ActualOutput:   tr.ActualOutput,
-			Description:    tr.Description,
-			Hidden:         challenge.TestCases[i].Hidden,
-			Stderr:         tr.Stderr,
+			Passed:          tr.Passed,
+			Input:           tr.Input,
+			ExpectedOutput:  tr.ExpectedOutput,
+			ActualOutput:    tr.ActualOutput,
+			Description:     tr.Description,
+			Hidden:          challenge.TestCases[i].Hidden,
+			Stderr:          tr.Stderr,
+			SimilarityScore: tr.SimilarityScore,
+			PointsAvailable: tr.PointsAvailable,
+			PointsScored:    tr.PointsScored,
 		})
 	}
 
 	// Create the final validation result
 	validationResult := &models.ValidationResult{
-		Passed:      executionResponse.Validation.Passed,
-		TestCases:   testResults,
-		TotalTests:  executionResponse.Validation.Summary.TotalTests,
-		PassedTests: executionResponse.Validation.Summary.PassedTests,
-		FailedTests: executionResponse.Validation.Summary.FailedTests,
+		Passed:          executionResponse.Validation.Passed,
+		TestCases:       testResults,
+		TotalTests:      executionResponse.Validation.Summary.TotalTests,
+		PassedTests:     executionResponse.Validation.Summary.PassedTests,
+		FailedTests:     executionResponse.Validation.Summary.FailedTests,
+		TotalPoints:     executionResponse.Validation.Summary.TotalPoints,
+		ScoredPoints:    executionResponse.Validation.Summary.ScoredPoints,
+		PercentageScore: executionResponse.Validation.Summary.PercentageScore,
 	}
 
 	return validationResult, nil

@@ -24,10 +24,11 @@ type CodingChallenge struct {
 }
 
 type ChallengeTestCase struct {
-	Input          string `json:"input" bson:"input"`
-	ExpectedOutput string `json:"expectedOutput" bson:"expectedOutput"`
-	Description    string `json:"description" bson:"description"`
-	Hidden         bool   `json:"hidden" bson:"hidden"` // Hidden test cases are not shown to users
+	Input           string  `json:"input" bson:"input"`
+	ExpectedOutput  string  `json:"expectedOutput" bson:"expectedOutput"`
+	Description     string  `json:"description" bson:"description"`
+	Hidden          bool    `json:"hidden" bson:"hidden"`                                       // Hidden test cases are not shown to users
+	PointsAvailable float64 `json:"pointsAvailable,omitempty" bson:"pointsAvailable,omitempty"` // Max points for this test case
 }
 
 type ChallengeAttempt struct {
@@ -43,19 +44,25 @@ type ChallengeAttempt struct {
 }
 
 type ValidationResult struct {
-	Passed      bool         `json:"passed" bson:"passed"`
-	TestCases   []TestResult `json:"testCases" bson:"testCases"`
-	TotalTests  int          `json:"totalTests" bson:"totalTests"`
-	PassedTests int          `json:"passedTests" bson:"passedTests"`
-	FailedTests int          `json:"failedTests" bson:"failedTests"`
+	Passed          bool         `json:"passed" bson:"passed"`
+	TestCases       []TestResult `json:"testCases" bson:"testCases"`
+	TotalTests      int          `json:"totalTests" bson:"totalTests"`
+	PassedTests     int          `json:"passedTests" bson:"passedTests"`
+	FailedTests     int          `json:"failedTests" bson:"failedTests"`
+	TotalPoints     float64      `json:"totalPoints" bson:"totalPoints"`         // Total points available
+	ScoredPoints    float64      `json:"scoredPoints" bson:"scoredPoints"`       // Points earned
+	PercentageScore float64      `json:"percentageScore" bson:"percentageScore"` // Overall score (0-100)
 }
 
 type TestResult struct {
-	Passed         bool   `json:"passed" bson:"passed"`
-	Input          string `json:"input" bson:"input"`
-	ExpectedOutput string `json:"expectedOutput" bson:"expectedOutput"`
-	ActualOutput   string `json:"actualOutput" bson:"actualOutput"`
-	Description    string `json:"description" bson:"description"`
-	Hidden         bool   `json:"hidden" bson:"hidden"`
-	Stderr         string `json:"stderr,omitempty" bson:"stderr,omitempty"`
+	Passed          bool    `json:"passed" bson:"passed"`
+	Input           string  `json:"input" bson:"input"`
+	ExpectedOutput  string  `json:"expectedOutput" bson:"expectedOutput"`
+	ActualOutput    string  `json:"actualOutput" bson:"actualOutput"`
+	Description     string  `json:"description" bson:"description"`
+	Hidden          bool    `json:"hidden" bson:"hidden"`
+	Stderr          string  `json:"stderr,omitempty" bson:"stderr,omitempty"`
+	SimilarityScore float64 `json:"similarityScore,omitempty" bson:"similarityScore,omitempty"` // How closely output matches (0-1)
+	PointsAvailable float64 `json:"pointsAvailable,omitempty" bson:"pointsAvailable,omitempty"` // Max points for test case
+	PointsScored    float64 `json:"pointsScored,omitempty" bson:"pointsScored,omitempty"`       // Points awarded
 }
