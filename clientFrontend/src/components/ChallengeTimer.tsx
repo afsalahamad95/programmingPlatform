@@ -4,17 +4,57 @@ interface ChallengeTimerProps {
 	timeLimit: number; // in minutes
 	onTimeExpired: () => void;
 	onTimeUpdate?: (timeSpent: number) => void; // in seconds
+	challengeId: string; // Add challenge ID to identify timers for different challenges
 }
 
 const ChallengeTimer: React.FC<ChallengeTimerProps> = ({
 	timeLimit,
 	onTimeExpired,
 	onTimeUpdate,
+	challengeId,
 }) => {
-	const [timeRemaining, setTimeRemaining] = useState<number>(timeLimit * 60); // convert to seconds
+	const timerRef = useRef<number | null>(null);
+	const timerLimitInSeconds = timeLimit * 60;
+
+	// Initialize timer state from localStorage or defaults
+	const [timeRemaining, setTimeRemaining] = useState<number>(() => {
+		try {
+			const timerKey = `challenge_timer_${challengeId}`;
+			const timerData = localStorage.getItem(timerKey);
+
+			if (timerData) {
+				const { startTime, timeLimitInSeconds } = JSON.parse(timerData);
+				const now = Date.now();
+				const elapsedSeconds = Math.floor((now - startTime) / 1000);
+				const remainingTime = Math.max(
+					0,
+					timeLimitInSeconds - elapsedSeconds
+				);
+
+				// If time already expired, trigger expiry callback
+				if (remainingTime <= 0) {
+					setTimeout(() => onTimeExpired(), 0);
+					return 0;
+				}
+
+				return remainingTime;
+			}
+
+			// No timer found in localStorage, initialize a new one
+			const newTimerData = {
+				startTime: Date.now(),
+				timeLimitInSeconds: timerLimitInSeconds,
+			};
+			localStorage.setItem(timerKey, JSON.stringify(newTimerData));
+			return timerLimitInSeconds;
+		} catch (error) {
+			console.error("Error initializing timer:", error);
+			return timerLimitInSeconds;
+		}
+	});
+
 	const [isWarning, setIsWarning] = useState<boolean>(false);
 	const [isAlmostExpired, setIsAlmostExpired] = useState<boolean>(false);
-	const timerRef = useRef<number | null>(null);
 
 	const formatTime = (seconds: number): string => {
 		const mins = Math.floor(seconds / 60);
@@ -25,8 +65,8 @@ const ChallengeTimer: React.FC<ChallengeTimerProps> = ({
 	};
 
 	const calculateTimeSpent = useCallback((): number => {
-		return timeLimit * 60 - timeRemaining;
-	}, [timeLimit, timeRemaining]);
+		return timerLimitInSeconds - timeRemaining;
+	}, [timerLimitInSeconds, timeRemaining]);
 
 	// Handle time updates
 	useEffect(() => {
@@ -38,36 +78,39 @@ const ChallengeTimer: React.FC<ChallengeTimerProps> = ({
 	// Check for warning thresholds
 	useEffect(() => {
 		// Set warning state when less than 20% time remaining
-		if (timeRemaining <= timeLimit * 60 * 0.2) {
+		if (timeRemaining <= timerLimitInSeconds * 0.2) {
 			setIsAlmostExpired(true);
 		}
 		// Set warning state when less than 50% time remaining
-		else if (timeRemaining <= timeLimit * 60 * 0.5) {
+		else if (timeRemaining <= timerLimitInSeconds * 0.5) {
 			setIsWarning(true);
 		}
-	}, [timeRemaining, timeLimit]);
+	}, [timeRemaining, timerLimitInSeconds]);
 
 	// Timer effect
 	useEffect(() => {
-		timerRef.current = window.setInterval(() => {
-			setTimeRemaining((prev) => {
-				if (prev <= 1) {
-					if (timerRef.current) {
-						clearInterval(timerRef.current);
+		// Only start the timer if there's time remaining
+		if (timeRemaining > 0) {
+			timerRef.current = window.setInterval(() => {
+				setTimeRemaining((prev) => {
+					if (prev <= 1) {
+						if (timerRef.current) {
+							clearInterval(timerRef.current);
+						}
+						onTimeExpired();
+						return 0;
 					}
-					onTimeExpired();
-					return 0;
-				}
-				return prev - 1;
-			});
-		}, 1000);
+					return prev - 1;
+				});
+			}, 1000);
+		}
 
 		return () => {
 			if (timerRef.current) {
 				clearInterval(timerRef.current);
 			}
 		};
-	}, [timeLimit, onTimeExpired]);
+	}, [timeRemaining, onTimeExpired]);
 
 	const getTimerClasses = () => {
 		if (isAlmostExpired) {

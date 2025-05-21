@@ -73,15 +73,8 @@ const ChallengeAttempt: React.FC = () => {
 		setTimeSpent(time);
 	};
 
-	// Handle time expiry
-	const handleTimeExpired = useCallback(() => {
-		setIsTimeExpired(true);
-		// Auto-submit when time expires
-		handleSubmit();
-	}, []);
-
 	// Handle challenge submission
-	const handleSubmit = async () => {
+	const handleSubmit = useCallback(async () => {
 		try {
 			if (!challenge || !id) return;
 
@@ -156,6 +149,12 @@ const ChallengeAttempt: React.FC = () => {
 					setValidationResult(result.result);
 					setShowingResult(true);
 
+					// Clear the timer data from localStorage since we've submitted
+					if (id) {
+						const timerKey = `challenge_timer_${id}`;
+						localStorage.removeItem(timerKey);
+					}
+
 					// Auto-open debug info if any test case failed
 					if (!result.result.passed) {
 						setShowDebugInfo(true);
@@ -180,7 +179,47 @@ const ChallengeAttempt: React.FC = () => {
 		} finally {
 			setSubmitting(false);
 		}
-	};
+	}, [
+		challenge,
+		code,
+		id,
+		timeSpent,
+		setSubmitting,
+		setError,
+		setValidationResult,
+		setShowingResult,
+		setShowDebugInfo,
+	]);
+
+	// Handle time expiry
+	const handleTimeExpired = useCallback(() => {
+		setIsTimeExpired(true);
+
+		// Clear the timer data from localStorage
+		if (id) {
+			const timerKey = `challenge_timer_${id}`;
+			localStorage.removeItem(timerKey);
+		}
+
+		// Auto-submit when time expires
+		handleSubmit();
+	}, [id, handleSubmit]);
+
+	// Cleanup timer when user navigates away without submitting
+	const cleanupTimer = useCallback(() => {
+		if (id && !showingResult && !isTimeExpired) {
+			const timerKey = `challenge_timer_${id}`;
+			// We'll keep the timer data in localStorage when navigating away
+			// so users can come back and continue where they left off
+		}
+	}, [id, showingResult, isTimeExpired]);
+
+	// Cleanup when component unmounts
+	useEffect(() => {
+		return () => {
+			cleanupTimer();
+		};
+	}, [cleanupTimer]);
 
 	// Render the debug view for a test case
 	const renderDebugView = (result: any, index: number) => {
@@ -309,6 +348,7 @@ const ChallengeAttempt: React.FC = () => {
 						timeLimit={challenge.timeLimit}
 						onTimeExpired={handleTimeExpired}
 						onTimeUpdate={handleTimeUpdate}
+						challengeId={id || "unknown"}
 					/>
 				</div>
 
@@ -564,6 +604,19 @@ const ChallengeAttempt: React.FC = () => {
 									setShowingResult(false);
 									setValidationResult(null);
 									if (!isTimeExpired) {
+										// Reset the timer
+										if (id) {
+											const timerKey = `challenge_timer_${id}`;
+											const newTimerData = {
+												startTime: Date.now(),
+												timeLimitInSeconds:
+													challenge.timeLimit * 60,
+											};
+											localStorage.setItem(
+												timerKey,
+												JSON.stringify(newTimerData)
+											);
+										}
 										setCode(challenge.starterCode);
 									}
 								}}
