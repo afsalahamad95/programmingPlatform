@@ -20,6 +20,7 @@ type CodingChallenge struct {
 	MemoryLimitMB int                 `json:"memoryLimitMB" bson:"memoryLimitMB"`
 	TimeoutSec    int                 `json:"timeoutSec" bson:"timeoutSec"`
 	CreatedAt     time.Time           `json:"createdAt" bson:"createdAt"`
+	EndTime       *time.Time          `json:"endTime,omitempty" bson:"endTime,omitempty"` // When the challenge ends
 }
 
 type ChallengeTestCase struct {

@@ -52,6 +52,18 @@ const ChallengeAttempt: React.FC = () => {
 				setChallenge(data);
 				setCode(data.starterCode || "");
 				setError(null);
+
+				// Check if the challenge is still active based on timing
+				const now = new Date();
+				if (data.endTime && new Date(data.endTime) < now) {
+					setIsTimeExpired(true);
+					setError(
+						"This challenge has ended and is no longer available for submission."
+					);
+					// Remove timer from localStorage
+					const timerKey = `challenge_timer_${id}`;
+					localStorage.removeItem(timerKey);
+				}
 			} catch (err) {
 				console.error("Failed to fetch challenge:", err);
 				setError("Failed to load challenge. Please try again later.");
@@ -203,6 +215,9 @@ const ChallengeAttempt: React.FC = () => {
 
 		// Auto-submit when time expires
 		handleSubmit();
+
+		// Show a message to the user
+		alert("Time's up! Your solution has been automatically submitted.");
 	}, [id, handleSubmit]);
 
 	// Cleanup timer when user navigates away without submitting
@@ -286,7 +301,13 @@ const ChallengeAttempt: React.FC = () => {
 	if (error) {
 		return (
 			<div className="max-w-4xl mx-auto p-4">
-				<div className="bg-red-100 text-red-700 p-4 rounded-md mb-4">
+				<div
+					className={`${
+						isTimeExpired
+							? "bg-yellow-100 text-yellow-700"
+							: "bg-red-100 text-red-700"
+					} p-4 rounded-md mb-4`}
+				>
 					{error}
 				</div>
 				<button
@@ -413,6 +434,11 @@ const ChallengeAttempt: React.FC = () => {
 			<div className="bg-white shadow rounded-lg p-6 mb-6">
 				<h2 className="text-lg font-semibold mb-4">
 					Your Solution ({challenge.language})
+					{isTimeExpired && (
+						<span className="ml-2 text-red-600 text-sm">
+							(Time Expired)
+						</span>
+					)}
 				</h2>
 				<CodeEditor
 					code={code}
@@ -449,17 +475,28 @@ const ChallengeAttempt: React.FC = () => {
 							</span>
 						</div>
 					) : (
-						<button
-							onClick={handleSubmit}
-							disabled={submitting || isTimeExpired}
-							className={`px-6 py-2 rounded-md text-white font-medium ${
-								submitting || isTimeExpired
-									? "bg-gray-400 cursor-not-allowed"
-									: "bg-indigo-600 hover:bg-indigo-700"
-							}`}
-						>
-							{submitting ? "Submitting..." : "Submit Solution"}
-						</button>
+						<div className="flex space-x-4 items-center">
+							{isTimeExpired && !showingResult && (
+								<div className="text-red-600">
+									The time for this challenge has expired.
+								</div>
+							)}
+							<button
+								onClick={handleSubmit}
+								disabled={
+									submitting || isTimeExpired || showingResult
+								}
+								className={`px-6 py-2 rounded-md text-white font-medium ${
+									submitting || isTimeExpired || showingResult
+										? "bg-gray-400 cursor-not-allowed"
+										: "bg-indigo-600 hover:bg-indigo-700"
+								}`}
+							>
+								{submitting
+									? "Submitting..."
+									: "Submit Solution"}
+							</button>
+						</div>
 					)}
 				</div>
 			</div>

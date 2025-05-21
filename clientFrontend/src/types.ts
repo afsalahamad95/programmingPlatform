@@ -76,6 +76,7 @@ export interface CodingChallenge {
   memoryLimitMB: number;
   timeoutSec: number;
   createdAt: string;
+  endTime?: string;
 }
 
 export interface ChallengeTestCase {
