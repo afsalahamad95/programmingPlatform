@@ -171,7 +171,9 @@ export default function TestAttempt({ test, onSubmit, onExit }: TestAttemptProps
   }
 
   const currentQuestion = test.questions[currentQuestionIndex];
-  if (!currentQuestion) return <div className="p-4">No questions available</div>;
+  if (!currentQuestion) {
+    return <div className="p-4">No questions available</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">

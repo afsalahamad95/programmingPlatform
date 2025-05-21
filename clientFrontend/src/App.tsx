@@ -4,7 +4,7 @@ import TestAttempt from './components/TestAttempt';
 import TestList from './components/TestList';
 import { useQuery } from 'react-query';
 import { getTests, getQuestions } from './api';
-import { Test } from './types';
+import { Question, Test } from './types';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient({
@@ -56,14 +56,30 @@ function TestApp() {
     );
   }
 
-  if (selectedTest) {
-    // Enhance the test with full question objects
+  if (selectedTest && questions) {
     const enhancedTest = {
       ...selectedTest,
-      questions: selectedTest.questions.map(qId => 
-        questions?.find(q => q.id === qId)
-      ).filter(Boolean)
+      questions: Array.isArray(selectedTest.questions)
+        ? selectedTest.questions
+            .map(q =>
+              typeof q === 'string'
+                ? questions.find((question: Question) => question.id === q)
+                : q // If already a Question object, just return it
+            )
+            .filter((q): q is Question => !!q)
+        : []
     };
+
+    // If no valid questions, show a message instead of TestAttempt
+    if (enhancedTest.questions.length === 0) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center text-red-600">
+            <p className="text-lg font-semibold">No valid questions found for this test.</p>
+          </div>
+        </div>
+      );
+    }
 
     return <TestAttempt test={enhancedTest} onSubmit={handleSubmit} />;
   }
