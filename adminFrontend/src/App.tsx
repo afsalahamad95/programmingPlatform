@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
 	Plus,
 	ListChecks,
@@ -33,6 +33,29 @@ interface CustomQuestionFormProps {
 	onSuccess: () => void;
 }
 
+// Define a typed section selector hook
+function useSectionSelector(
+	initialSection: "questions" | "tests" | "challenges"
+) {
+	const [section, setSection] = useState<
+		"questions" | "tests" | "challenges"
+	>(initialSection);
+
+	const selectQuestions = useCallback(() => setSection("questions"), []);
+	const selectTests = useCallback(() => setSection("tests"), []);
+	const selectChallenges = useCallback(() => setSection("challenges"), []);
+
+	return {
+		section,
+		selectQuestions,
+		selectTests,
+		selectChallenges,
+		isQuestions: section === "questions",
+		isTests: section === "tests",
+		isChallenges: section === "challenges",
+	};
+}
+
 function App() {
 	const queryClient = useQueryClient();
 	const [selectedType, setSelectedType] = React.useState<QuestionType | null>(
@@ -42,12 +65,29 @@ function App() {
 	const [showTests, setShowTests] = React.useState(false);
 	const [showProfile, setShowProfile] = React.useState(false);
 	const [selectedTest, setSelectedTest] = React.useState<Test | null>(null);
-	const [activeSection, setActiveSection] = useState<
-		"questions" | "tests" | "challenges"
-	>("questions");
+
+	// Use the custom hook instead of raw useState
+	const {
+		section: activeSection,
+		selectQuestions,
+		selectTests,
+		selectChallenges,
+		isQuestions,
+		isTests,
+		isChallenges,
+	} = useSectionSelector("questions");
+
 	const [showQuestionFormState, setShowQuestionFormState] = useState(false);
 	const [selectedQuestionId, setSelectedQuestionId] = useState("");
 	const [isNewQuestion, setIsNewQuestion] = useState(true);
+
+	// Log activeSection on every render
+	console.log("App component rendered, activeSection:", activeSection);
+
+	// Add effect to log section changes
+	React.useEffect(() => {
+		console.log("activeSection changed to:", activeSection);
+	}, [activeSection]);
 
 	// Check backend health on mount
 	React.useEffect(() => {
@@ -151,6 +191,10 @@ function App() {
 		setShowTests(false);
 		setShowProfile(false);
 		setSelectedTest(null);
+		console.log(
+			"handleBack called, preserving activeSection:",
+			activeSection
+		);
 	};
 
 	const showQuestionForm = (id: string, isNew: boolean) => {
@@ -216,31 +260,31 @@ function App() {
 						<div className="flex space-x-4">
 							<button
 								className={`px-4 py-2 rounded-md ${
-									activeSection === "questions"
+									isQuestions
 										? "bg-indigo-600 text-white"
 										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
 								}`}
-								onClick={() => setActiveSection("questions")}
+								onClick={selectQuestions}
 							>
 								Question Bank
 							</button>
 							<button
 								className={`px-4 py-2 rounded-md ${
-									activeSection === "tests"
+									isTests
 										? "bg-indigo-600 text-white"
 										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
 								}`}
-								onClick={() => setActiveSection("tests")}
+								onClick={selectTests}
 							>
 								Schedule Tests
 							</button>
 							<button
 								className={`px-4 py-2 rounded-md ${
-									activeSection === "challenges"
+									isChallenges
 										? "bg-indigo-600 text-white"
 										: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
 								}`}
-								onClick={() => setActiveSection("challenges")}
+								onClick={selectChallenges}
 							>
 								Coding Challenges
 							</button>
@@ -250,7 +294,7 @@ function App() {
 			</header>
 
 			<main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-				{activeSection === "questions" && (
+				{isQuestions && (
 					<QuestionBank
 						questions={questions}
 						onSelect={(question) => {
@@ -260,15 +304,15 @@ function App() {
 					/>
 				)}
 
-				{activeSection === "tests" && (
+				{isTests && (
 					<TestScheduler
 						onSchedule={handleTestSchedule}
-						onBack={() => setActiveSection("questions")}
+						onBack={selectQuestions}
 						questions={questions}
 					/>
 				)}
 
-				{activeSection === "challenges" && <ChallengeManagement />}
+				{isChallenges && <ChallengeManagement />}
 
 				{showQuestionFormState && (
 					<div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">

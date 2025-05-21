@@ -68,19 +68,44 @@ const ChallengeAttempt: React.FC = () => {
 
 			// Prepare submission data
 			const submissionData = {
-				userId: "current-user-id", // Replace with actual user ID from auth context
+				userId: "65fd6e2f6b7f00000000000a", // Using a properly formatted ObjectID string
 				code,
 				language: challenge.language,
 				timeSpent,
 			};
 
+			console.log(
+				"Submitting challenge with data:",
+				JSON.stringify(submissionData)
+			);
+
 			// Submit the challenge attempt
-			const result = await submitChallengeAttempt(id, submissionData);
-			setValidationResult(result.result);
-			setShowingResult(true);
+			try {
+				const result = await submitChallengeAttempt(id, submissionData);
+				console.log("Submission successful, full response:", result);
+
+				// Ensure the result structure is as expected
+				if (result && result.result) {
+					console.log("Setting validation result:", result.result);
+					setValidationResult(result.result);
+					setShowingResult(true);
+				} else {
+					console.error("Invalid result structure:", result);
+					throw new Error("Invalid response format from server");
+				}
+			} catch (submitError: any) {
+				console.error("Submission API error:", submitError);
+				console.error("Response data:", submitError.response?.data);
+				console.error("Status code:", submitError.response?.status);
+				throw submitError;
+			}
 		} catch (err) {
 			console.error("Failed to submit challenge:", err);
-			setError("Failed to submit your solution. Please try again.");
+			setError(
+				`Failed to submit your solution: ${
+					err instanceof Error ? err.message : "Unknown error"
+				}`
+			);
 		} finally {
 			setSubmitting(false);
 		}
@@ -266,73 +291,82 @@ const ChallengeAttempt: React.FC = () => {
 					</div>
 
 					<div className="space-y-4">
-						{validationResult.testCases.map((result, index) => (
-							<div
-								key={index}
-								className={`border rounded-md p-4 ${
-									result.passed
-										? "border-green-200"
-										: "border-red-200"
-								}`}
-							>
-								<div className="flex items-center mb-2">
-									<span
-										className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 ${
-											result.passed
-												? "bg-green-100 text-green-800"
-												: "bg-red-100 text-red-800"
-										}`}
-									>
-										{result.passed ? "✓" : "✗"}
-									</span>
-									<h3 className="font-medium">
-										Test Case {index + 1}{" "}
-										{result.hidden ? "(Hidden)" : ""}
-									</h3>
-								</div>
-
-								{!result.hidden && (
-									<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-										<div>
-											<p className="text-sm font-medium text-gray-500">
-												Input:
-											</p>
-											<pre className="mt-1 text-sm bg-gray-50 p-2 rounded-md">
-												{result.input}
-											</pre>
-										</div>
-										<div>
-											<p className="text-sm font-medium text-gray-500">
-												Expected:
-											</p>
-											<pre className="mt-1 text-sm bg-gray-50 p-2 rounded-md">
-												{result.expectedOutput}
-											</pre>
-										</div>
-										<div>
-											<p className="text-sm font-medium text-gray-500">
-												Your Output:
-											</p>
-											<pre
-												className={`mt-1 text-sm p-2 rounded-md ${
-													result.passed
-														? "bg-green-50"
-														: "bg-red-50"
-												}`}
-											>
-												{result.actualOutput}
-											</pre>
-										</div>
+						{validationResult.testCases &&
+						validationResult.testCases.length > 0 ? (
+							validationResult.testCases.map((result, index) => (
+								<div
+									key={index}
+									className={`border rounded-md p-4 ${
+										result.passed
+											? "border-green-200"
+											: "border-red-200"
+									}`}
+								>
+									<div className="flex items-center mb-2">
+										<span
+											className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 ${
+												result.passed
+													? "bg-green-100 text-green-800"
+													: "bg-red-100 text-red-800"
+											}`}
+										>
+											{result.passed ? "✓" : "✗"}
+										</span>
+										<h3 className="font-medium">
+											Test Case {index + 1}{" "}
+											{result.hidden ? "(Hidden)" : ""}
+										</h3>
 									</div>
-								)}
 
-								{result.description && (
-									<p className="mt-2 text-sm text-gray-600">
-										{result.description}
-									</p>
-								)}
+									{!result.hidden && (
+										<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+											<div>
+												<p className="text-sm font-medium text-gray-500">
+													Input:
+												</p>
+												<pre className="mt-1 text-sm bg-gray-50 p-2 rounded-md overflow-auto max-h-48">
+													{result.input}
+												</pre>
+											</div>
+											<div>
+												<p className="text-sm font-medium text-gray-500">
+													Expected:
+												</p>
+												<pre className="mt-1 text-sm bg-gray-50 p-2 rounded-md overflow-auto max-h-48">
+													{result.expectedOutput}
+												</pre>
+											</div>
+											<div>
+												<p className="text-sm font-medium text-gray-500">
+													Your Output:
+												</p>
+												<pre
+													className={`mt-1 text-sm p-2 rounded-md overflow-auto max-h-48 ${
+														result.passed
+															? "bg-green-50"
+															: "bg-red-50"
+													}`}
+												>
+													{result.actualOutput ||
+														"(No output generated)"}
+												</pre>
+											</div>
+										</div>
+									)}
+
+									{result.description && (
+										<p className="mt-2 text-sm text-gray-600">
+											{result.description}
+										</p>
+									)}
+								</div>
+							))
+						) : (
+							<div className="text-center p-4 bg-yellow-50 text-yellow-700 rounded-md">
+								No test results available. There might be an
+								issue with the test execution.
 							</div>
-						))}
+						)}
 					</div>
 
 					<div className="mt-6 flex justify-end space-x-4">

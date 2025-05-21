@@ -40,6 +40,15 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
 				try {
 					setLoading(true);
 					const challenge = await getChallenge(challengeId);
+
+					if (!challenge) {
+						setFormError(
+							"Failed to load challenge data. Creating a new challenge instead."
+						);
+						setLoading(false);
+						return;
+					}
+
 					setFormData({
 						title: challenge.title,
 						description: challenge.description,
@@ -51,7 +60,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
 						timeoutSec: challenge.timeoutSec,
 						memoryLimitMB: challenge.memoryLimitMB,
 					});
-					setTestCases(challenge.testCases);
+					setTestCases(challenge.testCases || []);
 				} catch (error) {
 					setFormError("Failed to load challenge data");
 					console.error("Error loading challenge:", error);

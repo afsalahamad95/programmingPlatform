@@ -109,7 +109,8 @@ export const getChallenges = async (params?: { difficulty?: string; category?: s
     return response.data;
   } catch (error) {
     console.error('Failed to fetch challenges:', error);
-    throw error;
+    toast.error('Failed to load challenges. Using empty data.');
+    return [];
   }
 };
 
@@ -119,7 +120,9 @@ export const getChallenge = async (id: string) => {
     return response.data;
   } catch (error) {
     console.error(`Failed to fetch challenge with id ${id}:`, error);
-    throw error;
+    toast.error('Failed to load challenge details');
+    // Return a default empty challenge object
+    return null;
   }
 };
 

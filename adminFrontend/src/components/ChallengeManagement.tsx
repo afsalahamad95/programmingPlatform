@@ -17,11 +17,12 @@ const ChallengeManagement: React.FC = () => {
 		try {
 			setLoading(true);
 			const data = await getChallenges();
-			setChallenges(data);
+			setChallenges(data || []);
 			setError(null);
 		} catch (err) {
 			console.error("Failed to fetch challenges:", err);
 			setError("Failed to load challenges. Please try again later.");
+			setChallenges([]);
 		} finally {
 			setLoading(false);
 		}
@@ -123,7 +124,7 @@ const ChallengeManagement: React.FC = () => {
 				<div className="flex justify-center p-8">
 					<div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600"></div>
 				</div>
-			) : challenges.length === 0 ? (
+			) : !challenges || challenges.length === 0 ? (
 				<div className="text-center p-8 bg-gray-50 rounded-md">
 					<p className="text-gray-500">
 						No challenges found. Create your first challenge to get

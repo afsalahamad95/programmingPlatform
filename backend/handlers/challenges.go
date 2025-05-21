@@ -147,19 +147,65 @@ func DeleteChallenge(c *fiber.Ctx) error {
 
 // SubmitChallengeAttempt handles a user's submission for a coding challenge
 func SubmitChallengeAttempt(c *fiber.Ctx) error {
+	// Log the raw request body for debugging
+	var rawBody map[string]interface{}
+	if err := c.BodyParser(&rawBody); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error":   "Invalid request body format",
+			"details": err.Error(),
+		})
+	}
+
+	fmt.Printf("Received challenge submission body: %+v\n", rawBody)
+
+	// Now parse into the proper struct
 	attempt := new(models.ChallengeAttempt)
 	if err := c.BodyParser(attempt); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(400).JSON(fiber.Map{
+			"error":   "Invalid request body structure",
+			"details": err.Error(),
+		})
 	}
 
+	// Validate required fields
+	if attempt.Code == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Code is required"})
+	}
+
+	if attempt.Language == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Language is required"})
+	}
+
+	// Set the attempt creation time
 	attempt.CreatedAt = time.Now()
 
-	// Set the challenge ID from the URL
+	// Parse and set the challenge ID from the URL
 	challengeID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid challenge ID"})
+		return c.Status(400).JSON(fiber.Map{
+			"error":   "Invalid challenge ID format",
+			"details": err.Error(),
+		})
 	}
 	attempt.ChallengeID = challengeID
+
+	// Handle the userId - if it's empty or invalid, create a default ObjectID
+	if attempt.UserID.IsZero() {
+		// Check if we got a userId as string that we need to convert
+		if userIDStr, ok := rawBody["userId"].(string); ok && userIDStr != "" {
+			userID, err := primitive.ObjectIDFromHex(userIDStr)
+			if err != nil {
+				fmt.Printf("Error converting userId %s to ObjectID: %v\n", userIDStr, err)
+				// If invalid, create a default ID
+				attempt.UserID = primitive.NewObjectID()
+			} else {
+				attempt.UserID = userID
+			}
+		} else {
+			// No userId provided, create a default one
+			attempt.UserID = primitive.NewObjectID()
+		}
+	}
 
 	// Validate the challenge ID
 	var challenge models.CodingChallenge
@@ -168,14 +214,20 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 		if err == mongo.ErrNoDocuments {
 			return c.Status(404).JSON(fiber.Map{"error": "Challenge not found"})
 		}
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch challenge"})
+		return c.Status(500).JSON(fiber.Map{
+			"error":   "Failed to fetch challenge",
+			"details": err.Error(),
+		})
 	}
 
 	// Execute the code and get the validation result
 	executionService := services.NewCodeExecutionService()
 	validationResult, err := executionService.ExecuteCode(&challenge, attempt.Code)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": fmt.Sprintf("Code execution failed: %v", err)})
+		return c.Status(500).JSON(fiber.Map{
+			"error":   "Code execution failed",
+			"details": err.Error(),
+		})
 	}
 
 	// Update the attempt with the validation result
@@ -190,7 +242,10 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	// Save the attempt to the database
 	result, err := db.ChallengeAttemptsCollection.InsertOne(context.Background(), attempt)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to record challenge attempt"})
+		return c.Status(500).JSON(fiber.Map{
+			"error":   "Failed to record challenge attempt",
+			"details": err.Error(),
+		})
 	}
 
 	attempt.ID = result.InsertedID.(primitive.ObjectID)

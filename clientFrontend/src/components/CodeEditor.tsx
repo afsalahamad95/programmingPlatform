@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from "react";
-import * as monaco from "monaco-editor";
+import React from "react";
+import Editor from "@monaco-editor/react";
 
 interface CodeEditorProps {
 	code: string;
@@ -14,51 +14,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 	onChange,
 	readOnly = false,
 }) => {
-	const editorRef = useRef<HTMLDivElement>(null);
-	const monacoEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(
-		null
-	);
-
-	useEffect(() => {
-		if (editorRef.current) {
-			// Dispose previous editor instance if it exists
-			if (monacoEditorRef.current) {
-				monacoEditorRef.current.dispose();
-			}
-
-			// Map the language to a supported Monaco language
-			const monacoLanguage = mapLanguage(language);
-
-			// Initialize the editor
-			monacoEditorRef.current = monaco.editor.create(editorRef.current, {
-				value: code,
-				language: monacoLanguage,
-				theme: "vs-dark",
-				automaticLayout: true,
-				minimap: { enabled: false },
-				scrollBeyondLastLine: false,
-				fontSize: 14,
-				lineNumbers: "on",
-				readOnly,
-				wordWrap: "on",
-			});
-
-			// Add onChange event handler
-			monacoEditorRef.current.onDidChangeModelContent(() => {
-				if (monacoEditorRef.current) {
-					onChange(monacoEditorRef.current.getValue());
-				}
-			});
-		}
-
-		return () => {
-			// Cleanup on unmount
-			if (monacoEditorRef.current) {
-				monacoEditorRef.current.dispose();
-			}
-		};
-	}, [code, language, onChange, readOnly]);
-
 	// Map backend language to Monaco supported language
 	const mapLanguage = (backendLanguage: string): string => {
 		const languageMap: Record<string, string> = {
@@ -77,11 +32,32 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 		return languageMap[backendLanguage.toLowerCase()] || "plaintext";
 	};
 
+	const handleEditorChange = (value: string | undefined) => {
+		if (value !== undefined) {
+			onChange(value);
+		}
+	};
+
 	return (
-		<div
-			ref={editorRef}
-			className="h-[600px] border border-gray-300 rounded-md overflow-hidden"
-		/>
+		<div className="h-[600px] border border-gray-300 rounded-md overflow-hidden">
+			<Editor
+				height="100%"
+				width="100%"
+				language={mapLanguage(language)}
+				value={code}
+				theme="vs-dark"
+				onChange={handleEditorChange}
+				options={{
+					minimap: { enabled: false },
+					scrollBeyondLastLine: false,
+					fontSize: 14,
+					lineNumbers: "on",
+					readOnly,
+					wordWrap: "on",
+					automaticLayout: true,
+				}}
+			/>
+		</div>
 	);
 };
 
