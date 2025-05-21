@@ -6,7 +6,7 @@ curl -X POST http://localhost:8080/execute \
   -H "Content-Type: application/json" \
   -d '{
     "language": "python",
-    "code": "def fizzbuzz(n):\n    if n % 15 == 0:\n        return \"FizzBuzz\"\n    elif n % 3 == 0:\n        return \"Fizz\"\n    elif n % 5 == 0:\n        return \"Buzz\"\n    return str(n)\n\nn = int(input())\nprint(fizzbuzz(n))",
+    "code": "def fizzbuzz(n):\n\tif n % 15 == 0:\n\t\treturn \"FizzBuzz\"\n\telif n % 3 == 0:\n\t\treturn \"Fizz\"\n\telif n % 5 == 0:\n\t\treturn \"Buzz\"\n\treturn str(n)\n\nn = int(input())\nprint(fizzbuzz(n))",
     "input": "15",
     "config": {
       "timeout_seconds": 5,
@@ -82,7 +82,7 @@ curl -X POST http://localhost:8080/execute \
   -H "Content-Type: application/json" \
   -d '{
     "language": "python",
-    "code": "def array_sum(arr):\n    return sum(map(int, arr.split()))\n\nprint(array_sum(input()))",
+    "code": "def array_sum(arr):\n\treturn sum(map(int, arr.split()))\n\nprint(array_sum(input()))",
     "input": "1 2 3 4 5",
     "config": {
       "timeout_seconds": 5,

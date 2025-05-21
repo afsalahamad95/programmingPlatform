@@ -1,49 +1,49 @@
 package validator
 
 import (
-    "code-executor/models"
-    "strings"
+	"code-executor/models"
+	"strings"
 )
 
-type Validator struct{}
+type CodeValidator struct{}
 
-func NewValidator() *Validator {
-    return &Validator{}
+func NewCodeValidator() *CodeValidator {
+	return &CodeValidator{}
 }
 
-func (v *Validator) Validate(result *models.ExecutionResult, testCases []models.TestCase) *models.ValidationResult {
-    validationResult := &models.ValidationResult{
-        Passed:    true,
-        TestCases: make([]models.Result, 0),
-        Summary: &models.ValidationSummary{
-            TotalTests: len(testCases),
-            PassedTests: 0,
-            FailedTests: 0,
-        },
-    }
+func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []models.TestCase) *models.ValidationResult {
+	validationResult := &models.ValidationResult{
+		Passed:    true,
+		TestCases: make([]models.Result, 0),
+		Summary: &models.ValidationSummary{
+			TotalTests:  len(testCases),
+			PassedTests: 0,
+			FailedTests: 0,
+		},
+	}
 
-    for _, testCase := range testCases {
-        // Clean up output by removing trailing newlines and spaces
-        actualOutput := strings.TrimSpace(result.Stdout)
-        expectedOutput := strings.TrimSpace(testCase.ExpectedOutput)
-        
-        passed := actualOutput == expectedOutput
-        
-        if passed {
-            validationResult.Summary.PassedTests++
-        } else {
-            validationResult.Summary.FailedTests++
-            validationResult.Passed = false
-        }
+	for i, testCase := range testCases {
+		// Clean up output by removing trailing newlines and spaces
+		actualOutput := strings.TrimSpace(result[i].Stdout)
+		expectedOutput := strings.TrimSpace(testCase.ExpectedOutput)
 
-        validationResult.TestCases = append(validationResult.TestCases, models.Result{
-            Input:          testCase.Input,
-            ExpectedOutput: testCase.ExpectedOutput,
-            ActualOutput:   actualOutput,
-            Passed:         passed,
-            Description:    testCase.Description,
-        })
-    }
+		passed := actualOutput == expectedOutput
 
-    return validationResult
+		if passed {
+			validationResult.Summary.PassedTests++
+		} else {
+			validationResult.Summary.FailedTests++
+			validationResult.Passed = false
+		}
+
+		validationResult.TestCases = append(validationResult.TestCases, models.Result{
+			Input:          testCase.Input,
+			ExpectedOutput: testCase.ExpectedOutput,
+			ActualOutput:   actualOutput,
+			Passed:         passed,
+			Description:    testCase.Description,
+		})
+	}
+
+	return validationResult
 }
