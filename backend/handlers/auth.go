@@ -70,6 +70,8 @@ func init() {
 		return
 	}
 
+	log.Printf("Current working directory: %s", dir)
+
 	// First check in handlers directory
 	files, err := filepath.Glob(filepath.Join(dir, "handlers", "client_secret_*.json"))
 	if err != nil {
@@ -85,8 +87,29 @@ func init() {
 	}
 
 	if len(files) == 0 {
-		log.Println("No Google credential files found")
-		return
+		log.Println("No Google credential files found. Will try looking in subdirectories...")
+
+		// Use a more extensive search if not found in the usual places
+		err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && strings.Contains(info.Name(), "client_secret_") && strings.HasSuffix(info.Name(), ".json") {
+				files = append(files, path)
+				log.Printf("Found credential file during walk: %s", path)
+			}
+			return nil
+		})
+
+		if err != nil {
+			log.Printf("Error walking directory: %v", err)
+		}
+
+		if len(files) == 0 {
+			log.Println("WARNING: No Google credential files found after searching subdirectories.")
+			log.Println("Google OAuth will not work without credentials.")
+			return
+		}
 	}
 
 	log.Printf("Found credential file: %s", files[0])
@@ -102,6 +125,7 @@ func init() {
 	err = json.Unmarshal(data, &config)
 	if err != nil {
 		log.Printf("Error parsing credential file: %v", err)
+		log.Printf("File content: %s", string(data))
 		return
 	}
 
@@ -109,9 +133,9 @@ func init() {
 	if config.Web.ClientID != "" && config.Web.ClientSecret != "" {
 		log.Println("Successfully loaded Google OAuth credentials from JSON file")
 
-		redirectURL := config.Web.RedirectURIs[0]
-		if redirectURL == "" {
-			redirectURL = "http://localhost:3000/api/auth/oauth/google/callback"
+		redirectURL := "http://localhost:3000/api/auth/oauth/google/callback"
+		if len(config.Web.RedirectURIs) > 0 && config.Web.RedirectURIs[0] != "" {
+			redirectURL = config.Web.RedirectURIs[0]
 		}
 
 		oauthConfigs["google"] = &oauth2.Config{
@@ -123,9 +147,19 @@ func init() {
 		}
 
 		log.Printf("Google OAuth configured with ClientID: %s..., RedirectURL: %s",
-			config.Web.ClientID[:10]+"...",
+			truncateString(config.Web.ClientID, 10),
 			redirectURL)
+	} else {
+		log.Println("WARNING: Google OAuth client credentials are empty in the JSON file.")
 	}
+}
+
+// Helper function to safely truncate strings
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // Helper to get environment variable with default
@@ -324,6 +358,13 @@ func OAuthRedirect(c *fiber.Ctx) error {
 		})
 	}
 
+	// Detailed debug info
+	log.Printf("DEBUG - Checking OAuth config for %s:", provider)
+	log.Printf("  - ClientID: %s", truncateString(config.ClientID, 10))
+	log.Printf("  - ClientSecret: %s", truncateString(config.ClientSecret, 5))
+	log.Printf("  - RedirectURL: %s", config.RedirectURL)
+	log.Printf("  - Scopes: %v", config.Scopes)
+
 	// Check for empty OAuth credentials
 	if config.ClientID == "" || config.ClientSecret == "" {
 		log.Printf("ERROR: Empty OAuth credentials for provider: %s", provider)
@@ -331,19 +372,6 @@ func OAuthRedirect(c *fiber.Ctx) error {
 			"error": "OAuth is not properly configured. Please check server configuration.",
 		})
 	}
-
-	// Log the OAuth configuration being used
-	clientIdPreview := "empty"
-	if len(config.ClientID) > 5 {
-		clientIdPreview = config.ClientID[:5] + "..."
-	} else if len(config.ClientID) > 0 {
-		clientIdPreview = config.ClientID + "..."
-	}
-
-	log.Printf("OAuth config for %s: ClientID=%s, RedirectURL=%s",
-		provider,
-		clientIdPreview,
-		config.RedirectURL)
 
 	// Generate a random state to prevent CSRF
 	state, err := generateState()
@@ -355,17 +383,30 @@ func OAuthRedirect(c *fiber.Ctx) error {
 	}
 
 	// Store the state in a cookie
-	c.Cookie(&fiber.Cookie{
+	cookie := &fiber.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
 		Expires:  time.Now().Add(15 * time.Minute),
 		HTTPOnly: true,
 		SameSite: "Lax",
-	})
+	}
+
+	log.Printf("Setting OAuth state cookie: %s=%s, Expires: %v",
+		cookie.Name, truncateString(cookie.Value, 10), cookie.Expires)
+
+	c.Cookie(cookie)
 
 	// Redirect to the OAuth provider
 	url := config.AuthCodeURL(state)
 	log.Printf("Redirecting to OAuth URL: %s", url)
+
+	// Try-catch equivalent to handle panic during redirect
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC during OAuth redirect: %v", r)
+		}
+	}()
+
 	return c.Redirect(url, http.StatusTemporaryRedirect)
 }
 
@@ -373,6 +414,10 @@ func OAuthRedirect(c *fiber.Ctx) error {
 func OAuthCallback(c *fiber.Ctx) error {
 	provider := c.Params("provider")
 	log.Printf("OAuth callback received for provider: %s", provider)
+
+	// Get all request parameters for debugging
+	log.Printf("Callback URL: %s", c.OriginalURL())
+	log.Printf("All query parameters: %s", c.Query("*"))
 
 	config, ok := oauthConfigs[provider]
 	if !ok {
@@ -385,6 +430,17 @@ func OAuthCallback(c *fiber.Ctx) error {
 	// Get the state and code from the query parameters
 	state := c.Query("state")
 	code := c.Query("code")
+	errorParam := c.Query("error")
+	errorDescription := c.Query("error_description")
+
+	// Check if there's an error from the OAuth provider
+	if errorParam != "" {
+		log.Printf("ERROR: OAuth provider returned error: %s - %s", errorParam, errorDescription)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":             "OAuth provider returned an error: " + errorParam,
+			"error_description": errorDescription,
+		})
+	}
 
 	// Check for empty code or state
 	if code == "" {
@@ -405,6 +461,8 @@ func OAuthCallback(c *fiber.Ctx) error {
 
 	// Verify the state
 	cookie := c.Cookies("oauth_state")
+	log.Printf("OAuth state cookie value: %s", cookie)
+
 	if cookie == "" || cookie != state {
 		log.Printf("Invalid state parameter. Cookie: %s, State: %s", cookie, state)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -413,6 +471,7 @@ func OAuthCallback(c *fiber.Ctx) error {
 	}
 
 	// Exchange the code for a token
+	log.Printf("Exchanging authorization code for token...")
 	token, err := config.Exchange(context.Background(), code)
 	if err != nil {
 		log.Printf("Failed to exchange code for token: %v", err)
@@ -422,27 +481,37 @@ func OAuthCallback(c *fiber.Ctx) error {
 		})
 	}
 
+	log.Printf("Successfully obtained access token")
+
 	// Get the user info from the provider
 	var userInfo models.OAuthUserInfo
+	var fetchErr error
+
+	log.Printf("Fetching user info from %s...", provider)
 	switch provider {
 	case "google":
-		userInfo, err = getGoogleUserInfo(token.AccessToken)
+		userInfo, fetchErr = getGoogleUserInfo(token.AccessToken)
 	case "github":
-		userInfo, err = getGithubUserInfo(token.AccessToken)
+		userInfo, fetchErr = getGithubUserInfo(token.AccessToken)
 	default:
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Unsupported OAuth provider",
 		})
 	}
 
-	if err != nil {
+	if fetchErr != nil {
+		log.Printf("Failed to get user info from provider: %v", fetchErr)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to get user info from provider",
-			"details": err.Error(),
+			"details": fetchErr.Error(),
 		})
 	}
 
+	log.Printf("Successfully fetched user info: Email=%s, Name=%s",
+		userInfo.Email, userInfo.Name)
+
 	// Check if the user exists
+	log.Printf("Checking if user exists in database...")
 	var user models.AuthUser
 	err = db.UsersCollection.FindOne(
 		context.Background(),
@@ -456,6 +525,7 @@ func OAuthCallback(c *fiber.Ctx) error {
 
 	// If the user doesn't exist, create a new one
 	if err == mongo.ErrNoDocuments {
+		log.Printf("User not found in database, creating new user...")
 		// Create a new user
 		now := time.Now()
 		user = models.AuthUser{
@@ -480,25 +550,36 @@ func OAuthCallback(c *fiber.Ctx) error {
 		}
 
 		// Insert into database
+		log.Printf("Inserting new user into database: %s %s (%s)",
+			user.FirstName, user.LastName, user.Email)
+
 		_, err = db.UsersCollection.InsertOne(context.Background(), user)
 		if err != nil {
+			log.Printf("Failed to create user: %v", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Failed to create user",
 			})
 		}
+		log.Printf("New user created successfully with ID: %s", user.ID.Hex())
 	} else if err != nil {
+		log.Printf("Error checking if user exists: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to check if user exists",
 		})
+	} else {
+		log.Printf("User found in database: ID=%s, Email=%s", user.ID.Hex(), user.Email)
 	}
 
 	// Generate JWT token
+	log.Printf("Generating JWT token for user ID: %s", user.ID.Hex())
 	jwtToken, err := GenerateJWT(user)
 	if err != nil {
+		log.Printf("Failed to generate authentication token: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate authentication token",
 		})
 	}
+	log.Printf("JWT token generated successfully")
 
 	// Set a cookie with the JWT token
 	c.Cookie(&fiber.Cookie{
@@ -511,7 +592,9 @@ func OAuthCallback(c *fiber.Ctx) error {
 
 	// Redirect to the frontend with the token
 	frontendURL := getEnvWithDefault("FRONTEND_URL", "http://localhost:5176")
-	return c.Redirect(fmt.Sprintf("%s/oauth-callback?token=%s", frontendURL, jwtToken), http.StatusTemporaryRedirect)
+	redirectURL := fmt.Sprintf("%s/oauth-callback?token=%s", frontendURL, jwtToken)
+	log.Printf("Redirecting to frontend: %s", redirectURL)
+	return c.Redirect(redirectURL, http.StatusTemporaryRedirect)
 }
 
 // getGoogleUserInfo gets the user info from Google
