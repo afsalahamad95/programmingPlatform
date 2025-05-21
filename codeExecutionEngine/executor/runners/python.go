@@ -3,6 +3,7 @@ package runners
 import (
 	"code-executor/models"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,11 @@ func NewPythonRunner() *PythonRunner {
 }
 
 func (r *PythonRunner) Execute(execution *models.CodeExecution, tmpDir string) *models.ExecutionResult {
+	// Debug log
+	fmt.Printf("Executing Python code: \n%s\n", execution.Code)
+	fmt.Printf("Input: '%s'\n", execution.Input)
+
+	// Write the user's code directly to a file
 	scriptPath := filepath.Join(tmpDir, "script.py")
 	if err := os.WriteFile(scriptPath, []byte(execution.Code), 0600); err != nil {
 		return &models.ExecutionResult{
@@ -28,6 +34,23 @@ func (r *PythonRunner) Execute(execution *models.CodeExecution, tmpDir string) *
 		time.Duration(execution.Config.TimeoutSeconds)*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "python3", scriptPath)
-	return RunCommand(cmd, execution.Input)
+	// Use the correct Python interpreter based on OS
+	pythonCmd := "python"
+
+	// On Windows, python3 might not be in the PATH, so try python first
+	if _, err := exec.LookPath("python"); err != nil {
+		pythonCmd = "python3"
+	}
+
+	// Execute the Python script with unbuffered output (-u flag)
+	cmd := exec.CommandContext(ctx, pythonCmd, "-u", scriptPath)
+
+	// Pass any input to the script
+	result := RunCommand(cmd, execution.Input)
+
+	// Debug log
+	fmt.Printf("Result: exitCode=%d, stdout='%s', stderr='%s'\n",
+		result.ExitCode, result.Stdout, result.Stderr)
+
+	return result
 }
