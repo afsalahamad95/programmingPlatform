@@ -52,5 +52,12 @@ func (r *PythonRunner) Execute(execution *models.CodeExecution, tmpDir string) *
 	fmt.Printf("Result: exitCode=%d, stdout='%s', stderr='%s'\n",
 		result.ExitCode, result.Stdout, result.Stderr)
 
+	// If there's a syntax error or other error (non-zero exit code), make sure it's visible
+	if result.ExitCode != 0 && result.Stderr != "" {
+		// Format the error message more clearly
+		result.Stderr = fmt.Sprintf("Python Error: %s", result.Stderr)
+		fmt.Println(result.Stderr)
+	}
+
 	return result
 }

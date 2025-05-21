@@ -511,6 +511,18 @@ const ChallengeAttempt: React.FC = () => {
 										</div>
 									)}
 
+									{/* Display stderr if it exists */}
+									{result.stderr && (
+										<div className="mt-3">
+											<p className="text-sm font-medium text-red-500">
+												Error Output:
+											</p>
+											<pre className="mt-1 text-sm bg-red-50 p-2 rounded-md overflow-auto max-h-48 text-red-700 border border-red-200">
+												{result.stderr}
+											</pre>
+										</div>
+									)}
+
 									{result.description && (
 										<p className="mt-2 text-sm text-gray-600">
 											{result.description}

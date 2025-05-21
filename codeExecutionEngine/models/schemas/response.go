@@ -34,6 +34,7 @@ type Result struct {
 	ActualOutput   string `json:"actual_output"`
 	Passed         bool   `json:"passed"`
 	Description    string `json:"description"`
+	Stderr         string `json:"stderr,omitempty"`
 }
 
 // Summary provides an overview of test case results

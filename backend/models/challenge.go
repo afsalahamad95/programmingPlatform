@@ -56,4 +56,5 @@ type TestResult struct {
 	ActualOutput   string `json:"actualOutput" bson:"actualOutput"`
 	Description    string `json:"description" bson:"description"`
 	Hidden         bool   `json:"hidden" bson:"hidden"`
+	Stderr         string `json:"stderr,omitempty" bson:"stderr,omitempty"`
 }

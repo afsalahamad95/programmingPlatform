@@ -68,6 +68,7 @@ type TestResult struct {
 	ExpectedOutput string `json:"expected_output"`
 	ActualOutput   string `json:"actual_output"`
 	Description    string `json:"description"`
+	Stderr         string `json:"stderr,omitempty"`
 }
 
 func NewCodeExecutionService() *CodeExecutionService {
@@ -150,6 +151,7 @@ func (s *CodeExecutionService) ExecuteCode(challenge *models.CodingChallenge, co
 			ActualOutput:   tr.ActualOutput,
 			Description:    tr.Description,
 			Hidden:         challenge.TestCases[i].Hidden,
+			Stderr:         tr.Stderr,
 		})
 	}
 

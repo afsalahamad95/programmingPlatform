@@ -52,6 +52,7 @@ export interface TestResult {
   actualOutput: string;
   description: string;
   hidden: boolean;
+  stderr?: string;
 }
 
 export interface User {

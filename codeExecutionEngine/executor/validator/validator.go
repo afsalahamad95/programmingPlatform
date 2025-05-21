@@ -26,6 +26,13 @@ func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []m
 	for i, testCase := range testCases {
 		// Use exact string comparison (no normalization)
 		actualOutput := result[i].Stdout
+
+		// If there's an error (stderr not empty), include it in the output
+		if result[i].Stderr != "" {
+			fmt.Printf("  Error detected in execution: %s\n", result[i].Stderr)
+			actualOutput = "Error: " + result[i].Stderr
+		}
+
 		expectedOutput := testCase.ExpectedOutput
 
 		// Log for debugging
@@ -83,6 +90,7 @@ func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []m
 			ActualOutput:   result[i].Stdout,
 			Passed:         passed,
 			Description:    testCase.Description,
+			Stderr:         result[i].Stderr,
 		})
 	}
 
