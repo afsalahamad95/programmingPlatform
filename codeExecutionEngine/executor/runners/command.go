@@ -10,23 +10,86 @@ import (
 	"time"
 )
 
+// Platform-specific resource management
+type ResourceManager interface {
+	SetupProcess(cmd *exec.Cmd, config models.ExecutionConfig) error
+	KillProcess(cmd *exec.Cmd) error
+	GetMemoryUsage(cmd *exec.Cmd) (int64, error)
+}
+
+// Unix-like systems (Linux, macOS)
+type UnixResourceManager struct{}
+
+func (m *UnixResourceManager) SetupProcess(cmd *exec.Cmd, config models.ExecutionConfig) error {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true, // Allow killing child processes
+	}
+
+	if runtime.GOOS == "linux" && config.MemoryLimitMB > 0 {
+		// TODO: Implement proper memory limits using cgroups
+		// For now, we'll just set basic process attributes
+		// Note: Setting resource limits directly is not supported in Go's syscall package
+		// We would need to use cgroups or other system-specific tools
+	}
+	return nil
+}
+
+func (m *UnixResourceManager) KillProcess(cmd *exec.Cmd) error {
+	if cmd.Process != nil {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	return nil
+}
+
+func (m *UnixResourceManager) GetMemoryUsage(cmd *exec.Cmd) (int64, error) {
+	if cmd.ProcessState == nil {
+		return 0, fmt.Errorf("process not completed")
+	}
+	// TODO: Implement proper memory usage tracking
+	// For now, return 0 as we need platform-specific implementation
+	return 0, nil
+}
+
+// Windows resource manager
+type WindowsResourceManager struct{}
+
+func (m *WindowsResourceManager) SetupProcess(cmd *exec.Cmd, config models.ExecutionConfig) error {
+	// Windows doesn't support easy memory limits
+	// We'll rely on the timeout mechanism
+	return nil
+}
+
+func (m *WindowsResourceManager) KillProcess(cmd *exec.Cmd) error {
+	if cmd.Process != nil {
+		return cmd.Process.Kill()
+	}
+	return nil
+}
+
+func (m *WindowsResourceManager) GetMemoryUsage(cmd *exec.Cmd) (int64, error) {
+	// TODO: Implement Windows-specific memory usage tracking
+	return 0, nil
+}
+
+// Get the appropriate resource manager for the current platform
+func getResourceManager() ResourceManager {
+	switch runtime.GOOS {
+	case "windows":
+		return &WindowsResourceManager{}
+	default:
+		return &UnixResourceManager{}
+	}
+}
+
 func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *models.ExecutionResult {
-	// Set up resource limits based on platform
-	if runtime.GOOS == "linux" {
-		// On Linux, we can set process attributes
-		if config.MemoryLimitMB > 0 {
-			// Note: For proper memory limits on Linux, consider using cgroups
-			// This is a simplified approach that just sets process attributes
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				// Basic process attributes
-			}
-		}
-	} else if runtime.GOOS == "windows" {
-		// On Windows, we can't easily set memory limits
-		// We'll rely on the timeout mechanism to prevent excessive resource usage
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			// On Windows, this helps with process termination
-			CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
+	// Get platform-specific resource manager
+	resourceManager := getResourceManager()
+
+	// Set up process with resource limits
+	if err := resourceManager.SetupProcess(cmd, config); err != nil {
+		return &models.ExecutionResult{
+			ExitCode: 1,
+			Stderr:   fmt.Sprintf("Error setting up process: %v", err),
 		}
 	}
 
@@ -119,9 +182,11 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 		// Process completed normally
 	case <-timeout:
 		// Process timed out
-		if cmd.Process != nil {
-			// Kill the process - this works on both Windows and Unix-like systems
-			cmd.Process.Kill()
+		if err := resourceManager.KillProcess(cmd); err != nil {
+			return &models.ExecutionResult{
+				ExitCode: 1,
+				Stderr:   fmt.Sprintf("Error killing timed out process: %v", err),
+			}
 		}
 		return &models.ExecutionResult{
 			ExitCode: 1,
@@ -142,15 +207,8 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 		}
 	}
 
-	// Get memory usage if available
-	var memoryUsage int64
-	if runtime.GOOS == "linux" && cmd.ProcessState != nil {
-		// On Linux, we can get memory usage from the process state
-		// Note: This is a simplified approach and may not be accurate
-		// For more accurate memory tracking, consider using cgroups or other system-specific tools
-		// For now, we'll just return 0 as we need to implement platform-specific memory tracking
-		memoryUsage = 0
-	}
+	// Get memory usage
+	memoryUsage, _ := resourceManager.GetMemoryUsage(cmd)
 
 	return &models.ExecutionResult{
 		Stdout:      string(stdoutBytes),

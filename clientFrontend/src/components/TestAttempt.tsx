@@ -1,9 +1,9 @@
 import React from 'react';
 import { Timer, ChevronLeft, ChevronRight, Save, AlertTriangle } from 'lucide-react';
-import { Test, Question } from '../types';
-import MCQQuestion from './questions/MCQQuestion';
-import SubjectiveQuestion from './questions/SubjectiveQuestion';
-import CodingQuestion from './questions/CodingQuestion';
+import { Test, Question, MCQQuestion, SubjectiveQuestion, CodingQuestion } from '../types';
+import MCQQuestionComponent from './questions/MCQQuestion';
+import SubjectiveQuestionComponent from './questions/SubjectiveQuestion';
+import CodingQuestionComponent from './questions/CodingQuestion';
 import QuestionNavigation from './QuestionNavigation';
 import TestTimer from './TestTimer';
 import TestHeader from './TestHeader';
@@ -19,8 +19,39 @@ export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
   const [showConfirmSubmit, setShowConfirmSubmit] = React.useState(false);
   const [timeExpired, setTimeExpired] = React.useState(false);
 
+  // Check if test has expired
+  const now = new Date();
+  if (now > test.endTime) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full mx-auto p-8 bg-white rounded-lg shadow-lg text-center">
+          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Expired</h2>
+          <p className="text-gray-600 mb-4">
+            This test has expired and can no longer be accessed.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if test hasn't started yet
+  if (now < test.startTime) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full mx-auto p-8 bg-white rounded-lg shadow-lg text-center">
+          <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Not Started</h2>
+          <p className="text-gray-600 mb-4">
+            This test has not started yet. Please wait until the scheduled start time.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const handleAnswerChange = (questionId: string, value: any) => {
-    setAnswers(prev => ({
+    setAnswers((prev: Record<string, any>) => ({
       ...prev,
       [questionId]: value
     }));
@@ -46,11 +77,11 @@ export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
 
     switch (question.type) {
       case 'mcq':
-        return <MCQQuestion {...commonProps} />;
+        return <MCQQuestionComponent {...commonProps} question={question as MCQQuestion} />;
       case 'subjective':
-        return <SubjectiveQuestion {...commonProps} />;
+        return <SubjectiveQuestionComponent {...commonProps} question={question as SubjectiveQuestion} />;
       case 'coding':
-        return <CodingQuestion {...commonProps} />;
+        return <CodingQuestionComponent {...commonProps} question={question as CodingQuestion} />;
       default:
         return null;
     }
@@ -73,7 +104,7 @@ export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <TestHeader title={test.title} />
-      
+
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-lg">
           <div className="p-6">
@@ -86,7 +117,7 @@ export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
                   Points: {currentQuestion.points}
                 </p>
               </div>
-              
+
               <TestTimer
                 endTime={test.endTime}
                 onTimeExpired={handleTimeExpired}
@@ -98,7 +129,7 @@ export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
             <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <button
-                  onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+                  onClick={() => setCurrentQuestionIndex((prev: number) => Math.max(0, prev - 1))}
                   disabled={currentQuestionIndex === 0}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -123,7 +154,7 @@ export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
                   </button>
                 ) : (
                   <button
-                    onClick={() => setCurrentQuestionIndex(prev => Math.min(test.questions.length - 1, prev + 1))}
+                    onClick={() => setCurrentQuestionIndex((prev: number) => Math.min(test.questions.length - 1, prev + 1))}
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
                     Next
