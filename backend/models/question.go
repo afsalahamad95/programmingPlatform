@@ -7,15 +7,16 @@ import (
 )
 
 type Question struct {
-	ID          primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Type        string            `json:"type" bson:"type"`
-	Subject     string            `json:"subject" bson:"subject"`
-	Content     string            `json:"content" bson:"content"`
-	Points      int               `json:"points" bson:"points"`
-	CreatedAt   time.Time         `json:"createdAt" bson:"createdAt"`
-	Options     []string          `json:"options,omitempty" bson:"options,omitempty"`
-	StarterCode string            `json:"starterCode,omitempty" bson:"starterCode,omitempty"`
-	TestCases   []TestCase        `json:"testCases,omitempty" bson:"testCases,omitempty"`
+	ID            primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	Type          string             `json:"type" bson:"type"`
+	Subject       string             `json:"subject" bson:"subject"`
+	Content       string             `json:"content" bson:"content"`
+	Points        int                `json:"points" bson:"points"`
+	CreatedAt     time.Time          `json:"createdAt" bson:"createdAt"`
+	Options       []string           `json:"options,omitempty" bson:"options,omitempty"`
+	StarterCode   string             `json:"starterCode,omitempty" bson:"starterCode,omitempty"`
+	TestCases     []TestCase         `json:"testCases,omitempty" bson:"testCases,omitempty"`
+	CorrectAnswer string             `json:"correctAnswer,omitempty" bson:"correctAnswer,omitempty"`
 }
 
 type TestCase struct {

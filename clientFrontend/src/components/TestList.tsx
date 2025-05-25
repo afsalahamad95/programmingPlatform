@@ -1,14 +1,14 @@
 import React from 'react';
-import { Calendar, Clock, Users, ArrowLeft, InboxIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, Clock, Users, InboxIcon } from 'lucide-react';
 import { Test } from '../types';
+import { useQuery } from 'react-query';
+import { getTests } from '../api';
 
-interface TestListProps {
-  tests: Test[];
-  onViewTest: (test: Test) => void;
-  onBack: () => void;
-}
+export default function TestList() {
+  const navigate = useNavigate();
+  const { data: tests, isLoading, error } = useQuery('tests', getTests);
 
-export default function TestList({ tests, onViewTest, onBack }: TestListProps) {
   const getTestStatus = (test: Test) => {
     const now = new Date();
     if (now < test.startTime) return 'scheduled';
@@ -23,16 +23,32 @@ export default function TestList({ tests, onViewTest, onBack }: TestListProps) {
     });
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mx-auto" />
+          <p className="mt-2 text-sm text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center text-red-600">
+          <p className="text-lg font-semibold">Error loading tests</p>
+          <p className="text-sm mt-1">Please try again later</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
           <Calendar className="w-6 h-6 text-indigo-600" />
           <h2 className="text-xl font-semibold text-gray-800">
             Scheduled Tests
@@ -40,7 +56,7 @@ export default function TestList({ tests, onViewTest, onBack }: TestListProps) {
         </div>
       </div>
 
-      {tests.length === 0 ? (
+      {(!tests || tests.length === 0) ? (
         <div className="p-12 text-center">
           <InboxIcon className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">
@@ -52,7 +68,7 @@ export default function TestList({ tests, onViewTest, onBack }: TestListProps) {
         </div>
       ) : (
         <div className="divide-y divide-gray-200">
-          {tests.map((test) => {
+          {tests.map((test: Test) => {
             const status = getTestStatus(test);
             const statusColors = {
               scheduled: 'bg-yellow-100 text-yellow-800',
@@ -64,7 +80,7 @@ export default function TestList({ tests, onViewTest, onBack }: TestListProps) {
               <div
                 key={test.id}
                 className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
-                onClick={() => onViewTest(test)}
+                onClick={() => navigate(`/tests/${test.id}`)}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>

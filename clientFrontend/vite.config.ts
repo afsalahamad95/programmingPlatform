@@ -22,6 +22,13 @@ export default defineConfig({
     fs: {
       // Allow serving files from node_modules for Monaco editor
       allow: ['..']
+    },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      }
     }
   }
 });

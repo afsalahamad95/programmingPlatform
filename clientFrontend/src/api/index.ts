@@ -92,13 +92,27 @@ export const createTest = async (data: any) => {
 };
 
 export const getTests = async () => {
-  const response = await api.get('/tests');
-  return response.data;
+  try {
+    const response = await api.get('/tests');
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return []; // Return empty array if no tests found or all expired
+    }
+    throw error;
+  }
 };
 
 export const getTest = async (id: string) => {
-  const response = await api.get(`/tests/${id}`);
-  return response.data;
+  try {
+    const response = await api.get(`/tests/${id}`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      throw new Error('Test not found or has expired');
+    }
+    throw error;
+  }
 };
 
 export const updateTest = async (id: string, data: any) => {
@@ -111,8 +125,15 @@ export const deleteTest = async (id: string) => {
 };
 
 export const submitTest = async (testId: string, submission: any) => {
-  const response = await api.post(`/tests/${testId}/submit`, submission);
-  return response.data;
+  try {
+    const response = await api.post(`/tests/${testId}/submit`, submission);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      throw new Error('Cannot submit: Test not found or has expired');
+    }
+    throw error;
+  }
 };
 
 // Users API

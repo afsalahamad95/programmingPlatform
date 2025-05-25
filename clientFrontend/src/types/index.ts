@@ -9,15 +9,17 @@ export interface TestCase {
 
 export interface BaseQuestion {
 	id: string;
-	text: string;
+	content: string;
 	type: QuestionType;
 	points: number;
+	subject: string;
+	createdAt?: string;
 }
 
 export interface MCQQuestion extends BaseQuestion {
 	type: "mcq";
 	options: string[];
-	correctAnswer: string;
+	correctAnswer?: string;
 }
 
 export interface SubjectiveQuestion extends BaseQuestion {
@@ -27,7 +29,7 @@ export interface SubjectiveQuestion extends BaseQuestion {
 
 export interface CodingQuestion extends BaseQuestion {
 	type: "coding";
-	initialCode: string;
+	starterCode: string;
 	testCases: TestCase[];
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"qms-backend/db"
@@ -21,6 +22,9 @@ func CreateQuestion(c *fiber.Ctx) error {
 	if err := c.BodyParser(question); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
+
+	// Ensure question type is lowercase
+	question.Type = strings.ToLower(question.Type)
 
 	question.CreatedAt = time.Now()
 	result, err := db.QuestionsCollection.InsertOne(context.Background(), question)
@@ -102,6 +106,9 @@ func UpdateQuestion(c *fiber.Ctx) error {
 	if err := c.BodyParser(question); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
+
+	// Ensure question type is lowercase
+	question.Type = strings.ToLower(question.Type)
 
 	update := bson.M{
 		"$set": question,

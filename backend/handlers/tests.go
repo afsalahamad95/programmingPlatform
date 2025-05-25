@@ -13,144 +13,112 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // CreateTest handles creating a new test document
 func CreateTest(c *fiber.Ctx) error {
-	// Log the incoming request body for debugging purposes
-	log.Printf("Incoming request body: %v", string(c.Body()))
+	// We expect question IDs and allowed student IDs as strings in the incoming request
+	type CreateTestRequest struct {
+		Title           string    `json:"title"`
+		Description     string    `json:"description"`
+		StartTime       time.Time `json:"startTime"`
+		EndTime         time.Time `json:"endTime"`
+		Duration        int       `json:"duration"`
+		Questions       []string  `json:"questions"`
+		AllowedStudents []string  `json:"allowedStudents"`
+	}
 
-	// Parse the incoming request body into the Test struct
-	test := new(models.Test)
-	if err := c.BodyParser(test); err != nil {
-		log.Printf("Error unmarshalling body into Test struct: %v", err)
-		log.Printf("Raw request body: %v", string(c.Body()))
+	req := new(CreateTestRequest)
+	if err := c.BodyParser(req); err != nil {
+		log.Printf("Error unmarshalling body into CreateTestRequest struct: %v", err)
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	// Log the parsed Test object
-	log.Printf("Parsed Test object: %+v", test)
-
-	// Convert the allowedStudents (string IDs) into ObjectIDs after validation
-	var allowedStudentIDs []string
-	for _, studentIDStr := range test.AllowedStudents {
-		// Validate if the studentID is a valid ObjectID
-		if !isValidObjectID(studentIDStr) {
-			log.Printf("Invalid student ID format: %v", studentIDStr)
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid student ID format"})
-		}
-		allowedStudentIDs = append(allowedStudentIDs, studentIDStr)
+	// Prepare the TestBSON model for DB insertion
+	testBSON := models.TestBSON{
+		Title:           req.Title,
+		Description:     req.Description,
+		StartTime:       req.StartTime,
+		EndTime:         req.EndTime,
+		Duration:        req.Duration,
+		AllowedStudents: req.AllowedStudents, // Assign strings directly
 	}
-	test.AllowedStudents = allowedStudentIDs
 
-	// Convert the question IDs (string format) to ObjectIDs after validation
-	var questionStrings []string
-	for _, questionIDStr := range test.Questions {
-		// Validate if the questionID is a valid ObjectID
-		if !isValidObjectID(questionIDStr) {
-			log.Printf("Invalid question ID format: %v", questionIDStr)
+	// Convert question string IDs to ObjectIDs for DB storage
+	for _, qIDStr := range req.Questions {
+		objID, err := primitive.ObjectIDFromHex(qIDStr)
+		if err != nil {
+			log.Printf("Invalid question ID format in create request: %v", qIDStr)
 			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid question ID format"})
 		}
-		questionStrings = append(questionStrings, questionIDStr)
+		testBSON.Questions = append(testBSON.Questions, objID)
 	}
 
-	// Set the validated strings back to the Test struct
-	test.Questions = questionStrings
-
-	// Log the parsed Test object with validated ObjectIDs
-	log.Printf("Parsed Test object with ObjectIDs: %+v", test)
-
 	// Insert the test document into the database
-	result, err := db.TestsCollection.InsertOne(context.Background(), test)
+	result, err := db.TestsCollection.InsertOne(context.Background(), testBSON)
 	if err != nil {
 		log.Printf("Failed to create test: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create test"})
 	}
 
-	// Set the inserted ID on the Test object
-	test.ID = result.InsertedID.(primitive.ObjectID).Hex()
-	return c.Status(http.StatusCreated).JSON(test)
+	// Fetch and return the created test with full question details (similar to GetTest logic)
+	createdTestID := result.InsertedID.(primitive.ObjectID)
+	var createdTestBSON models.TestBSON
+	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": createdTestID}).Decode(&createdTestBSON)
+	if err != nil {
+		log.Printf("Failed to fetch created test after insertion: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve created test details"})
+	}
+
+	// Convert TestBSON to models.Test (fetch questions)
+	createdTest, err := hydrateTest(createdTestBSON)
+	if err != nil {
+		log.Printf("Failed to hydrate created test: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare created test response"})
+	}
+
+	return c.Status(http.StatusCreated).JSON(createdTest)
 }
 
-// GetTests retrieves all the tests from the database
+// GetTests retrieves all the tests from the database with full question details
 func GetTests(c *fiber.Ctx) error {
-	var tests []models.Test
-	cursor, err := db.TestsCollection.Find(context.Background(), bson.M{})
+	now := time.Now()
+
+	filter := bson.M{
+		"endTime": bson.M{
+			"$gt": now,
+		},
+	}
+
+	cursor, err := db.TestsCollection.Find(context.Background(), filter)
 	if err != nil {
-		log.Printf("Failed to fetch tests: %v", err)
+		log.Printf("Failed to fetch tests from DB: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch tests"})
 	}
 	defer cursor.Close(context.Background())
 
-	// First, try to decode into a slice of bson.M to inspect the raw data
-	var rawTests []bson.M
-	if err := cursor.All(context.Background(), &rawTests); err != nil {
-		log.Printf("Failed to decode raw tests: %v", err)
+	var testsBSON []models.TestBSON
+	if err := cursor.All(context.Background(), &testsBSON); err != nil {
+		log.Printf("Failed to decode tests from DB into TestBSON: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode tests"})
 	}
 
-	// Now convert each raw test into our Test struct
-	tests = make([]models.Test, len(rawTests))
-	for i, rawTest := range rawTests {
-		// Convert _id to string
-		if id, ok := rawTest["_id"].(primitive.ObjectID); ok {
-			tests[i].ID = id.Hex()
+	var tests []models.Test // Slice to hold tests with full Question objects
+	for _, testBSON := range testsBSON {
+		test, err := hydrateTest(testBSON)
+		if err != nil {
+			log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+			// Decide how to handle hydration errors for multiple tests
+			continue // Skip this test on hydration error
 		}
-
-		// Convert title
-		if title, ok := rawTest["title"].(string); ok {
-			tests[i].Title = title
-		}
-
-		// Convert description
-		if desc, ok := rawTest["description"].(string); ok {
-			tests[i].Description = desc
-		}
-
-		// Convert startTime
-		if startTime, ok := rawTest["startTime"].(primitive.DateTime); ok {
-			tests[i].StartTime = time.Unix(int64(startTime)/1000, 0)
-		}
-
-		// Convert endTime
-		if endTime, ok := rawTest["endTime"].(primitive.DateTime); ok {
-			tests[i].EndTime = time.Unix(int64(endTime)/1000, 0)
-		}
-
-		// Convert duration
-		if duration, ok := rawTest["duration"].(int32); ok {
-			tests[i].Duration = int(duration)
-		}
-
-		// Convert questions array
-		if questions, ok := rawTest["questions"].(primitive.A); ok {
-			tests[i].Questions = make([]string, len(questions))
-			for j, q := range questions {
-				if qID, ok := q.(primitive.ObjectID); ok {
-					tests[i].Questions[j] = qID.Hex()
-				} else if qStr, ok := q.(string); ok {
-					tests[i].Questions[j] = qStr
-				}
-			}
-		}
-
-		// Convert allowedStudents array
-		if students, ok := rawTest["allowedStudents"].(primitive.A); ok {
-			tests[i].AllowedStudents = make([]string, len(students))
-			for j, s := range students {
-				if sID, ok := s.(primitive.ObjectID); ok {
-					tests[i].AllowedStudents[j] = sID.Hex()
-				} else if sStr, ok := s.(string); ok {
-					tests[i].AllowedStudents[j] = sStr
-				}
-			}
-		}
+		tests = append(tests, test)
 	}
 
 	return c.JSON(tests)
 }
 
-// GetTest retrieves a single test by its ID
+// GetTest retrieves a single test by its ID with full question details
 func GetTest(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
@@ -158,11 +126,30 @@ func GetTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
-	var test models.Test
-	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&test)
+	now := time.Now()
+	filter := bson.M{
+		"_id": id,
+		"endTime": bson.M{
+			"$gt": now,
+		},
+	}
+
+	var testBSON models.TestBSON
+	err = db.TestsCollection.FindOne(context.Background(), filter).Decode(&testBSON)
 	if err != nil {
-		log.Printf("Test not found for ID %s: %v", id.Hex(), err)
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
+		if err == mongo.ErrNoDocuments {
+			log.Printf("Test not found or expired for ID %s: %v", id.Hex(), err)
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found or has expired"})
+		}
+		log.Printf("Error fetching test from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch test"})
+	}
+
+	// Convert TestBSON to models.Test (fetch questions)
+	test, err := hydrateTest(testBSON)
+	if err != nil {
+		log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare test response"})
 	}
 
 	return c.JSON(test)
@@ -175,50 +162,47 @@ func UpdateTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
-	test := new(models.Test)
-	if err := c.BodyParser(test); err != nil {
+	// We expect question IDs and allowed student IDs as strings in the incoming request
+	type UpdateTestRequest struct {
+		Title           string    `json:"title"`
+		Description     string    `json:"description"`
+		StartTime       time.Time `json:"startTime"`
+		EndTime         time.Time `json:"endTime"`
+		Duration        int       `json:"duration"`
+		Questions       []string  `json:"questions"`
+		AllowedStudents []string  `json:"allowedStudents"`
+	}
+
+	req := new(UpdateTestRequest)
+	if err := c.BodyParser(req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	// Convert and validate IDs, but keep as strings
-	var allowedStudentIDs []string
-	for _, studentIDStr := range test.AllowedStudents {
-		// Validate if the studentID is a valid ObjectID
-		if !isValidObjectID(studentIDStr) {
-			log.Printf("Invalid student ID format: %v", studentIDStr)
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid student ID format"})
-		}
-		allowedStudentIDs = append(allowedStudentIDs, studentIDStr)
-	}
-
-	var questionStrings []string
-	for _, questionIDStr := range test.Questions {
-		// Validate if the questionID is a valid ObjectID
-		if !isValidObjectID(questionIDStr) {
-			log.Printf("Invalid question ID format: %v", questionIDStr)
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid question ID format"})
-		}
-		questionStrings = append(questionStrings, questionIDStr)
-	}
-
-	// Set the validated strings back to the Test struct
-	test.AllowedStudents = allowedStudentIDs
-	test.Questions = questionStrings
-
-	// Filtering out the _id field (MongoDB doesn't allow updates to _id)
-	update := bson.M{
+	// Prepare the update data for DB (using TestBSON structure for DB update)
+	updateBSON := bson.M{
 		"$set": bson.M{
-			"title":           test.Title,
-			"description":     test.Description,
-			"startTime":       test.StartTime,
-			"endTime":         test.EndTime,
-			"duration":        test.Duration,
-			"questions":       test.Questions,
-			"allowedStudents": test.AllowedStudents,
+			"title":           req.Title,
+			"description":     req.Description,
+			"startTime":       req.StartTime,
+			"endTime":         req.EndTime,
+			"duration":        req.Duration,
+			"allowedStudents": req.AllowedStudents, // Assign strings directly
 		},
 	}
 
-	result, err := db.TestsCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
+	// Convert question string IDs to ObjectIDs for DB update
+	var questionIDsForDB []primitive.ObjectID
+	for _, qIDStr := range req.Questions {
+		objID, err := primitive.ObjectIDFromHex(qIDStr)
+		if err != nil {
+			log.Printf("Invalid question ID format in update request: %v", qIDStr)
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid question ID format"})
+		}
+		questionIDsForDB = append(questionIDsForDB, objID)
+	}
+	updateBSON["$set"].(bson.M)["questions"] = questionIDsForDB
+
+	result, err := db.TestsCollection.UpdateOne(context.Background(), bson.M{"_id": id}, updateBSON)
 	if err != nil {
 		log.Printf("Failed to update test: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update test"})
@@ -228,7 +212,61 @@ func UpdateTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
 	}
 
-	return c.JSON(test)
+	// After updating, fetch and return the full test object with questions (similar logic to GetTest)
+	var updatedTestBSON models.TestBSON
+	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&updatedTestBSON)
+	if err != nil {
+		log.Printf("Failed to fetch updated test after update: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve updated test details"})
+	}
+
+	updatedTest, err := hydrateTest(updatedTestBSON)
+	if err != nil {
+		log.Printf("Failed to hydrate updated test: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare updated test response"})
+	}
+
+	return c.JSON(updatedTest)
+}
+
+// hydrateTest fetches full Question objects for a TestBSON and converts it to models.Test
+func hydrateTest(testBSON models.TestBSON) (models.Test, error) {
+	var test models.Test
+
+	// Copy basic fields from TestBSON
+	test.ID = testBSON.ID.Hex()
+	test.Title = testBSON.Title
+	test.Description = testBSON.Description
+	test.StartTime = testBSON.StartTime
+	test.EndTime = testBSON.EndTime
+	test.Duration = testBSON.Duration
+
+	// Convert allowed student ObjectIDs to strings for the response
+	// Since TestBSON.AllowedStudents is now []string, simply assign or copy
+	test.AllowedStudents = testBSON.AllowedStudents
+
+	var questions []models.Question
+	// Fetch full question details using the ObjectIDs from TestBSON
+	if len(testBSON.Questions) > 0 {
+		cursor, err := db.QuestionsCollection.Find(context.Background(), bson.M{
+			"_id": bson.M{"$in": testBSON.Questions},
+		})
+		if err != nil {
+			log.Printf("Failed to fetch questions for test %s during hydration: %v", testBSON.ID.Hex(), err)
+			return models.Test{}, err // Return error to calling handler
+		}
+		defer cursor.Close(context.Background())
+
+		if err := cursor.All(context.Background(), &questions); err != nil {
+			log.Printf("Failed to decode questions for test %s during hydration: %v", testBSON.ID.Hex(), err)
+			return models.Test{}, err // Return error to calling handler
+		}
+	}
+
+	// Assign the fetched full question objects to the Test struct
+	test.Questions = questions
+
+	return test, nil
 }
 
 // DeleteTest deletes a test by its ID
