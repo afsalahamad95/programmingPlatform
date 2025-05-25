@@ -142,5 +142,40 @@ func SeedInitialUsers() {
 		fmt.Printf("Instructor user already exists with email: %s\n", instructorEmail)
 	}
 
+	// Create test student user
+	studentEmail := "student@example.com"
+	err = usersCollection.FindOne(context.Background(), bson.M{"email": studentEmail}).Decode(&existingUser)
+	if err != nil && err != mongo.ErrNoDocuments {
+		log.Fatal("Error checking for existing student:", err)
+	}
+
+	if err == mongo.ErrNoDocuments {
+		hashedPassword, err := hashUserPassword("student123")
+		if err != nil {
+			log.Fatal("Failed to hash password:", err)
+		}
+
+		now := time.Now()
+		studentUser := AuthUser{
+			ID:           primitive.NewObjectID(),
+			Email:        studentEmail,
+			PasswordHash: hashedPassword,
+			FirstName:    "Test",
+			LastName:     "Student",
+			Role:         "student",
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+
+		_, err = usersCollection.InsertOne(context.Background(), studentUser)
+		if err != nil {
+			log.Fatal("Failed to insert student user:", err)
+		}
+
+		fmt.Printf("Created student user with email: %s and password: student123\n", studentEmail)
+	} else {
+		fmt.Printf("Student user already exists with email: %s\n", studentEmail)
+	}
+
 	fmt.Println("User seeding completed successfully")
 }

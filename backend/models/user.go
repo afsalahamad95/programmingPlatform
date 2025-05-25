@@ -6,15 +6,24 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// User represents a user in the system
 type User struct {
-	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	FullName     string            `json:"fullName" bson:"fullName"`
-	Email        string            `json:"email" bson:"email"`
-	Phone        string            `json:"phone" bson:"phone"`
-	Institution  string            `json:"institution" bson:"institution"`
-	Department   string            `json:"department" bson:"department"`
-	StudentID    string            `json:"studentId,omitempty" bson:"studentId,omitempty"`
-	Bio          string            `json:"bio" bson:"bio"`
-	CreatedAt    time.Time         `json:"createdAt" bson:"createdAt"`
-	UpdatedAt    time.Time         `json:"updatedAt" bson:"updatedAt"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Email       string             `bson:"email" json:"email"`
+	Password    string             `bson:"password" json:"-"` // Password is not sent to the client
+	FullName    string             `bson:"fullName" json:"fullName"`
+	Institution string             `bson:"institution" json:"institution"`
+	Department  string             `bson:"department" json:"department"`
+	StudentID   string             `bson:"studentId" json:"studentId"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+// Session represents a user's active session
+type Session struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID    primitive.ObjectID `bson:"userId" json:"userId"`
+	Token     string             `bson:"token" json:"token"`
+	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
+	ExpiresAt time.Time          `bson:"expiresAt" json:"expiresAt"`
 }

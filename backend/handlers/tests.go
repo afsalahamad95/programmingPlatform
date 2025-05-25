@@ -260,6 +260,16 @@ func SubmitTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
+	// Validate student ID
+	if submission.StudentID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Student ID is required"})
+	}
+
+	// Validate test ID
+	if submission.TestID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Test ID is required"})
+	}
+
 	// Set the current submission timestamp
 	submission.SubmittedAt = time.Now()
 

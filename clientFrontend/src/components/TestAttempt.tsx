@@ -1,193 +1,222 @@
-import React from 'react';
-import { Timer, ChevronLeft, ChevronRight, Save, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { getTest, submitTest } from '../api';
+import { useAuth } from '../contexts/AuthContext';
 import { Test, Question, MCQQuestion, SubjectiveQuestion, CodingQuestion } from '../types';
-import MCQQuestionComponent from './questions/MCQQuestion';
-import SubjectiveQuestionComponent from './questions/SubjectiveQuestion';
-import CodingQuestionComponent from './questions/CodingQuestion';
-import QuestionNavigation from './QuestionNavigation';
-import TestTimer from './TestTimer';
-import TestHeader from './TestHeader';
 
-interface TestAttemptProps {
-  test: Test;
-  onSubmit: (answers: Record<string, any>) => void;
-}
+// Type predicates
+const isMCQQuestion = (question: Question): question is MCQQuestion => question.type === 'mcq';
+const isSubjectiveQuestion = (question: Question): question is SubjectiveQuestion => question.type === 'subjective';
+const isCodingQuestion = (question: Question): question is CodingQuestion => question.type === 'coding';
 
-export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
-  const [answers, setAnswers] = React.useState<Record<string, any>>({});
-  const [showConfirmSubmit, setShowConfirmSubmit] = React.useState(false);
-  const [timeExpired, setTimeExpired] = React.useState(false);
+const TestAttempt: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
-  // Check if test has expired
-  const now = new Date();
-  if (now > test.endTime) {
+  const { data: test, isLoading } = useQuery<Test>(
+    ['test', id],
+    () => getTest(id!),
+    {
+      enabled: !!id,
+    }
+  );
+
+  const submitTestMutation = useMutation(
+    (data: { testId: string; answers: Record<string, string> }) =>
+      submitTest(data.testId, {
+        testId: data.testId,
+        studentId: user?.id,
+        answers: data.answers,
+      }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('tests');
+        queryClient.invalidateQueries('testResults');
+        navigate('/');
+      },
+      onError: (error) => {
+        console.error('Failed to submit test:', error);
+      },
+    }
+  );
+
+  if (isLoading || !test) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full mx-auto p-8 bg-white rounded-lg shadow-lg text-center">
-          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Expired</h2>
-          <p className="text-gray-600 mb-4">
-            This test has expired and can no longer be accessed.
-          </p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
-
-  // Check if test hasn't started yet
-  if (now < test.startTime) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full mx-auto p-8 bg-white rounded-lg shadow-lg text-center">
-          <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Test Not Started</h2>
-          <p className="text-gray-600 mb-4">
-            This test has not started yet. Please wait until the scheduled start time.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const handleAnswerChange = (questionId: string, value: any) => {
-    setAnswers((prev: Record<string, any>) => ({
-      ...prev,
-      [questionId]: value
-    }));
-  };
-
-  const handleSubmit = () => {
-    onSubmit(answers);
-  };
-
-  const handleTimeExpired = () => {
-    setTimeExpired(true);
-    handleSubmit();
-  };
 
   const currentQuestion = test.questions[currentQuestionIndex];
 
-  const renderQuestion = (question: Question) => {
-    const commonProps = {
-      question,
-      answer: answers[question.id],
-      onChange: (value: any) => handleAnswerChange(question.id, value)
-    };
+  const handleAnswerChange = (questionId: string, answer: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: answer,
+    }));
+  };
 
-    switch (question.type) {
-      case 'mcq':
-        return <MCQQuestionComponent {...commonProps} question={question as MCQQuestion} />;
-      case 'subjective':
-        return <SubjectiveQuestionComponent {...commonProps} question={question as SubjectiveQuestion} />;
-      case 'coding':
-        return <CodingQuestionComponent {...commonProps} question={question as CodingQuestion} />;
-      default:
-        return null;
+  const handleNext = () => {
+    if (currentQuestionIndex < test.questions.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+    } else {
+      setShowConfirmation(true);
     }
   };
 
-  if (timeExpired) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full mx-auto p-8 bg-white rounded-lg shadow-lg text-center">
-          <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Time's Up!</h2>
-          <p className="text-gray-600 mb-4">
-            Your test has been automatically submitted as the allocated time has expired.
-          </p>
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex((prev) => prev - 1);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!user) {
+      console.error('User not authenticated');
+      return;
+    }
+
+    submitTestMutation.mutate({
+      testId: test.id,
+      answers,
+    });
+  };
+
+  const renderQuestion = (question: Question) => {
+    if (isMCQQuestion(question)) {
+      return (
+        <div>
+          <p className="text-gray-700">{question.text}</p>
+          <div className="mt-4 space-y-4">
+            {question.options.map((option: string) => (
+              <label
+                key={option}
+                className="flex items-center space-x-3 cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  name={`question-${question.id}`}
+                  value={option}
+                  checked={answers[question.id] === option}
+                  onChange={(e) =>
+                    handleAnswerChange(question.id, e.target.value)
+                  }
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <span className="text-gray-700">{option}</span>
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
+
+    if (isSubjectiveQuestion(question)) {
+      return (
+        <div>
+          <p className="text-gray-700">{question.text}</p>
+          <div className="mt-4">
+            <textarea
+              value={answers[question.id] || ''}
+              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+              maxLength={question.maxLength}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              rows={4}
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Maximum {question.maxLength} characters
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (isCodingQuestion(question)) {
+      return (
+        <div>
+          <p className="text-gray-700">{question.text}</p>
+          <div className="mt-4">
+            <textarea
+              value={answers[question.id] || question.initialCode}
+              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+              className="mt-1 block w-full font-mono border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              rows={10}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <TestHeader title={test.title} />
-
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-lg">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">
-                  Question {currentQuestionIndex + 1} of {test.questions.length}
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Points: {currentQuestion.points}
-                </p>
-              </div>
-
-              <TestTimer
-                endTime={test.endTime}
-                onTimeExpired={handleTimeExpired}
-              />
-            </div>
-
+    <div className="max-w-3xl mx-auto">
+      <div className="bg-white shadow sm:rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className="text-lg font-medium text-gray-900">
+            Question {currentQuestionIndex + 1} of {test.questions.length}
+          </h3>
+          <div className="mt-4">
             {renderQuestion(currentQuestion)}
-
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => setCurrentQuestionIndex((prev: number) => Math.max(0, prev - 1))}
-                  disabled={currentQuestionIndex === 0}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </button>
-
-                <QuestionNavigation
-                  questions={test.questions}
-                  currentIndex={currentQuestionIndex}
-                  answers={answers}
-                  onQuestionSelect={setCurrentQuestionIndex}
-                />
-
-                {currentQuestionIndex === test.questions.length - 1 ? (
-                  <button
-                    onClick={() => setShowConfirmSubmit(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Submit Test
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setCurrentQuestionIndex((prev: number) => Math.min(test.questions.length - 1, prev + 1))}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </button>
-                )}
-              </div>
-            </div>
+          </div>
+          <div className="mt-6 flex justify-between">
+            <button
+              onClick={handlePrevious}
+              disabled={currentQuestionIndex === 0}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              onClick={handleNext}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              {currentQuestionIndex === test.questions.length - 1
+                ? 'Review'
+                : 'Next'}
+            </button>
           </div>
         </div>
       </div>
 
-      {showConfirmSubmit && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Confirm Submission
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to submit your test? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-4">
+      {showConfirmation && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+          <div className="bg-white rounded-lg px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="sm:flex sm:items-start">
+              <div className="mt-3 text-center sm:mt-0 sm:text-left">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Submit Test
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to submit your test? You cannot change
+                    your answers after submission.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
               <button
-                onClick={() => setShowConfirmSubmit(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                type="button"
+                onClick={handleSubmit}
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
               >
-                Cancel
+                Submit
               </button>
               <button
-                onClick={handleSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-md"
+                type="button"
+                onClick={() => setShowConfirmation(false)}
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm"
               >
-                Confirm Submit
+                Cancel
               </button>
             </div>
           </div>
@@ -195,4 +224,6 @@ export default function TestAttempt({ test, onSubmit }: TestAttemptProps) {
       )}
     </div>
   );
-}
+};
+
+export default TestAttempt;

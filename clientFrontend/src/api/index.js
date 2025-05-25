@@ -100,6 +100,11 @@ export const deleteTest = async (id) => {
 	await api.delete(`/tests/${id}`);
 };
 
+export const getTestResults = async () => {
+	const response = await api.get('/test-results');
+	return response.data;
+};
+
 export const submitTest = async (id, data) => {
 	const response = await api.post(`/tests/${id}/submit`, data);
 	return response.data;
@@ -137,7 +142,7 @@ export const createChallenge = async (data) => {
 };
 
 export const getChallenges = async (params) => {
-	const response = await api.get("/challenges", { params });
+	const response = await api.get("/challenges", {params});
 	return response.data;
 };
 
@@ -198,3 +203,16 @@ export const getUserChallengeAttempts = async (userId) => {
 	const response = await api.get(`/challenges/user/${userId}/attempts`);
 	return response.data;
 };
+
+// Auth API
+export const login = async (credentials) => {
+	const response = await api.post('/auth/login', credentials);
+	return response.data;
+};
+
+export const logout = async () => {
+	const response = await api.post('/auth/logout');
+	return response.data;
+};
+
+export {api};

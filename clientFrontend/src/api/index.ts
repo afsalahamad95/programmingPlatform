@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_URL = 'http://localhost:3000/api';
 
 // Create axios instance with default config
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -11,10 +11,15 @@ const api = axios.create({
   timeout: 5000, // 5 seconds timeout
 });
 
-// Add request interceptor for logging
+// Add request interceptor for logging and auth
 api.interceptors.request.use(
   (config) => {
-    console.log(`🚀 Making ${config.method?.toUpperCase()} request to ${config.url}`);
+    // Add auth token to requests if it exists
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    console.log(`🚀 Making ${config.method?.toUpperCase()} request to ${config.url}`, config.data);
     return config;
   },
   (error) => {
@@ -26,11 +31,25 @@ api.interceptors.request.use(
 // Add response interceptor for logging
 api.interceptors.response.use(
   (response) => {
-    console.log(`✅ Response received from ${response.config.url}:`, response.status);
+    console.log(`✅ Response received from ${response.config.url}:`, response.status, response.data);
     return response;
   },
   (error) => {
-    console.error('❌ Response error:', error.response?.status, error.response?.data || error.message);
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('❌ Response error:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers,
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('❌ No response received:', error.request);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('❌ Request setup error:', error.message);
+    }
     return Promise.reject(error);
   }
 );
@@ -91,14 +110,14 @@ export const deleteTest = async (id: string) => {
   await api.delete(`/tests/${id}`);
 };
 
-export const submitTest = async (id: string, data: any) => {
-  const response = await api.post(`/tests/${id}/submit`, data);
+export const submitTest = async (testId: string, submission: any) => {
+  const response = await api.post(`/tests/${testId}/submit`, submission);
   return response.data;
 };
 
 // Users API
-export const createUser = async (data: any) => {
-  const response = await api.post('/users', data);
+export const createUser = async (userData: any) => {
+  const response = await api.post('/users', userData);
   return response.data;
 };
 
@@ -112,8 +131,8 @@ export const getUser = async (id: string) => {
   return response.data;
 };
 
-export const updateUser = async (id: string, data: any) => {
-  const response = await api.put(`/users/${id}`, data);
+export const updateUser = async (id: string, userData: any) => {
+  const response = await api.put(`/users/${id}`, userData);
   return response.data;
 };
 
@@ -158,5 +177,25 @@ export const getChallengeAttempts = async (id: string) => {
 
 export const getUserChallengeAttempts = async (userId: string) => {
   const response = await api.get(`/challenges/user/${userId}/attempts`);
+  return response.data;
+};
+
+// Auth API functions
+export const login = async (credentials: { email: string; password: string }) => {
+  const response = await api.post('/auth/login', credentials);
+  return response.data;
+};
+
+export const logout = async () => {
+  const response = await api.post('/auth/logout', {}, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }
+  });
+  return response.data;
+};
+
+export const getCurrentUser = async () => {
+  const response = await api.get('/auth/me');
   return response.data;
 };

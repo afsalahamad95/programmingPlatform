@@ -210,61 +210,118 @@ func GenerateJWT(user models.AuthUser) (string, error) {
 	return tokenString, err
 }
 
-// Login handles email/password authentication
-func Login(c *fiber.Ctx) error {
-	var req models.LoginRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 
-	// Validate required fields
-	if req.Email == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email and password are required",
-		})
+// Login handles user authentication
+func Login(c *fiber.Ctx) error {
+	// Parse the login request
+	req := new(LoginRequest)
+	if err := c.BodyParser(req); err != nil {
+		log.Printf("Error parsing login request: %v", err)
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	// Find the user by email
 	var user models.AuthUser
-	err := db.UsersCollection.FindOne(
-		context.Background(),
-		bson.M{"email": strings.ToLower(req.Email)},
-	).Decode(&user)
-
+	err := db.UsersCollection.FindOne(context.Background(), bson.M{"email": req.Email}).Decode(&user)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid email or password",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to check user credentials",
-		})
+		log.Printf("User not found for email %s: %v", req.Email, err)
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid email or password"})
 	}
 
-	// Check password
+	// Check password hash
 	if !CheckPasswordHash(req.Password, user.PasswordHash) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid email or password",
-		})
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid email or password"})
 	}
 
 	// Generate JWT token
 	token, err := GenerateJWT(user)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to generate authentication token",
-		})
+		log.Printf("Failed to generate token: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
 	}
 
-	// Return the user and token
-	user.PasswordHash = "" // Don't send the password hash to the client
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+	// Return the user data and token
+	return c.JSON(fiber.Map{
 		"token": token,
-		"user":  user,
-		"role":  user.Role,
+		"user": fiber.Map{
+			"id":        user.ID,
+			"email":     user.Email,
+			"firstName": user.FirstName,
+			"lastName":  user.LastName,
+			"role":      user.Role,
+		},
+	})
+}
+
+// Logout handles user logout
+func Logout(c *fiber.Ctx) error {
+	// Get the session token from the cookie
+	token := c.Cookies("session_token")
+	if token == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "No session token found"})
+	}
+
+	// Delete the session from the database
+	_, err := db.SessionsCollection.DeleteOne(context.Background(), bson.M{"token": token})
+	if err != nil {
+		log.Printf("Failed to delete session: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to logout"})
+	}
+
+	// Clear the session cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HTTPOnly: true,
+		Secure:   true,
+		SameSite: "Strict",
+	})
+
+	return c.SendStatus(http.StatusOK)
+}
+
+// GetCurrentUser returns the current user's information
+func GetCurrentUser(c *fiber.Ctx) error {
+	// Get the session token from the cookie
+	token := c.Cookies("session_token")
+	if token == "" {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Not authenticated"})
+	}
+
+	// Find the session in the database
+	var session models.Session
+	err := db.SessionsCollection.FindOne(context.Background(), bson.M{"token": token}).Decode(&session)
+	if err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
+	}
+
+	// Check if the session has expired
+	if time.Now().After(session.ExpiresAt) {
+		// Delete the expired session
+		db.SessionsCollection.DeleteOne(context.Background(), bson.M{"token": token})
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Session expired"})
+	}
+
+	// Find the user
+	var user models.User
+	err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": session.UserID}).Decode(&user)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get user information"})
+	}
+
+	// Return the user data (excluding sensitive information)
+	return c.JSON(fiber.Map{
+		"id":          user.ID,
+		"email":       user.Email,
+		"fullName":    user.FullName,
+		"institution": user.Institution,
+		"department":  user.Department,
+		"studentId":   user.StudentID,
 	})
 }
 
@@ -796,45 +853,4 @@ func RoleMiddleware(roles ...string) fiber.Handler {
 			"error": "Access denied: insufficient permissions",
 		})
 	}
-}
-
-// GetCurrentUser gets the authenticated user's details
-func GetCurrentUser(c *fiber.Ctx) error {
-	// Get the user ID from the context (set by AuthMiddleware)
-	userID := c.Locals("userId")
-	if userID == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "User not authenticated",
-		})
-	}
-
-	// Convert the user ID to ObjectID
-	id, err := primitive.ObjectIDFromHex(userID.(string))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
-	}
-
-	// Find the user
-	var user models.AuthUser
-	err = db.UsersCollection.FindOne(
-		context.Background(),
-		bson.M{"_id": id},
-	).Decode(&user)
-
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get user details",
-		})
-	}
-
-	// Return the user details
-	user.PasswordHash = "" // Don't send the password hash to the client
-	return c.Status(fiber.StatusOK).JSON(user)
 }

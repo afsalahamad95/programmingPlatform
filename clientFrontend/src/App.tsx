@@ -9,6 +9,8 @@ import { useQuery } from 'react-query';
 import { getTests, getQuestions } from './api';
 import { Question, Test } from './types';
 import { Loader2 } from 'lucide-react';
+import { AuthProvider } from './contexts/AuthContext';
+import AppContent from './components/AppContent';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,12 +66,12 @@ function TestApp() {
       ...selectedTest,
       questions: Array.isArray(selectedTest.questions)
         ? selectedTest.questions
-            .map(q =>
-              typeof q === 'string'
-                ? questions.find((question: Question) => question.id === q)
-                : q // If already a Question object, just return it
-            )
-            .filter((q): q is Question => !!q)
+          .map(q =>
+            typeof q === 'string'
+              ? questions.find((question: Question) => question.id === q)
+              : q // If already a Question object, just return it
+          )
+          .filter((q): q is Question => !!q)
         : []
     };
 
@@ -140,12 +142,14 @@ function Layout() {
   );
 }
 
-export default function App() {
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Layout />
-      </Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
+
+export default App;

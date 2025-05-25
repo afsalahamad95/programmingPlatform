@@ -7,32 +7,31 @@ export interface TestCase {
 	description?: string;
 }
 
-export interface Question {
+export interface BaseQuestion {
 	id: string;
+	text: string;
 	type: QuestionType;
-	subject: string;
-	content: string;
 	points: number;
-	createdAt: Date;
 }
 
-export interface MCQQuestion extends Question {
+export interface MCQQuestion extends BaseQuestion {
 	type: "mcq";
 	options: string[];
-	correctOption: number;
+	correctAnswer: string;
 }
 
-export interface SubjectiveQuestion extends Question {
+export interface SubjectiveQuestion extends BaseQuestion {
 	type: "subjective";
-	expectedWordCount?: number;
-	modelAnswer?: string;
+	maxLength: number;
 }
 
-export interface CodingQuestion extends Question {
+export interface CodingQuestion extends BaseQuestion {
 	type: "coding";
-	starterCode?: string;
+	initialCode: string;
 	testCases: TestCase[];
 }
+
+export type Question = MCQQuestion | SubjectiveQuestion | CodingQuestion;
 
 export interface Student {
 	id: string;
@@ -45,19 +44,18 @@ export interface Test {
 	id: string;
 	title: string;
 	description: string;
+	questions: Question[];
 	startTime: Date;
 	endTime: Date;
-	duration: number;
-	questions: string[];
-	allowedStudents: string[];
+	duration: number; // in minutes
 }
 
 export interface TestSubmission {
-	id?: string;
+	id: string;
 	testId: string;
 	studentId: string;
 	submittedAt: Date;
-	answers: Answer[];
+	answers: Record<string, string>;
 }
 
 export interface Answer {
