@@ -8,6 +8,7 @@ import (
 
 	"qms-backend/db"
 	"qms-backend/handlers"
+	"qms-backend/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -75,6 +76,9 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to MongoDB after maximum retries")
 	}
+
+	// Store the MongoDB client for health checks
+	services.MongoClient = client
 
 	// Initialize database collections
 	db.InitDB(client.Database(dbName))
