@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"qms-backend/db"
@@ -18,29 +19,29 @@ import (
 func CreateQuestion(c *fiber.Ctx) error {
 	question := new(models.Question)
 	if err := c.BodyParser(question); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	question.CreatedAt = time.Now()
 	result, err := db.QuestionsCollection.InsertOne(context.Background(), question)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to create question"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create question"})
 	}
 
 	question.ID = result.InsertedID.(primitive.ObjectID)
-	return c.Status(201).JSON(question)
+	return c.Status(http.StatusCreated).JSON(question)
 }
 
 func GetQuestions(c *fiber.Ctx) error {
 	var questions []models.Question
 	cursor, err := db.QuestionsCollection.Find(context.Background(), bson.M{})
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch questions"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch questions"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &questions); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse questions"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse questions"})
 	}
 
 	fmt.Printf("%+v", questions)
@@ -52,7 +53,7 @@ func GetQuestion(c *fiber.Ctx) error {
 	// Parse ID from parameters
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"message": "Invalid ID format",
 			"error":   err.Error(),
@@ -64,13 +65,13 @@ func GetQuestion(c *fiber.Ctx) error {
 	err = db.QuestionsCollection.FindOne(c.Context(), bson.M{"_id": id}).Decode(&question)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return c.Status(404).JSON(fiber.Map{
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
 				"success": false,
 				"message": "Question not found",
 				"error":   "No question found with the provided ID",
 			})
 		}
-		return c.Status(500).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to fetch question",
 			"error":   err.Error(),
@@ -88,19 +89,18 @@ func GetQuestion(c *fiber.Ctx) error {
 	}
 
 	// Return the question object in the response
-	return c.Status(200).JSON(question)
+	return c.Status(http.StatusOK).JSON(question)
 }
-
 
 func UpdateQuestion(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
 	question := new(models.Question)
 	if err := c.BodyParser(question); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	update := bson.M{
@@ -109,11 +109,11 @@ func UpdateQuestion(c *fiber.Ctx) error {
 
 	result, err := db.QuestionsCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update question"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update question"})
 	}
 
 	if result.MatchedCount == 0 {
-		return c.Status(404).JSON(fiber.Map{"error": "Question not found"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Question not found"})
 	}
 
 	return c.JSON(question)
@@ -122,17 +122,17 @@ func UpdateQuestion(c *fiber.Ctx) error {
 func DeleteQuestion(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
 	result, err := db.QuestionsCollection.DeleteOne(context.Background(), bson.M{"_id": id})
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete question"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete question"})
 	}
 
 	if result.DeletedCount == 0 {
-		return c.Status(404).JSON(fiber.Map{"error": "Question not found"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Question not found"})
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(http.StatusNoContent)
 }

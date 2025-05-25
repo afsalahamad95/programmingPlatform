@@ -90,6 +90,7 @@ func init() {
 		log.Println("No Google credential files found. Will try looking in subdirectories...")
 
 		// Use a more extensive search if not found in the usual places
+		// TODO: use WalkDir instead of Walk for better performance
 		err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"qms-backend/db"
@@ -28,17 +29,17 @@ func min(a, b int) int {
 func CreateChallenge(c *fiber.Ctx) error {
 	challenge := new(models.CodingChallenge)
 	if err := c.BodyParser(challenge); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	challenge.CreatedAt = time.Now()
 	result, err := db.ChallengesCollection.InsertOne(context.Background(), challenge)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to create challenge"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create challenge"})
 	}
 
 	challenge.ID = result.InsertedID.(primitive.ObjectID)
-	return c.Status(201).JSON(challenge)
+	return c.Status(http.StatusCreated).JSON(challenge)
 }
 
 // GetChallenges retrieves all coding challenges
@@ -64,12 +65,12 @@ func GetChallenges(c *fiber.Ctx) error {
 
 	cursor, err := db.ChallengesCollection.Find(context.Background(), filter, findOptions)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch challenges"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenges"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &challenges); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse challenges"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse challenges"})
 	}
 
 	return c.JSON(challenges)
@@ -79,7 +80,7 @@ func GetChallenges(c *fiber.Ctx) error {
 func GetChallenge(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
 			"message": "Invalid ID format",
 			"error":   err.Error(),
@@ -90,13 +91,13 @@ func GetChallenge(c *fiber.Ctx) error {
 	err = db.ChallengesCollection.FindOne(c.Context(), bson.M{"_id": id}).Decode(&challenge)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return c.Status(404).JSON(fiber.Map{
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
 				"success": false,
 				"message": "Challenge not found",
 				"error":   "No challenge found with the provided ID",
 			})
 		}
-		return c.Status(500).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to fetch challenge",
 			"error":   err.Error(),
@@ -110,12 +111,12 @@ func GetChallenge(c *fiber.Ctx) error {
 func UpdateChallenge(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
 	challenge := new(models.CodingChallenge)
 	if err := c.BodyParser(challenge); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	update := bson.M{
@@ -124,11 +125,11 @@ func UpdateChallenge(c *fiber.Ctx) error {
 
 	result, err := db.ChallengesCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update challenge"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update challenge"})
 	}
 
 	if result.MatchedCount == 0 {
-		return c.Status(404).JSON(fiber.Map{"error": "Challenge not found"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Challenge not found"})
 	}
 
 	return c.JSON(challenge)
@@ -138,16 +139,16 @@ func UpdateChallenge(c *fiber.Ctx) error {
 func DeleteChallenge(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
 	result, err := db.ChallengesCollection.DeleteOne(context.Background(), bson.M{"_id": id})
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete challenge"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete challenge"})
 	}
 
 	if result.DeletedCount == 0 {
-		return c.Status(404).JSON(fiber.Map{"error": "Challenge not found"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Challenge not found"})
 	}
 
 	return c.SendStatus(204)
@@ -158,7 +159,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	// Log the raw request body for debugging
 	var rawBody map[string]interface{}
 	if err := c.BodyParser(&rawBody); err != nil {
-		return c.Status(400).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body format",
 			"details": err.Error(),
 		})
@@ -169,7 +170,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	// Now parse into the proper struct
 	attempt := new(models.ChallengeAttempt)
 	if err := c.BodyParser(attempt); err != nil {
-		return c.Status(400).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body structure",
 			"details": err.Error(),
 		})
@@ -177,11 +178,11 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 
 	// Validate required fields
 	if attempt.Code == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Code is required"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Code is required"})
 	}
 
 	if attempt.Language == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Language is required"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Language is required"})
 	}
 
 	// Set the attempt creation time
@@ -190,7 +191,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	// Parse and set the challenge ID from the URL
 	challengeID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid challenge ID format",
 			"details": err.Error(),
 		})
@@ -220,9 +221,9 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": challengeID}).Decode(&challenge)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return c.Status(404).JSON(fiber.Map{"error": "Challenge not found"})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Challenge not found"})
 		}
-		return c.Status(500).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to fetch challenge",
 			"details": err.Error(),
 		})
@@ -235,7 +236,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	validationResult, err := executionService.ExecuteCode(&challenge, attempt.Code)
 	if err != nil {
 		fmt.Println("Code execution failed:", err)
-		return c.Status(500).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Code execution failed",
 			"details": err.Error(),
 		})
@@ -268,21 +269,21 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	// Save the attempt to the database
 	result, err := db.ChallengeAttemptsCollection.InsertOne(context.Background(), attempt)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to record challenge attempt",
 			"details": err.Error(),
 		})
 	}
 
 	attempt.ID = result.InsertedID.(primitive.ObjectID)
-	return c.Status(201).JSON(attempt)
+	return c.Status(http.StatusCreated).JSON(attempt)
 }
 
 // GetChallengeAttempts retrieves all attempts for a specific challenge
 func GetChallengeAttempts(c *fiber.Ctx) error {
 	challengeID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid challenge ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid challenge ID"})
 	}
 
 	var attempts []models.ChallengeAttempt
@@ -293,12 +294,12 @@ func GetChallengeAttempts(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenge attempts"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &attempts); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse challenge attempts"})
 	}
 
 	return c.JSON(attempts)
@@ -308,7 +309,7 @@ func GetChallengeAttempts(c *fiber.Ctx) error {
 func GetUserChallengeAttempts(c *fiber.Ctx) error {
 	userID, err := primitive.ObjectIDFromHex(c.Params("userId"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid user ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid user ID"})
 	}
 
 	var attempts []models.ChallengeAttempt
@@ -319,12 +320,12 @@ func GetUserChallengeAttempts(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch user challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch user challenge attempts"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &attempts); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse user challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse user challenge attempts"})
 	}
 
 	return c.JSON(attempts)

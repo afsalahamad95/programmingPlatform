@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"qms-backend/db"
@@ -17,7 +18,7 @@ import (
 func CreateUser(c *fiber.Ctx) error {
 	user := new(models.User)
 	if err := c.BodyParser(user); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	user.CreatedAt = time.Now()
@@ -25,23 +26,23 @@ func CreateUser(c *fiber.Ctx) error {
 
 	result, err := db.UsersCollection.InsertOne(context.Background(), user)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
 	}
 
 	user.ID = result.InsertedID.(primitive.ObjectID)
-	return c.Status(201).JSON(user)
+	return c.Status(http.StatusCreated).JSON(user)
 }
 
 func GetUsers(c *fiber.Ctx) error {
 	var users []models.User
 	cursor, err := db.UsersCollection.Find(context.Background(), bson.M{})
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch users"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch users"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &users); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse users"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse users"})
 	}
 
 	return c.JSON(users)
@@ -50,16 +51,16 @@ func GetUsers(c *fiber.Ctx) error {
 func GetUser(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID format"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
 	var user models.User
 	err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 		}
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch user"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch user"})
 	}
 
 	return c.JSON(user)
@@ -68,12 +69,12 @@ func GetUser(c *fiber.Ctx) error {
 func UpdateUser(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID format"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
 	updates := new(models.User)
 	if err := c.BodyParser(updates); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	update := bson.M{
@@ -82,31 +83,31 @@ func UpdateUser(c *fiber.Ctx) error {
 
 	result, err := db.UsersCollection.UpdateOne(context.Background(), bson.M{"_id": id}, update)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update user"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user"})
 	}
 
 	if result.MatchedCount == 0 {
-		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
-	return c.SendStatus(200)
+	return c.SendStatus(http.StatusOK)
 }
 
 // DeleteUser deletes a user by ID
 func DeleteUser(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid ID format"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
 	result, err := db.UsersCollection.DeleteOne(context.Background(), bson.M{"_id": id})
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete user"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete user"})
 	}
 
 	if result.DeletedCount == 0 {
-		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
-	return c.SendStatus(204)
+	return c.SendStatus(http.StatusNoContent)
 }

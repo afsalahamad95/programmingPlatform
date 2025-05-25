@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"qms-backend/db"
 	"qms-backend/models"
 	"time"
@@ -45,12 +46,12 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenge attempts"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &attempts); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse challenge attempts"})
 	}
 
 	// Prepare the results
@@ -89,6 +90,7 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 				context.Background(),
 				bson.M{"_id": attempt.UserID},
 			).Decode(&student); err != nil {
+				fmt.Println("Error fetching student, inserting a placeholder...", err)
 				// If we can't find the student, create a placeholder
 				if err == mongo.ErrNoDocuments {
 					student = models.Student{
@@ -127,6 +129,7 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 
 	// If no results, return empty array instead of null
 	if results == nil {
+		fmt.Println("No results found for GetAllStudentResults")
 		results = []StudentResultResponse{}
 	}
 
@@ -137,7 +140,7 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 func GetStudentResultsByStudent(c *fiber.Ctx) error {
 	studentID, err := primitive.ObjectIDFromHex(c.Params("studentId"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid student ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid student ID"})
 	}
 
 	// First get all challenge attempts for this student
@@ -149,12 +152,12 @@ func GetStudentResultsByStudent(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch student attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch student attempts"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &attempts); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse student attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse student attempts"})
 	}
 
 	// Get student details
@@ -164,9 +167,9 @@ func GetStudentResultsByStudent(c *fiber.Ctx) error {
 		bson.M{"_id": studentID},
 	).Decode(&student); err != nil {
 		if err == mongo.ErrNoDocuments {
-			return c.Status(404).JSON(fiber.Map{"error": "Student not found"})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Student not found"})
 		}
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch student details"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch student details"})
 	}
 
 	// Prepare the results with challenge details
@@ -212,7 +215,7 @@ func GetStudentResultsByStudent(c *fiber.Ctx) error {
 func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 	challengeID, err := primitive.ObjectIDFromHex(c.Params("challengeId"))
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid challenge ID"})
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid challenge ID"})
 	}
 
 	// First get all attempts for this challenge
@@ -224,12 +227,12 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenge attempts"})
 	}
 	defer cursor.Close(context.Background())
 
 	if err := cursor.All(context.Background(), &attempts); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse challenge attempts"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse challenge attempts"})
 	}
 
 	// Get challenge details
@@ -239,9 +242,9 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 		bson.M{"_id": challengeID},
 	).Decode(&challenge); err != nil {
 		if err == mongo.ErrNoDocuments {
-			return c.Status(404).JSON(fiber.Map{"error": "Challenge not found"})
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Challenge not found"})
 		}
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch challenge details"})
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenge details"})
 	}
 
 	// Prepare the results with student details
@@ -255,6 +258,7 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 		).Decode(&student); err != nil {
 			// If we can't find the student, create a placeholder
 			if err == mongo.ErrNoDocuments {
+				fmt.Println("No student found, inserting a placeholder...")
 				student = models.Student{
 					ID: attempt.UserID,
 					BasicInfo: models.BasicInfo{
@@ -288,6 +292,7 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 
 	// If no results, return empty array instead of null
 	if results == nil {
+		fmt.Println("No results found for GetStudentResultsByChallenge")
 		results = []StudentResultResponse{}
 	}
 
