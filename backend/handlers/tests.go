@@ -24,6 +24,7 @@ func CreateTest(c *fiber.Ctx) error {
 	test := new(models.Test)
 	if err := c.BodyParser(test); err != nil {
 		log.Printf("Error unmarshalling body into Test struct: %v", err)
+		log.Printf("Raw request body: %v", string(c.Body()))
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
@@ -81,9 +82,69 @@ func GetTests(c *fiber.Ctx) error {
 	}
 	defer cursor.Close(context.Background())
 
-	if err := cursor.All(context.Background(), &tests); err != nil {
-		log.Printf("Failed to parse tests: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to parse tests"})
+	// First, try to decode into a slice of bson.M to inspect the raw data
+	var rawTests []bson.M
+	if err := cursor.All(context.Background(), &rawTests); err != nil {
+		log.Printf("Failed to decode raw tests: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode tests"})
+	}
+
+	// Now convert each raw test into our Test struct
+	tests = make([]models.Test, len(rawTests))
+	for i, rawTest := range rawTests {
+		// Convert _id to string
+		if id, ok := rawTest["_id"].(primitive.ObjectID); ok {
+			tests[i].ID = id.Hex()
+		}
+
+		// Convert title
+		if title, ok := rawTest["title"].(string); ok {
+			tests[i].Title = title
+		}
+
+		// Convert description
+		if desc, ok := rawTest["description"].(string); ok {
+			tests[i].Description = desc
+		}
+
+		// Convert startTime
+		if startTime, ok := rawTest["startTime"].(primitive.DateTime); ok {
+			tests[i].StartTime = time.Unix(int64(startTime)/1000, 0)
+		}
+
+		// Convert endTime
+		if endTime, ok := rawTest["endTime"].(primitive.DateTime); ok {
+			tests[i].EndTime = time.Unix(int64(endTime)/1000, 0)
+		}
+
+		// Convert duration
+		if duration, ok := rawTest["duration"].(int32); ok {
+			tests[i].Duration = int(duration)
+		}
+
+		// Convert questions array
+		if questions, ok := rawTest["questions"].(primitive.A); ok {
+			tests[i].Questions = make([]string, len(questions))
+			for j, q := range questions {
+				if qID, ok := q.(primitive.ObjectID); ok {
+					tests[i].Questions[j] = qID.Hex()
+				} else if qStr, ok := q.(string); ok {
+					tests[i].Questions[j] = qStr
+				}
+			}
+		}
+
+		// Convert allowedStudents array
+		if students, ok := rawTest["allowedStudents"].(primitive.A); ok {
+			tests[i].AllowedStudents = make([]string, len(students))
+			for j, s := range students {
+				if sID, ok := s.(primitive.ObjectID); ok {
+					tests[i].AllowedStudents[j] = sID.Hex()
+				} else if sStr, ok := s.(string); ok {
+					tests[i].AllowedStudents[j] = sStr
+				}
+			}
+		}
 	}
 
 	return c.JSON(tests)

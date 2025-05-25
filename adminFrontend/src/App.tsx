@@ -158,6 +158,7 @@ function App() {
 			queryClient.invalidateQueries("tests");
 			setShowScheduler(false);
 			toast.success("Test scheduled successfully");
+			navigate("/");
 		},
 		onError: (error: any) => {
 			toast.error("Failed to schedule test");
@@ -186,7 +187,11 @@ function App() {
 	};
 
 	const handleTestSchedule = (data: any) => {
-		createTestMutation.mutate(data);
+		createTestMutation.mutate({
+			...data,
+			questions: data.questions.map((q: any) => q.id),
+			allowedStudents: data.allowedStudents.map((s: any) => s.id),
+		});
 	};
 
 	const handleTestSubmit = (answers: Record<string, any>) => {

@@ -54,6 +54,20 @@ func (e *Executor) Execute(execution *models.CodeExecution) {
 
 	result.ExecutionTime = time.Since(startTime).Seconds()
 
+	// Check if execution exceeded time limit
+	if execution.Config.TimeoutSeconds > 0 && result.ExecutionTime > float64(execution.Config.TimeoutSeconds) {
+		result.Stderr = fmt.Sprintf("Execution timed out after %.2f seconds (limit: %d seconds)",
+			result.ExecutionTime, execution.Config.TimeoutSeconds)
+		result.ExitCode = 1
+	}
+
+	// Check if execution exceeded memory limit
+	if execution.Config.MemoryLimitMB > 0 && result.MemoryUsage > execution.Config.MemoryLimitMB*1024*1024 {
+		result.Stderr = fmt.Sprintf("Execution exceeded memory limit of %d MB (used: %.2f MB)",
+			execution.Config.MemoryLimitMB, float64(result.MemoryUsage)/(1024*1024))
+		result.ExitCode = 1
+	}
+
 	// If test cases are provided, validate them
 	if len(execution.TestCases) > 0 {
 		// Run code for each test case and collect outputs

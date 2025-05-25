@@ -2,13 +2,11 @@ package runners
 
 import (
 	"code-executor/models"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 type JavaScriptRunner struct{}
@@ -47,12 +45,8 @@ if (logs.length > 0) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(execution.Config.TimeoutSeconds)*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "node", scriptPath)
-	result := RunCommand(cmd, execution.Input)
+	cmd := exec.Command("node", scriptPath)
+	result := RunCommand(cmd, execution.Input, execution.Config)
 
 	// Clean up any trailing newlines or whitespace from output for consistent comparison
 	result.Stdout = strings.TrimSpace(result.Stdout)

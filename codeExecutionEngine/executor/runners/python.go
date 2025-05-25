@@ -2,12 +2,10 @@ package runners
 
 import (
 	"code-executor/models"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 )
 
 type PythonRunner struct{}
@@ -30,10 +28,6 @@ func (r *PythonRunner) Execute(execution *models.CodeExecution, tmpDir string) *
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(execution.Config.TimeoutSeconds)*time.Second)
-	defer cancel()
-
 	// Use the correct Python interpreter based on OS
 	pythonCmd := "python"
 
@@ -43,10 +37,10 @@ func (r *PythonRunner) Execute(execution *models.CodeExecution, tmpDir string) *
 	}
 
 	// Execute the Python script with unbuffered output (-u flag)
-	cmd := exec.CommandContext(ctx, pythonCmd, "-u", scriptPath)
+	cmd := exec.Command(pythonCmd, "-u", scriptPath)
 
-	// Pass any input to the script
-	result := RunCommand(cmd, execution.Input)
+	// Pass any input to the script and the execution config
+	result := RunCommand(cmd, execution.Input, execution.Config)
 
 	// Debug log
 	fmt.Printf("Result: exitCode=%d, stdout='%s', stderr='%s'\n",
