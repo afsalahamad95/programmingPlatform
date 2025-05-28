@@ -8,6 +8,13 @@ import (
 
 // SetupRoutes configures all the routes for the application
 func SetupRoutes(app *fiber.App) {
+	// Health check endpoints
+	app.Get("/health", handlers.HealthCheck)
+	app.Get("/api/health", handlers.HealthCheck)
+
+	// Test attempt route (defined early to ensure it's registered)
+	app.Get("/tests/attempts/:attemptId", handlers.GetTestAttempt)
+
 	// Auth routes
 	app.Post("/auth/login", handlers.Login)
 	app.Post("/auth/logout", handlers.Logout)
@@ -22,4 +29,18 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/users", handlers.CreateUser)
 	app.Get("/users/:id", handlers.GetUser)
 	app.Put("/users/:id", handlers.UpdateUser)
+
+	// Tests routes
+	tests := app.Group("/tests")
+	tests.Put("/:id", handlers.UpdateTest)
+	tests.Delete("/:id", handlers.DeleteTest)
+	tests.Post("/:id/submit", handlers.SubmitTest)
+	tests.Get("/attempts/:attemptId", handlers.GetTestAttempt)
+
+	// Users routes
+	users := app.Group("/users")
+	users.Post("/", handlers.CreateUser)
+	users.Get("/:id", handlers.GetUser)
+	users.Put("/:id", handlers.UpdateUser)
+	users.Delete("/:id", handlers.DeleteUser)
 }

@@ -151,6 +151,7 @@ func main() {
 	tests := api.Group("/tests")
 	tests.Post("/", handlers.CreateTest)
 	tests.Get("/", handlers.GetTests)
+	tests.Get("/attempts/:attemptId", handlers.GetTestAttempt)
 	tests.Get("/:id", handlers.GetTest)
 	tests.Put("/:id", handlers.UpdateTest)
 	tests.Delete("/:id", handlers.DeleteTest)

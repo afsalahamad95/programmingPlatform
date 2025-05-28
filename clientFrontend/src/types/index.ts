@@ -57,7 +57,7 @@ export interface TestSubmission {
 	testId: string;
 	studentId: string;
 	submittedAt: Date;
-	answers: Record<string, string>;
+	answers: Answer[];
 }
 
 export interface Answer {

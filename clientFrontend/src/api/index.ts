@@ -124,14 +124,58 @@ export const deleteTest = async (id: string) => {
   await api.delete(`/tests/${id}`);
 };
 
-export const submitTest = async (testId: string, submission: any) => {
+export const submitTest = async (testId: string, submission: {
+  testId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  institution: string;
+  department: string;
+  answers: { questionId: string; answer: string }[];
+}) => {
   try {
+    // Validate required fields
+    if (!submission.studentId || !submission.studentName || !submission.studentEmail) {
+      // This validation is primarily for client-side feedback
+      throw new Error('Missing required user information in submission payload');
+    }
+
+    if (!submission.answers || submission.answers.length === 0) {
+      throw new Error('No answers provided in submission payload');
+    }
+
+    console.log('Submitting test with payload:', submission);
     const response = await api.post(`/tests/${testId}/submit`, submission);
     return response.data;
   } catch (error: any) {
-    if (error.response?.status === 404) {
-      throw new Error('Cannot submit: Test not found or has expired');
+    if (error.response) {
+      console.error('Submission API error response:', error.response.data);
+      if (error.response.status === 404) {
+        throw new Error('Cannot submit: Test not found or has expired');
+      }
+      if (error.response.status === 400) {
+        // Use the specific error message from the backend if available
+        throw new Error(`Submission failed: ${error.response.data.error || 'Invalid submission data'}`);
+      }
     }
+    console.error('Submission API general error:', error);
+    throw new Error(`Submission failed: ${error.message || 'An unknown error occurred during submission.'}`);
+  }
+};
+
+// New function to get a single test attempt by ID
+export const getTestAttempt = async (attemptId: string) => {
+  console.log('Fetching test attempt with ID:', attemptId);
+  try {
+    const response = await api.get(`/tests/attempts/${attemptId}`);
+    console.log('Test attempt response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching test attempt:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
     throw error;
   }
 };

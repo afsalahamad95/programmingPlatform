@@ -3,11 +3,12 @@ import { api } from '../api';
 import { jwtDecode } from 'jwt-decode';
 
 interface User {
-	id: string;
+	userId: string; // Use userId to match JWT payload
+	id?: string; // Keep id as optional for potential backward compatibility or other uses
 	email: string;
-	fullName: string;
-	institution: string;
-	department: string;
+	fullName?: string; // Make fullName optional
+	institution?: string; // Make institution optional
+	department?: string; // Make department optional
 	studentId: string;
 	exp?: number;  // JWT expiration timestamp
 	iat?: number;  // JWT issued at timestamp
@@ -49,7 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				return;
 			}
 
-			setUser(decoded);
+			// Map userId to id for consistency if backend sends userId
+			const userWithId: User = {
+				...decoded,
+				id: decoded.userId // Use userId as the primary identifier
+			};
+
+			setUser(userWithId);
 			setError(null);
 		} catch (err) {
 			localStorage.removeItem('token');

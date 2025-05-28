@@ -31,20 +31,38 @@ const TestAttempt: React.FC = () => {
   );
 
   const submitTestMutation = useMutation(
-    (data: { testId: string; answers: Record<string, string> }) =>
-      submitTest(data.testId, {
+    (data: { testId: string; answers: Record<string, string> }) => {
+      // Ensure user and required properties exist before submitting
+      if (!user || !user.id || !user.email) {
+        // This case should ideally be caught by the handleSubmit check, but provides a fallback
+        throw new Error('User not authenticated or missing required information for submission.');
+      }
+
+      return submitTest(data.testId, {
         testId: data.testId,
-        studentId: user?.id,
-        answers: data.answers,
-      }),
+        studentId: user.id, // Use the mapped id from AuthContext
+        studentName: user.fullName || 'Unknown User', // Use fullName if present, otherwise 'Unknown User'
+        studentEmail: user.email,
+        institution: user.institution || '',
+        department: user.department || '',
+        // Transform the answers dictionary into an array of objects
+        answers: Object.keys(data.answers).map(questionId => ({
+          questionId,
+          answer: data.answers[questionId],
+        })),
+      });
+    },
     {
-      onSuccess: () => {
+      onSuccess: (submission) => {
+        console.log('Test submitted successfully, redirecting...', submission);
         queryClient.invalidateQueries('tests');
-        queryClient.invalidateQueries('testResults');
-        navigate('/');
+        queryClient.invalidateQueries('testResults'); // Invalidate test results cache as well
+        navigate(`/results/${submission.id}`);
       },
       onError: (error) => {
         console.error('Failed to submit test:', error);
+        // Provide user feedback on submission failure
+        alert(`Submission failed: ${error instanceof Error ? error.message : 'An unknown error occurred.'}`);
       },
     }
   );
@@ -83,8 +101,21 @@ const TestAttempt: React.FC = () => {
   };
 
   const handleSubmit = () => {
-    if (!user) {
-      console.error('User not authenticated');
+    console.log('Checking user object before submission validation:', user);
+    // Check for user and required fields
+    if (!user || !user.id || !user.email) {
+      console.error('User not authenticated or missing required info', user);
+      alert('Missing required user information. Please make sure you are properly logged in. If the issue persists, try logging out and back in.');
+      return;
+    }
+
+    // Validate that all questions have been answered
+    const unansweredQuestions = test.questions.filter(
+      question => !answers[question.id]
+    );
+
+    if (unansweredQuestions.length > 0) {
+      alert(`Please answer all questions before submitting. You have ${unansweredQuestions.length} unanswered questions.`);
       return;
     }
 

@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useAuth } from './contexts/AuthContext';
+import TestResult from './components/TestResult';
 
 const queryClient = new QueryClient();
 
@@ -89,6 +90,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <ChallengeAttempt />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/results/:attemptId"
+                  element={
+                    <ProtectedRoute>
+                      <TestResult />
                     </ProtectedRoute>
                   }
                 />

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"qms-backend/db"
 	"qms-backend/models"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -330,14 +329,60 @@ func SubmitTest(c *fiber.Ctx) error {
 	return c.Status(http.StatusCreated).JSON(submission)
 }
 
+// GetTestAttempt retrieves a single test attempt by its ID
+func GetTestAttempt(c *fiber.Ctx) error {
+	attemptID := c.Params("attemptId")
+	log.Printf("Received request for test attempt with ID: %s", attemptID)
+	log.Printf("Request path: %s", c.Path())
+	log.Printf("Request method: %s", c.Method())
+	log.Printf("Request headers: %v", c.GetReqHeaders())
+
+	// Try to convert to ObjectID first
+	objID, err := primitive.ObjectIDFromHex(attemptID)
+	if err != nil {
+		log.Printf("Error converting attempt ID %s to ObjectID: %v", attemptID, err)
+		// If conversion fails, try to find by string ID
+		var submission models.TestSubmission
+		err = db.AttemptCollection.FindOne(context.Background(), bson.M{"_id": attemptID}).Decode(&submission)
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				log.Printf("Test attempt with ID %s not found in database.", attemptID)
+				return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test attempt not found"})
+			}
+			log.Printf("Error fetching test attempt %s: %v", attemptID, err)
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch test attempt"})
+		}
+		log.Printf("Successfully found test attempt with string ID: %s", attemptID)
+		return c.Status(http.StatusOK).JSON(submission)
+	}
+
+	// If we have a valid ObjectID, search by that
+	var submission models.TestSubmission
+	err = db.AttemptCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&submission)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Printf("Test attempt with ObjectID %s not found in database.", objID.Hex())
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test attempt not found"})
+		}
+		log.Printf("Error fetching test attempt %s: %v", objID.Hex(), err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch test attempt"})
+	}
+
+	log.Printf("Successfully found test attempt with ObjectID: %s", objID.Hex())
+	// Return the found submission
+	return c.Status(http.StatusOK).JSON(submission)
+}
+
 func isValidObjectID(id string) bool {
-	// Regular expression to check for valid 24-character hex string
-	re := regexp.MustCompile("^[a-f0-9]{24}$")
-	if re.MatchString(id) {
+	// Try to convert to MongoDB ObjectID first
+	if _, err := primitive.ObjectIDFromHex(id); err == nil {
 		return true
 	}
 
-	// Check if it's a valid numeric string (for cases like "1")
-	_, err := strconv.Atoi(id)
-	return err == nil
+	// If that fails, check if it's a valid numeric string
+	if _, err := strconv.Atoi(id); err == nil {
+		return true
+	}
+
+	return false
 }
