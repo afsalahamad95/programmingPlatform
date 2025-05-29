@@ -144,3 +144,23 @@ export const deleteChallenge = async (id: string) => {
 	const response = await axios.delete(`${API_URL}/challenges/${id}`);
 	return response.data;
 };
+
+// Test Results APIs
+export const getTestResults = async () => {
+	const response = await axios.get(`${API_URL}/admin/test-results`);
+	return response.data;
+};
+
+export const getTestResultsByStudent = async (studentId: string) => {
+	const response = await axios.get(
+		`${API_URL}/admin/test-results/student/${studentId}`
+	);
+	return response.data;
+};
+
+export const getTestResultsByTest = async (testId: string) => {
+	const response = await axios.get(
+		`${API_URL}/admin/test-results/test/${testId}`
+	);
+	return response.data;
+};

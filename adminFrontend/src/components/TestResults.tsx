@@ -14,12 +14,6 @@ interface Test {
 	totalPoints: number;
 }
 
-interface Challenge {
-	id: string;
-	title: string;
-	totalPoints: number;
-}
-
 interface TestResult {
 	studentId: string;
 	studentName: string;
@@ -40,49 +34,24 @@ interface TestResult {
 	}[];
 }
 
-interface ChallengeResult {
-	studentId: string;
-	studentName: string;
-	studentEmail: string;
-	challengeId: string;
-	challengeTitle: string;
-	status: "Submitted" | "Passed" | "Failed";
-	percentageScore: number;
-	pointsScored: number;
-	totalPoints: number;
-	timeSpent: number; // in seconds
-	submittedAt: string;
-	testCases: {
-		passed: number;
-		total: number;
-	};
-}
-
-type ResultType = "test" | "challenge";
-
-const StudentResults: React.FC = () => {
+const TestResults: React.FC = () => {
 	const navigate = useNavigate();
 	const [loading, setLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
-	const [testResults, setTestResults] = useState<TestResult[]>([]);
-	const [challengeResults, setChallengeResults] = useState<ChallengeResult[]>(
-		[]
-	);
+	const [results, setResults] = useState<TestResult[]>([]);
 	const [students, setStudents] = useState<Student[]>([]);
 	const [tests, setTests] = useState<Test[]>([]);
-	const [challenges, setChallenges] = useState<Challenge[]>([]);
 	const [selectedStudent, setSelectedStudent] = useState<string>("all");
-	const [selectedItem, setSelectedItem] = useState<string>("all");
-	const [resultType, setResultType] = useState<ResultType>("test");
+	const [selectedTest, setSelectedTest] = useState<string>("all");
 	const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
 
 	const fetchData = useCallback(async () => {
 		try {
 			setLoading(true);
-			console.log("Fetching student results data...");
+			console.log("Fetching test results data...");
 
 			// MOCK DATA - Replace with actual API calls when ready
-			const mockTestResults: TestResult[] = [
+			const mockResults: TestResult[] = [
 				{
 					studentId: "s1",
 					studentName: "Jane Smith",
@@ -112,26 +81,6 @@ const StudentResults: React.FC = () => {
 				},
 			];
 
-			const mockChallengeResults: ChallengeResult[] = [
-				{
-					studentId: "s1",
-					studentName: "Jane Smith",
-					studentEmail: "jane.smith@example.com",
-					challengeId: "c1",
-					challengeTitle: "Array Manipulation",
-					status: "Passed",
-					percentageScore: 90.0,
-					pointsScored: 45,
-					totalPoints: 50,
-					timeSpent: 1800,
-					submittedAt: "2024-03-15T16:30:00Z",
-					testCases: {
-						passed: 9,
-						total: 10,
-					},
-				},
-			];
-
 			const mockStudents: Student[] = [
 				{
 					id: "s1",
@@ -148,40 +97,19 @@ const StudentResults: React.FC = () => {
 				},
 			];
 
-			const mockChallenges: Challenge[] = [
-				{
-					id: "c1",
-					title: "Array Manipulation",
-					totalPoints: 50,
-				},
-			];
-
 			try {
 				// Try to fetch from the real API
 				const timestamp = new Date().getTime();
-				const [
-					testResultsRes,
-					challengeResultsRes,
-					studentsRes,
-					testsRes,
-					challengesRes,
-				] = await Promise.all([
+				const [resultsRes, studentsRes, testsRes] = await Promise.all([
 					axios.get(`/api/admin/test-results?t=${timestamp}`),
-					axios.get(`/api/admin/student-results?t=${timestamp}`),
 					axios.get(`/api/admin/students?t=${timestamp}`),
 					axios.get(`/api/admin/tests?t=${timestamp}`),
-					axios.get(`/api/admin/challenges?t=${timestamp}`),
 				]);
 
-				setTestResults(
-					Array.isArray(testResultsRes.data)
-						? testResultsRes.data
-						: mockTestResults
-				);
-				setChallengeResults(
-					Array.isArray(challengeResultsRes.data)
-						? challengeResultsRes.data
-						: mockChallengeResults
+				setResults(
+					Array.isArray(resultsRes.data)
+						? resultsRes.data
+						: mockResults
 				);
 				setStudents(
 					Array.isArray(studentsRes.data)
@@ -191,29 +119,20 @@ const StudentResults: React.FC = () => {
 				setTests(
 					Array.isArray(testsRes.data) ? testsRes.data : mockTests
 				);
-				setChallenges(
-					Array.isArray(challengesRes.data)
-						? challengesRes.data
-						: mockChallenges
-				);
 			} catch (apiError) {
 				console.warn("Using mock data instead of API:", apiError);
-				setTestResults(mockTestResults);
-				setChallengeResults(mockChallengeResults);
+				setResults(mockResults);
 				setStudents(mockStudents);
 				setTests(mockTests);
-				setChallenges(mockChallenges);
 			}
 
 			setError(null);
 		} catch (err) {
 			console.error("Failed to fetch results:", err);
-			setError("Failed to load student results. Please try again later.");
-			setTestResults([]);
-			setChallengeResults([]);
+			setError("Failed to load test results. Please try again later.");
+			setResults([]);
 			setStudents([]);
 			setTests([]);
-			setChallenges([]);
 		} finally {
 			setLoading(false);
 		}
@@ -233,26 +152,13 @@ const StudentResults: React.FC = () => {
 		};
 	}, [autoRefresh, fetchData]);
 
-	const filteredResults =
-		resultType === "test"
-			? testResults.filter((result) => {
-					const studentMatch =
-						selectedStudent === "all" ||
-						result.studentId === selectedStudent;
-					const itemMatch =
-						selectedItem === "all" ||
-						result.testId === selectedItem;
-					return studentMatch && itemMatch;
-			  })
-			: challengeResults.filter((result) => {
-					const studentMatch =
-						selectedStudent === "all" ||
-						result.studentId === selectedStudent;
-					const itemMatch =
-						selectedItem === "all" ||
-						result.challengeId === selectedItem;
-					return studentMatch && itemMatch;
-			  });
+	const filteredResults = results.filter((result) => {
+		const studentMatch =
+			selectedStudent === "all" || result.studentId === selectedStudent;
+		const testMatch =
+			selectedTest === "all" || result.testId === selectedTest;
+		return studentMatch && testMatch;
+	});
 
 	const formatTime = (seconds: number) => {
 		const hours = Math.floor(seconds / 3600);
@@ -264,7 +170,7 @@ const StudentResults: React.FC = () => {
 		const headers = [
 			"Student Name",
 			"Student Email",
-			resultType === "test" ? "Test Title" : "Challenge Title",
+			"Test Title",
 			"Status",
 			"Score",
 			"Time Spent",
@@ -274,9 +180,7 @@ const StudentResults: React.FC = () => {
 		const csvData = filteredResults.map((result) => [
 			result.studentName,
 			result.studentEmail,
-			resultType === "test"
-				? (result as TestResult).testTitle
-				: (result as ChallengeResult).challengeTitle,
+			result.testTitle,
 			result.status,
 			`${result.pointsScored}/${result.totalPoints} (${result.percentageScore}%)`,
 			formatTime(result.timeSpent),
@@ -293,7 +197,7 @@ const StudentResults: React.FC = () => {
 		});
 		const link = document.createElement("a");
 		link.href = URL.createObjectURL(blob);
-		link.download = `${resultType}-results-${
+		link.download = `test-results-${
 			new Date().toISOString().split("T")[0]
 		}.csv`;
 		link.click();
@@ -314,7 +218,7 @@ const StudentResults: React.FC = () => {
 	return (
 		<div className="container mx-auto px-4 py-8">
 			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-bold">Student Results</h1>
+				<h1 className="text-2xl font-bold">Test Results</h1>
 				<div className="space-x-4">
 					<button
 						onClick={exportToCSV}
@@ -334,23 +238,7 @@ const StudentResults: React.FC = () => {
 				</div>
 			</div>
 
-			<div className="grid grid-cols-3 gap-4 mb-6">
-				<div>
-					<label className="block text-sm font-medium mb-2">
-						Result Type
-					</label>
-					<select
-						value={resultType}
-						onChange={(e) => {
-							setResultType(e.target.value as ResultType);
-							setSelectedItem("all");
-						}}
-						className="w-full p-2 border rounded"
-					>
-						<option value="test">Tests</option>
-						<option value="challenge">Challenges</option>
-					</select>
-				</div>
+			<div className="grid grid-cols-2 gap-4 mb-6">
 				<div>
 					<label className="block text-sm font-medium mb-2">
 						Filter by Student
@@ -370,23 +258,19 @@ const StudentResults: React.FC = () => {
 				</div>
 				<div>
 					<label className="block text-sm font-medium mb-2">
-						Filter by {resultType === "test" ? "Test" : "Challenge"}
+						Filter by Test
 					</label>
 					<select
-						value={selectedItem}
-						onChange={(e) => setSelectedItem(e.target.value)}
+						value={selectedTest}
+						onChange={(e) => setSelectedTest(e.target.value)}
 						className="w-full p-2 border rounded"
 					>
-						<option value="all">
-							All {resultType === "test" ? "Tests" : "Challenges"}
-						</option>
-						{(resultType === "test" ? tests : challenges).map(
-							(item) => (
-								<option key={item.id} value={item.id}>
-									{item.title}
-								</option>
-							)
-						)}
+						<option value="all">All Tests</option>
+						{tests.map((test) => (
+							<option key={test.id} value={test.id}>
+								{test.title}
+							</option>
+						))}
 					</select>
 				</div>
 			</div>
@@ -396,16 +280,11 @@ const StudentResults: React.FC = () => {
 					<thead>
 						<tr className="bg-gray-100">
 							<th className="px-4 py-2">Student</th>
-							<th className="px-4 py-2">
-								{resultType === "test" ? "Test" : "Challenge"}
-							</th>
+							<th className="px-4 py-2">Test</th>
 							<th className="px-4 py-2">Status</th>
 							<th className="px-4 py-2">Score</th>
 							<th className="px-4 py-2">Time Spent</th>
 							<th className="px-4 py-2">Submitted At</th>
-							{resultType === "challenge" && (
-								<th className="px-4 py-2">Test Cases</th>
-							)}
 						</tr>
 					</thead>
 					<tbody>
@@ -418,10 +297,7 @@ const StudentResults: React.FC = () => {
 									</div>
 								</td>
 								<td className="px-4 py-2">
-									{resultType === "test"
-										? (result as TestResult).testTitle
-										: (result as ChallengeResult)
-												.challengeTitle}
+									{result.testTitle}
 								</td>
 								<td className="px-4 py-2">
 									<span
@@ -450,19 +326,6 @@ const StudentResults: React.FC = () => {
 										result.submittedAt
 									).toLocaleString()}
 								</td>
-								{resultType === "challenge" && (
-									<td className="px-4 py-2">
-										{
-											(result as ChallengeResult)
-												.testCases.passed
-										}
-										/
-										{
-											(result as ChallengeResult)
-												.testCases.total
-										}
-									</td>
-								)}
 							</tr>
 						))}
 					</tbody>
@@ -472,4 +335,4 @@ const StudentResults: React.FC = () => {
 	);
 };
 
-export default StudentResults;
+export default TestResults;

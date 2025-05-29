@@ -13,7 +13,7 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/api/health", handlers.HealthCheck)
 
 	// Test attempt route (defined early to ensure it's registered)
-	app.Get("/tests/attempts/:attemptId", handlers.GetTestAttempt)
+	// app.Get("/tests/attempts/:attemptId", handlers.GetTestAttempt)
 
 	// Auth routes
 	app.Post("/auth/login", handlers.Login)
@@ -43,4 +43,27 @@ func SetupRoutes(app *fiber.App) {
 	users.Get("/:id", handlers.GetUser)
 	users.Put("/:id", handlers.UpdateUser)
 	users.Delete("/:id", handlers.DeleteUser)
+
+	// challenge routes
+	challenges := app.Group("/challenges")
+	challenges.Post("/", handlers.CreateChallenge)
+	challenges.Get("/:id", handlers.GetChallenge)
+	challenges.Put("/:id", handlers.UpdateChallenge)
+	challenges.Delete("/:id", handlers.DeleteChallenge)
+	challenges.Post("/:id/submit", handlers.SubmitChallengeAttempt)
+	challenges.Get("/:id/attempts", handlers.GetChallengeAttempts)
+	challenges.Get("/:id/attempts/:userId", handlers.GetUserChallengeAttempts)
+
+	// Admin routes
+	admin := app.Group("/admin")
+
+	// Test results routes
+	admin.Get("/test-results", handlers.GetTestResults)
+	admin.Get("/test-results/student/:studentId", handlers.GetTestResultsByStudent)
+	admin.Get("/test-results/test/:testId", handlers.GetTestResultsByTest)
+
+	// Student results routes
+	admin.Get("/student-results", handlers.GetAllStudentResults)
+	admin.Get("/student-results/:studentId", handlers.GetStudentResultsByStudent)
+	admin.Get("/student-results/challenge/:challengeId", handlers.GetStudentResultsByChallenge)
 }
