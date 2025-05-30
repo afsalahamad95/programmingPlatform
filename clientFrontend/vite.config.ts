@@ -1,34 +1,34 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  optimizeDeps: {
-    exclude: ['lucide-react'],
-    include: ['@monaco-editor/react'],
-  },
-  build: {
-    chunkSizeWarningLimit: 2000, // Monaco editor is large
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          monaco: ['monaco-editor'],
-        }
-      }
-    }
-  },
-  server: {
-    fs: {
-      // Allow serving files from node_modules for Monaco editor
-      allow: ['..']
-    },
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      }
-    }
-  }
+	plugins: [react()],
+	optimizeDeps: {
+		exclude: ["lucide-react"],
+		include: ["@monaco-editor/react"],
+	},
+	build: {
+		chunkSizeWarningLimit: 2000, // Monaco editor is large
+		rollupOptions: {
+			output: {
+				manualChunks: {
+					monaco: ["monaco-editor"],
+				},
+			},
+		},
+	},
+	server: {
+		fs: {
+			// Allow serving files from node_modules for Monaco editor
+			allow: [".."],
+		},
+		proxy: {
+			"/api": {
+				target: "http://localhost:3000",
+				changeOrigin: true,
+				secure: false,
+			},
+		},
+	},
 });

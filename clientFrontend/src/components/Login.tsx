@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { setAuthToken } from "../api";
 
 const Login = () => {
-	const [email, setEmail] = useState('');
-	const [password, setPassword] = useState('');
-	const [error, setError] = useState('');
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [error, setError] = useState("");
 	const { login } = useAuth();
 	const navigate = useNavigate();
 
@@ -13,9 +14,9 @@ const Login = () => {
 		e.preventDefault();
 		try {
 			await login(email, password);
-			navigate('/');
+			navigate("/");
 		} catch (err) {
-			setError('Invalid email or password');
+			setError("Invalid email or password");
 		}
 	};
 
@@ -64,7 +65,9 @@ const Login = () => {
 					</div>
 
 					{error && (
-						<div className="text-red-500 text-sm text-center">{error}</div>
+						<div className="text-red-500 text-sm text-center">
+							{error}
+						</div>
 					)}
 
 					<div>
@@ -81,4 +84,4 @@ const Login = () => {
 	);
 };
 
-export default Login; 
+export default Login;

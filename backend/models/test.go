@@ -31,11 +31,14 @@ type TestBSON struct {
 }
 
 type TestSubmission struct {
-	ID          string    `json:"id,omitempty" bson:"_id,omitempty"`
-	TestID      string    `json:"testId" bson:"testId"`
-	StudentID   string    `json:"studentId" bson:"studentId"`
-	SubmittedAt time.Time `json:"submittedAt" bson:"submittedAt"`
-	Answers     []Answer  `json:"answers" bson:"answers"`
+	ID           string    `json:"id,omitempty" bson:"_id,omitempty"`
+	TestID       string    `json:"testId" bson:"testId"`
+	StudentID    string    `json:"studentId" bson:"studentId"`
+	StudentName  string    `json:"studentName" bson:"studentName"`
+	StudentEmail string    `json:"studentEmail" bson:"studentEmail"`
+	TimeSpent    int       `json:"timeSpent" bson:"timeSpent"` // Time spent in seconds
+	SubmittedAt  time.Time `json:"submittedAt" bson:"submittedAt"`
+	Answers      []Answer  `json:"answers" bson:"answers"`
 }
 
 type Answer struct {

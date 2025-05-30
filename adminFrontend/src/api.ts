@@ -7,8 +7,10 @@ const API_URL = "/api";
 export const setAuthToken = (token: string | null) => {
 	if (token) {
 		axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+		localStorage.setItem("authToken", token);
 	} else {
 		delete axios.defaults.headers.common["Authorization"];
+		localStorage.removeItem("authToken");
 	}
 };
 
@@ -17,6 +19,33 @@ const token = localStorage.getItem("authToken");
 if (token) {
 	setAuthToken(token);
 }
+
+// Add request interceptor to ensure token is always set
+axios.interceptors.request.use(
+	(config) => {
+		const token = localStorage.getItem("authToken");
+		if (token) {
+			config.headers.Authorization = `Bearer ${token}`;
+		}
+		return config;
+	},
+	(error) => {
+		return Promise.reject(error);
+	}
+);
+
+// Add response interceptor to handle auth errors
+axios.interceptors.response.use(
+	(response) => response,
+	(error) => {
+		if (error.response?.status === 401) {
+			// Clear token and redirect to login on auth error
+			setAuthToken(null);
+			window.location.href = "/login";
+		}
+		return Promise.reject(error);
+	}
+);
 
 // Authentication APIs
 export const login = async (email: string, password: string) => {
@@ -147,20 +176,66 @@ export const deleteChallenge = async (id: string) => {
 
 // Test Results APIs
 export const getTestResults = async () => {
-	const response = await axios.get(`${API_URL}/admin/test-results`);
+	const response = await axios.get(`${API_URL}/admin-protected/test-results`);
 	return response.data;
 };
 
 export const getTestResultsByStudent = async (studentId: string) => {
 	const response = await axios.get(
-		`${API_URL}/admin/test-results/student/${studentId}`
+		`${API_URL}/admin-protected/test-results/student/${studentId}`
 	);
 	return response.data;
 };
 
 export const getTestResultsByTest = async (testId: string) => {
 	const response = await axios.get(
-		`${API_URL}/admin/test-results/test/${testId}`
+		`${API_URL}/admin-protected/test-results/test/${testId}`
 	);
 	return response.data;
+};
+
+// Admin-specific API endpoints
+export const adminApi = {
+	getStudentResults: async () => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/student-results`
+		);
+		return response.data;
+	},
+	getStudentResultsByStudent: async (studentId: string) => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/student-results/${studentId}`
+		);
+		return response.data;
+	},
+	getStudentResultsByChallenge: async (challengeId: string) => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/student-results/challenge/${challengeId}`
+		);
+		return response.data;
+	},
+	getTestResults: async () => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/test-results`
+		);
+		return response.data;
+	},
+	getTestResultsByStudent: async (studentId: string) => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/test-results/student/${studentId}`
+		);
+		return response.data;
+	},
+	getTestResultsByTest: async (testId: string) => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/test-results/test/${testId}`
+		);
+		return response.data;
+	},
+};
+
+// Check if user has admin role
+export const isAdmin = () => {
+	const role = localStorage.getItem("userRole");
+	return role === "admin";
 };

@@ -20,11 +20,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
 		try {
 			const response = await api.login(email, password);
-
+			console.log(response);
 			if (response.token) {
-				localStorage.setItem("authToken", response.token);
-				localStorage.setItem("userRole", response.role || "user");
+				if (response.user?.role !== "admin") {
+					setError("Access denied. Admin privileges required.");
+					return;
+				}
+
 				api.setAuthToken(response.token);
+				localStorage.setItem("userRole", response.role);
 				onLoginSuccess(response.token);
 				navigate("/");
 			} else {

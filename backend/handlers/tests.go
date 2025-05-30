@@ -336,6 +336,7 @@ func SubmitTest(c *fiber.Ctx) error {
 
 	// Set the inserted ID on the submission object
 	submission.ID = result.InsertedID.(primitive.ObjectID).Hex()
+	log.Printf("Successfully created test attempt with ID: %s", submission.ID)
 
 	// Respond with the submission details
 	return c.Status(http.StatusCreated).JSON(submission)

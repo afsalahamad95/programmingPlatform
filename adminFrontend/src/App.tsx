@@ -229,35 +229,29 @@ function App() {
 	};
 
 	// Authentication state
-	const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-	const [authToken, setAuthToken] = useState<string | null>(null);
-	const [userRole, setUserRole] = useState<string | null>(null);
+	const [isAuthenticated, setIsAuthenticated] = useState(false);
+	const [isAdmin, setIsAdmin] = useState(false);
 
-	// Check if user is already authenticated
 	useEffect(() => {
 		const token = localStorage.getItem("authToken");
 		const role = localStorage.getItem("userRole");
 
 		if (token) {
-			setAuthToken(token);
-			setUserRole(role);
+			api.setAuthToken(token);
 			setIsAuthenticated(true);
+			setIsAdmin(role === "admin");
 		}
 	}, []);
 
-	// Handle successful login
 	const handleLoginSuccess = (token: string) => {
-		setAuthToken(token);
 		setIsAuthenticated(true);
+		setIsAdmin(true);
 	};
 
-	// Handle logout
 	const handleLogout = () => {
 		api.logout();
-		setAuthToken(null);
-		setUserRole(null);
 		setIsAuthenticated(false);
-		navigate("/login");
+		setIsAdmin(false);
 	};
 
 	if (selectedTest) {
@@ -301,7 +295,7 @@ function App() {
 
 	return (
 		<div className="min-h-screen bg-gray-100">
-			{isAuthenticated ? (
+			{isAuthenticated && isAdmin ? (
 				<>
 					<header className="bg-white shadow">
 						<div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">

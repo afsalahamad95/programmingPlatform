@@ -139,6 +139,21 @@ func main() {
 	adminApi := api.Group("/admin-protected")
 	adminApi.Use(handlers.AuthMiddleware(), handlers.RoleMiddleware("admin"))
 
+	// Student results routes
+	adminApi.Get("/student-results", handlers.GetAllStudentResults)
+	adminApi.Get("/student-results/:studentId", handlers.GetStudentResultsByStudent)
+	adminApi.Get("/student-results/challenge/:challengeId", handlers.GetStudentResultsByChallenge)
+
+	// Test results routes
+	adminApi.Get("/test-results", handlers.GetTestResults)
+	adminApi.Get("/test-results/student/:studentId", handlers.GetTestResultsByStudent)
+	adminApi.Get("/test-results/test/:testId", handlers.GetTestResultsByTest)
+
+	// Admin data routes
+	adminApi.Get("/students", handlers.GetStudents)
+	adminApi.Get("/challenges", handlers.GetChallenges)
+	adminApi.Get("/tests", handlers.GetTests)
+
 	// Questions routes
 	questions := api.Group("/questions")
 	questions.Post("/", handlers.CreateQuestion)
@@ -183,14 +198,6 @@ func main() {
 	students.Get("/:id", handlers.GetStudent)
 	students.Put("/:id", handlers.UpdateStudent)
 	students.Delete("/:id", handlers.DeleteStudent)
-
-	// Admin routes for student results
-	admin := api.Group("/admin")
-	admin.Get("/student-results", handlers.GetAllStudentResults)
-	admin.Get("/students", handlers.GetStudents)     // Reuse the existing handler
-	admin.Get("/challenges", handlers.GetChallenges) // Reuse the existing handler
-	admin.Get("/student-results/:studentId", handlers.GetStudentResultsByStudent)
-	admin.Get("/student-results/challenge/:challengeId", handlers.GetStudentResultsByChallenge)
 
 	// Log configuration
 	log.Printf("Environment: %s\n", getEnvWithDefault("GO_ENV", "development"))

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = "/api";
 
 // Create axios instance with default config
 export const api = axios.create({
@@ -11,10 +11,26 @@ export const api = axios.create({
 	timeout: 15000, // Increased timeout to 15 seconds
 });
 
-// Add request interceptor for logging and auth
+// Set auth token for all requests if available
+export const setAuthToken = (token: string | null) => {
+	if (token) {
+		api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+		localStorage.setItem("token", token);
+	} else {
+		delete api.defaults.headers.common["Authorization"];
+		localStorage.removeItem("token");
+	}
+};
+
+// Initialize axios with token from localStorage
+const token = localStorage.getItem("token");
+if (token) {
+	setAuthToken(token);
+}
+
+// Add request interceptor to ensure token is always set
 api.interceptors.request.use(
 	(config) => {
-		// Add auth token to requests if it exists
 		const token = localStorage.getItem("token");
 		if (token) {
 			config.headers.Authorization = `Bearer ${token}`;
@@ -33,7 +49,7 @@ api.interceptors.request.use(
 	}
 );
 
-// Add response interceptor for logging and error handling
+// Add response interceptor to handle auth errors
 api.interceptors.response.use(
 	(response) => {
 		console.log(
@@ -43,22 +59,11 @@ api.interceptors.response.use(
 		);
 		return response;
 	},
-	async (error) => {
-		if (error.response) {
-			// The request was made and the server responded with a status code
-			// that falls out of the range of 2xx
-			console.error("❌ Response error:", {
-				status: error.response.status,
-				data: error.response.data,
-				headers: error.response.headers,
-			});
-
-			// Handle specific error cases
-			if (error.response.status === 401) {
-				// Unauthorized - clear token and redirect to login
-				localStorage.removeItem("token");
-				window.location.href = "/login";
-			}
+	(error) => {
+		if (error.response?.status === 401) {
+			// Clear token and redirect to login on auth error
+			setAuthToken(null);
+			window.location.href = "/login";
 		} else if (error.request) {
 			// The request was made but no response was received
 			console.error("❌ No response received:", error.request);

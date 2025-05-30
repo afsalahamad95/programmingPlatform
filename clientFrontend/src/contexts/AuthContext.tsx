@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api';
-import { jwtDecode } from 'jwt-decode';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { api } from "../api";
+import { jwtDecode } from "jwt-decode";
 
 interface User {
 	userId: string; // Use userId to match JWT payload
@@ -10,8 +10,8 @@ interface User {
 	institution?: string; // Make institution optional
 	department?: string; // Make department optional
 	studentId: string;
-	exp?: number;  // JWT expiration timestamp
-	iat?: number;  // JWT issued at timestamp
+	exp?: number; // JWT expiration timestamp
+	iat?: number; // JWT issued at timestamp
 }
 
 interface AuthContextType {
@@ -32,10 +32,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	const checkAuth = () => {
 		try {
-			const token = localStorage.getItem('token');
+			const token = localStorage.getItem("token");
 			if (!token) {
 				setUser(null);
-				setError('Not authenticated');
+				setError("Not authenticated");
 				return;
 			}
 
@@ -44,24 +44,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 			// Check if token is expired
 			if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-				localStorage.removeItem('token');
+				localStorage.removeItem("token");
 				setUser(null);
-				setError('Token expired');
+				setError("Token expired");
 				return;
 			}
 
 			// Map userId to id for consistency if backend sends userId
 			const userWithId: User = {
 				...decoded,
-				id: decoded.userId // Use userId as the primary identifier
+				id: decoded.userId, // Use userId as the primary identifier
 			};
 
 			setUser(userWithId);
 			setError(null);
 		} catch (err) {
-			localStorage.removeItem('token');
+			localStorage.removeItem("token");
 			setUser(null);
-			setError('Invalid token');
+			setError("Invalid token");
 		} finally {
 			setLoading(false);
 		}
@@ -75,17 +75,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		try {
 			setLoading(true);
 			setError(null);
-			const response = await api.post('/auth/login', { email, password });
+			const response = await api.post("/auth/login", { email, password });
 			const { token, user } = response.data;
 
 			// Store token in localStorage
-			localStorage.setItem('token', token);
+			localStorage.setItem("token", token);
 
 			// Set user from decoded token
 			const decoded = jwtDecode<User>(token);
 			setUser(decoded);
+
+			return response.data;
 		} catch (err) {
-			setError('Invalid email or password');
+			setError("Invalid email or password");
 			throw err;
 		} finally {
 			setLoading(false);
@@ -94,26 +96,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	const logout = async () => {
 		try {
-			const token = localStorage.getItem('token');
+			const token = localStorage.getItem("token");
 			if (token) {
-				await api.post('/auth/logout', {}, {
-					headers: {
-						Authorization: `Bearer ${token}`
+				await api.post(
+					"/auth/logout",
+					{},
+					{
+						headers: {
+							Authorization: `Bearer ${token}`,
+						},
 					}
-				});
+				);
 			}
 		} catch (error) {
-			console.error('Logout error:', error);
+			console.error("Logout error:", error);
 		} finally {
 			// Always clear local storage and state, even if the API call fails
-			localStorage.removeItem('token');
+			localStorage.removeItem("token");
 			setUser(null);
 			setLoading(false);
 		}
 	};
 
 	return (
-		<AuthContext.Provider value={{ user, loading, error, login, logout, checkAuth }}>
+		<AuthContext.Provider
+			value={{ user, loading, error, login, logout, checkAuth }}
+		>
 			{children}
 		</AuthContext.Provider>
 	);
@@ -122,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
 	const context = useContext(AuthContext);
 	if (context === undefined) {
-		throw new Error('useAuth must be used within an AuthProvider');
+		throw new Error("useAuth must be used within an AuthProvider");
 	}
 	return context;
-} 
+}
