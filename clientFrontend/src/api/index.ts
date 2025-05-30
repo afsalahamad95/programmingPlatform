@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_URL = "/api";
+// Use full URL in development mode to avoid proxy issues
+const API_URL = import.meta.env.DEV ? "http://localhost:3000/api" : "/api";
 
 // Create axios instance with default config
 export const api = axios.create({
@@ -36,8 +37,7 @@ api.interceptors.request.use(
 			config.headers.Authorization = `Bearer ${token}`;
 		}
 		console.log(
-			`🚀 Making ${config.method?.toUpperCase()} request to ${
-				config.url
+			`🚀 Making ${config.method?.toUpperCase()} request to ${config.url
 			}`,
 			config.data
 		);
@@ -242,16 +242,14 @@ export const submitTest = async (
 			if (error.response.status === 400) {
 				// Use the specific error message from the backend if available
 				throw new Error(
-					`Submission failed: ${
-						error.response.data.error || "Invalid submission data"
+					`Submission failed: ${error.response.data.error || "Invalid submission data"
 					}`
 				);
 			}
 		}
 		console.error("Submission API general error:", error);
 		throw new Error(
-			`Submission failed: ${
-				error.message || "An unknown error occurred during submission."
+			`Submission failed: ${error.message || "An unknown error occurred during submission."
 			}`
 		);
 	}
