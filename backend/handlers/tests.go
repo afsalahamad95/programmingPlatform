@@ -265,6 +265,18 @@ func hydrateTest(testBSON models.TestBSON) (models.Test, error) {
 	// Assign the fetched full question objects to the Test struct
 	test.Questions = questions
 
+	// Compatibility: For MCQ questions, always set CorrectOption if CorrectAnswer is present
+	for i, q := range test.Questions {
+		if q.Type == "mcq" && q.CorrectAnswer != "" && len(q.Options) > 0 {
+			for idx, opt := range q.Options {
+				if opt == q.CorrectAnswer {
+					test.Questions[i].CorrectOption = idx
+					break
+				}
+			}
+		}
+	}
+
 	return test, nil
 }
 

@@ -14,6 +14,7 @@ type Question struct {
 	Points        int                `json:"points" bson:"points"`
 	CreatedAt     time.Time          `json:"createdAt" bson:"createdAt"`
 	Options       []string           `json:"options,omitempty" bson:"options,omitempty"`
+	CorrectOption int                `json:"correctOption,omitempty" bson:"correctOption,omitempty"`
 	StarterCode   string             `json:"starterCode,omitempty" bson:"starterCode,omitempty"`
 	TestCases     []TestCase         `json:"testCases,omitempty" bson:"testCases,omitempty"`
 	CorrectAnswer string             `json:"correctAnswer,omitempty" bson:"correctAnswer,omitempty"`

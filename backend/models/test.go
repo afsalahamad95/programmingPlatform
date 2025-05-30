@@ -40,5 +40,5 @@ type TestSubmission struct {
 
 type Answer struct {
 	QuestionID string `json:"questionId" bson:"questionId"`
-	AnswerText string `json:"answerText" bson:"answerText"`
+	Answer     string `json:"answer" bson:"answer"`
 }

@@ -19,7 +19,8 @@ export interface BaseQuestion {
 export interface MCQQuestion extends BaseQuestion {
 	type: "mcq";
 	options: string[];
-	correctAnswer?: string;
+	correctOption: number;
+	points: number;
 }
 
 export interface SubjectiveQuestion extends BaseQuestion {
@@ -62,5 +63,5 @@ export interface TestSubmission {
 
 export interface Answer {
 	questionId: string;
-	answerText: string;
+	answer: string;
 }
