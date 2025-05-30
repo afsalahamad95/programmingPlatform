@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { adminApi } from "../api";
 
 interface Student {
 	id: string;
@@ -61,167 +61,90 @@ interface ChallengeResult {
 type ResultType = "test" | "challenge";
 
 const StudentResults: React.FC = () => {
-	const navigate = useNavigate();
-	const [loading, setLoading] = useState<boolean>(true);
-	const [error, setError] = useState<string | null>(null);
+	const [resultType, setResultType] = useState<ResultType>("test");
 	const [testResults, setTestResults] = useState<TestResult[]>([]);
-	const [challengeResults, setChallengeResults] = useState<ChallengeResult[]>(
-		[]
-	);
+	const [challengeResults, setChallengeResults] = useState<ChallengeResult[]>([]);
 	const [students, setStudents] = useState<Student[]>([]);
 	const [tests, setTests] = useState<Test[]>([]);
 	const [challenges, setChallenges] = useState<Challenge[]>([]);
 	const [selectedStudent, setSelectedStudent] = useState<string>("all");
 	const [selectedItem, setSelectedItem] = useState<string>("all");
-	const [resultType, setResultType] = useState<ResultType>("test");
+	const [loading, setLoading] = useState<boolean>(true);
+	const [error, setError] = useState<string | null>(null);
 	const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
 
-	const fetchData = useCallback(async () => {
+	const fetchData = async () => {
 		try {
 			setLoading(true);
-			console.log("Fetching student results data...");
-
-			// MOCK DATA - Replace with actual API calls when ready
-			const mockTestResults: TestResult[] = [
-				{
-					studentId: "s1",
-					studentName: "Jane Smith",
-					studentEmail: "jane.smith@example.com",
-					testId: "t1",
-					testTitle: "JavaScript Fundamentals",
-					status: "Passed",
-					percentageScore: 85.0,
-					pointsScored: 85,
-					totalPoints: 100,
-					timeSpent: 3600,
-					submittedAt: "2024-03-15T14:30:00Z",
-					answers: [
-						{
-							questionId: "q1",
-							questionType: "MCQ",
-							score: 20,
-							maxScore: 20,
-						},
-						{
-							questionId: "q2",
-							questionType: "Subjective",
-							score: 15,
-							maxScore: 20,
-						},
-					],
-				},
-			];
-
-			const mockChallengeResults: ChallengeResult[] = [
-				{
-					studentId: "s1",
-					studentName: "Jane Smith",
-					studentEmail: "jane.smith@example.com",
-					challengeId: "c1",
-					challengeTitle: "Array Manipulation",
-					status: "Passed",
-					percentageScore: 90.0,
-					pointsScored: 45,
-					totalPoints: 50,
-					timeSpent: 1800,
-					submittedAt: "2024-03-15T16:30:00Z",
-					testCases: {
-						passed: 9,
-						total: 10,
-					},
-				},
-			];
-
-			const mockStudents: Student[] = [
-				{
-					id: "s1",
-					name: "Jane Smith",
-					email: "jane.smith@example.com",
-				},
-			];
-
-			const mockTests: Test[] = [
-				{
-					id: "t1",
-					title: "JavaScript Fundamentals",
-					totalPoints: 100,
-				},
-			];
-
-			const mockChallenges: Challenge[] = [
-				{
-					id: "c1",
-					title: "Array Manipulation",
-					totalPoints: 50,
-				},
-			];
-
-			try {
-				// Try to fetch from the real API
-				const timestamp = new Date().getTime();
-				const [
-					testResultsRes,
-					challengeResultsRes,
-					studentsRes,
-					testsRes,
-					challengesRes,
-				] = await Promise.all([
-					axios.get(`/api/admin/test-results?t=${timestamp}`),
-					axios.get(`/api/admin/student-results?t=${timestamp}`),
-					axios.get(`/api/admin/students?t=${timestamp}`),
-					axios.get(`/api/admin/tests?t=${timestamp}`),
-					axios.get(`/api/admin/challenges?t=${timestamp}`),
-				]);
-
-				setTestResults(
-					Array.isArray(testResultsRes.data)
-						? testResultsRes.data
-						: mockTestResults
-				);
-				setChallengeResults(
-					Array.isArray(challengeResultsRes.data)
-						? challengeResultsRes.data
-						: mockChallengeResults
-				);
-				setStudents(
-					Array.isArray(studentsRes.data)
-						? studentsRes.data
-						: mockStudents
-				);
-				setTests(
-					Array.isArray(testsRes.data) ? testsRes.data : mockTests
-				);
-				setChallenges(
-					Array.isArray(challengesRes.data)
-						? challengesRes.data
-						: mockChallenges
-				);
-			} catch (apiError) {
-				console.warn("Using mock data instead of API:", apiError);
-				setTestResults(mockTestResults);
-				setChallengeResults(mockChallengeResults);
-				setStudents(mockStudents);
-				setTests(mockTests);
-				setChallenges(mockChallenges);
-			}
-
 			setError(null);
+
+			// Fetch all data in parallel
+			const [
+				testResultsData,
+				challengeResultsData,
+				studentsData,
+				testsData,
+				challengesData,
+			] = await Promise.all([
+				adminApi.getTestResults(),
+				adminApi.getStudentResults(),
+				adminApi.getStudentResults(), // We'll extract unique students from results
+				adminApi.getTestResults(), // We'll extract unique tests from results
+				adminApi.getStudentResults(), // We'll extract unique challenges from results
+			]);
+
+			setTestResults(testResultsData);
+			setChallengeResults(challengeResultsData);
+
+			// Extract unique students from results
+			const uniqueStudents = new Map<string, Student>();
+			[...testResultsData, ...challengeResultsData].forEach((result: TestResult | ChallengeResult) => {
+				if (!uniqueStudents.has(result.studentId)) {
+					uniqueStudents.set(result.studentId, {
+						id: result.studentId,
+						name: result.studentName,
+						email: result.studentEmail,
+					});
+				}
+			});
+			setStudents(Array.from(uniqueStudents.values()));
+
+			// Extract unique tests from results
+			const uniqueTests = new Map<string, Test>();
+			testResultsData.forEach((result: TestResult) => {
+				if (!uniqueTests.has(result.testId)) {
+					uniqueTests.set(result.testId, {
+						id: result.testId,
+						title: result.testTitle,
+						totalPoints: result.totalPoints,
+					});
+				}
+			});
+			setTests(Array.from(uniqueTests.values()));
+
+			// Extract unique challenges from results
+			const uniqueChallenges = new Map<string, Challenge>();
+			challengeResultsData.forEach((result: ChallengeResult) => {
+				if (!uniqueChallenges.has(result.challengeId)) {
+					uniqueChallenges.set(result.challengeId, {
+						id: result.challengeId,
+						title: result.challengeTitle,
+						totalPoints: result.totalPoints,
+					});
+				}
+			});
+			setChallenges(Array.from(uniqueChallenges.values()));
 		} catch (err) {
-			console.error("Failed to fetch results:", err);
-			setError("Failed to load student results. Please try again later.");
-			setTestResults([]);
-			setChallengeResults([]);
-			setStudents([]);
-			setTests([]);
-			setChallenges([]);
+			console.error("Error fetching data:", err);
+			setError("Failed to load data. Please try again later.");
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	};
 
 	useEffect(() => {
 		fetchData();
-	}, [fetchData]);
+	}, []);
 
 	useEffect(() => {
 		let intervalId: number | null = null;
@@ -231,28 +154,28 @@ const StudentResults: React.FC = () => {
 		return () => {
 			if (intervalId) window.clearInterval(intervalId);
 		};
-	}, [autoRefresh, fetchData]);
+	}, [autoRefresh]);
 
 	const filteredResults =
 		resultType === "test"
 			? testResults.filter((result) => {
-					const studentMatch =
-						selectedStudent === "all" ||
-						result.studentId === selectedStudent;
-					const itemMatch =
-						selectedItem === "all" ||
-						result.testId === selectedItem;
-					return studentMatch && itemMatch;
-			  })
+				const studentMatch =
+					selectedStudent === "all" ||
+					result.studentId === selectedStudent;
+				const itemMatch =
+					selectedItem === "all" ||
+					result.testId === selectedItem;
+				return studentMatch && itemMatch;
+			})
 			: challengeResults.filter((result) => {
-					const studentMatch =
-						selectedStudent === "all" ||
-						result.studentId === selectedStudent;
-					const itemMatch =
-						selectedItem === "all" ||
-						result.challengeId === selectedItem;
-					return studentMatch && itemMatch;
-			  });
+				const studentMatch =
+					selectedStudent === "all" ||
+					result.studentId === selectedStudent;
+				const itemMatch =
+					selectedItem === "all" ||
+					result.challengeId === selectedItem;
+				return studentMatch && itemMatch;
+			});
 
 	const formatTime = (seconds: number) => {
 		const hours = Math.floor(seconds / 3600);
@@ -293,9 +216,8 @@ const StudentResults: React.FC = () => {
 		});
 		const link = document.createElement("a");
 		link.href = URL.createObjectURL(blob);
-		link.download = `${resultType}-results-${
-			new Date().toISOString().split("T")[0]
-		}.csv`;
+		link.download = `${resultType}-results-${new Date().toISOString().split("T")[0]
+			}.csv`;
 		link.click();
 	};
 
@@ -421,17 +343,16 @@ const StudentResults: React.FC = () => {
 									{resultType === "test"
 										? (result as TestResult).testTitle
 										: (result as ChallengeResult)
-												.challengeTitle}
+											.challengeTitle}
 								</td>
 								<td className="px-4 py-2">
 									<span
-										className={`px-2 py-1 rounded ${
-											result.status === "Passed"
-												? "bg-green-100 text-green-800"
-												: result.status === "Failed"
+										className={`px-2 py-1 rounded ${result.status === "Passed"
+											? "bg-green-100 text-green-800"
+											: result.status === "Failed"
 												? "bg-red-100 text-red-800"
 												: "bg-yellow-100 text-yellow-800"
-										}`}
+											}`}
 									>
 										{result.status}
 									</span>
@@ -452,15 +373,8 @@ const StudentResults: React.FC = () => {
 								</td>
 								{resultType === "challenge" && (
 									<td className="px-4 py-2">
-										{
-											(result as ChallengeResult)
-												.testCases.passed
-										}
-										/
-										{
-											(result as ChallengeResult)
-												.testCases.total
-										}
+										{(result as ChallengeResult).testCases?.passed || 0}/
+										{(result as ChallengeResult).testCases?.total || 0}
 									</td>
 								)}
 							</tr>

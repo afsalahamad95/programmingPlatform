@@ -53,6 +53,9 @@ func SetupRoutes(app *fiber.App) {
 	challenges.Post("/:id/submit", handlers.SubmitChallengeAttempt)
 	challenges.Get("/:id/attempts", handlers.GetChallengeAttempts)
 	challenges.Get("/:id/attempts/:userId", handlers.GetUserChallengeAttempts)
+	challenges.Get("/results", handlers.GetChallengeResults)
+	challenges.Get("/results/student/:studentId", handlers.GetChallengeResultsByStudent)
+	challenges.Get("/results/challenge/:challengeId", handlers.GetChallengeResultsByChallenge)
 
 	// Admin routes
 	admin := app.Group("/admin")

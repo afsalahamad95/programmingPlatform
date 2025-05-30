@@ -366,3 +366,35 @@ export const getCurrentUser = async () => {
 	const response = await api.get("/auth/me");
 	return response.data;
 };
+
+// Test Results API
+export const getTestResults = async () => {
+	const response = await api.get("/test-results");
+	return response.data;
+};
+
+export const getTestResultsByStudent = async (studentId: string) => {
+	const response = await api.get(`/test-results/student/${studentId}`);
+	return response.data;
+};
+
+export const getTestResultsByTest = async (testId: string) => {
+	const response = await api.get(`/test-results/test/${testId}`);
+	return response.data;
+};
+
+// Challenge Results API
+export const getChallengeResults = async () => {
+	const response = await api.get('/challenges/results');
+	return response.data;
+};
+
+export const getChallengeResultsByStudent = async (studentId: string) => {
+	const response = await api.get(`/challenges/results/student/${studentId}`);
+	return response.data;
+};
+
+export const getChallengeResultsByChallenge = async (challengeId: string) => {
+	const response = await api.get(`/challenges/results/challenge/${challengeId}`);
+	return response.data;
+};

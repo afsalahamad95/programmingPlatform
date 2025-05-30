@@ -330,3 +330,203 @@ func GetUserChallengeAttempts(c *fiber.Ctx) error {
 
 	return c.JSON(attempts)
 }
+
+// GetChallengeResults handles fetching all challenge results
+func GetChallengeResults(c *fiber.Ctx) error {
+	var attempts []models.ChallengeAttempt
+	cursor, err := db.ChallengeAttemptsCollection.Find(
+		context.Background(),
+		bson.M{},
+		options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}),
+	)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenge results"})
+	}
+	defer cursor.Close(context.Background())
+
+	if err := cursor.All(context.Background(), &attempts); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode challenge results"})
+	}
+
+	// Convert attempts to response format
+	var results []fiber.Map
+	for _, attempt := range attempts {
+		// Get challenge details
+		var challenge models.CodingChallenge
+		err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": attempt.ChallengeID}).Decode(&challenge)
+		if err != nil {
+			continue
+		}
+
+		// Get student details
+		var student models.Student
+		err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": attempt.UserID}).Decode(&student)
+		if err != nil {
+			// If student not found, use placeholder
+			student = models.Student{
+				ID: attempt.UserID,
+				BasicInfo: models.BasicInfo{
+					Name:  "Unknown Student",
+					Email: "unknown@example.com",
+				},
+			}
+		}
+
+		result := fiber.Map{
+			"studentId":       attempt.UserID.Hex(),
+			"studentName":     student.BasicInfo.Name,
+			"studentEmail":    student.BasicInfo.Email,
+			"challengeId":     attempt.ChallengeID.Hex(),
+			"challengeTitle":  challenge.Title,
+			"status":          attempt.Status,
+			"score":           attempt.Result.ScoredPoints,
+			"maxScore":        attempt.Result.TotalPoints,
+			"timeSpent":       attempt.TimeSpent,
+			"submittedAt":     attempt.CreatedAt.Format(time.RFC3339),
+			"language":        attempt.Language,
+			"testCasesPassed": attempt.Result.PassedTests,
+			"totalTestCases":  attempt.Result.TotalTests,
+		}
+		results = append(results, result)
+	}
+
+	return c.JSON(results)
+}
+
+// GetChallengeResultsByStudent handles fetching challenge results for a specific student
+func GetChallengeResultsByStudent(c *fiber.Ctx) error {
+	studentId := c.Params("studentId")
+	if studentId == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Student ID is required"})
+	}
+
+	// Convert studentId to ObjectID
+	studentObjectID, err := primitive.ObjectIDFromHex(studentId)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid student ID format"})
+	}
+
+	var attempts []models.ChallengeAttempt
+	cursor, err := db.ChallengeAttemptsCollection.Find(
+		context.Background(),
+		bson.M{"userId": studentObjectID},
+		options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}),
+	)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch student results"})
+	}
+	defer cursor.Close(context.Background())
+
+	if err := cursor.All(context.Background(), &attempts); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode student results"})
+	}
+
+	// Get student details
+	var student models.Student
+	err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": studentObjectID}).Decode(&student)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Student not found"})
+		}
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch student details"})
+	}
+
+	// Convert attempts to response format
+	var results []fiber.Map
+	for _, attempt := range attempts {
+		var challenge models.CodingChallenge
+		err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": attempt.ChallengeID}).Decode(&challenge)
+		if err != nil {
+			continue
+		}
+
+		result := fiber.Map{
+			"studentId":       attempt.UserID.Hex(),
+			"studentName":     student.BasicInfo.Name,
+			"studentEmail":    student.BasicInfo.Email,
+			"challengeId":     attempt.ChallengeID.Hex(),
+			"challengeTitle":  challenge.Title,
+			"status":          attempt.Status,
+			"score":           attempt.Result.ScoredPoints,
+			"maxScore":        attempt.Result.TotalPoints,
+			"timeSpent":       attempt.TimeSpent,
+			"submittedAt":     attempt.CreatedAt.Format(time.RFC3339),
+			"language":        attempt.Language,
+			"testCasesPassed": attempt.Result.PassedTests,
+			"totalTestCases":  attempt.Result.TotalTests,
+		}
+		results = append(results, result)
+	}
+
+	return c.JSON(results)
+}
+
+// GetChallengeResultsByChallenge handles fetching results for a specific challenge
+func GetChallengeResultsByChallenge(c *fiber.Ctx) error {
+	challengeId, err := primitive.ObjectIDFromHex(c.Params("challengeId"))
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid challenge ID"})
+	}
+
+	var attempts []models.ChallengeAttempt
+	cursor, err := db.ChallengeAttemptsCollection.Find(
+		context.Background(),
+		bson.M{"challengeId": challengeId},
+		options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}),
+	)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenge results"})
+	}
+	defer cursor.Close(context.Background())
+
+	if err := cursor.All(context.Background(), &attempts); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode challenge results"})
+	}
+
+	// Get challenge details
+	var challenge models.CodingChallenge
+	err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": challengeId}).Decode(&challenge)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Challenge not found"})
+		}
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch challenge details"})
+	}
+
+	// Convert attempts to response format
+	var results []fiber.Map
+	for _, attempt := range attempts {
+		// Get student details
+		var student models.Student
+		err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": attempt.UserID}).Decode(&student)
+		if err != nil {
+			// If student not found, use placeholder
+			student = models.Student{
+				ID: attempt.UserID,
+				BasicInfo: models.BasicInfo{
+					Name:  "Unknown Student",
+					Email: "unknown@example.com",
+				},
+			}
+		}
+
+		result := fiber.Map{
+			"studentId":       attempt.UserID.Hex(),
+			"studentName":     student.BasicInfo.Name,
+			"studentEmail":    student.BasicInfo.Email,
+			"challengeId":     attempt.ChallengeID.Hex(),
+			"challengeTitle":  challenge.Title,
+			"status":          attempt.Status,
+			"score":           attempt.Result.ScoredPoints,
+			"maxScore":        attempt.Result.TotalPoints,
+			"timeSpent":       attempt.TimeSpent,
+			"submittedAt":     attempt.CreatedAt.Format(time.RFC3339),
+			"language":        attempt.Language,
+			"testCasesPassed": attempt.Result.PassedTests,
+			"totalTestCases":  attempt.Result.TotalTests,
+		}
+		results = append(results, result)
+	}
+
+	return c.JSON(results)
+}
