@@ -47,10 +47,13 @@ export interface Test {
 	id: string;
 	title: string;
 	description: string;
-	questions: Question[];
 	startTime: Date;
 	endTime: Date;
-	duration: number; // in minutes
+	duration: number;
+	questions: Question[];
+	allowedStudents: string[];
+	createdAt: Date;
+	updatedAt: Date;
 }
 
 export interface TestSubmission {
@@ -64,4 +67,27 @@ export interface TestSubmission {
 export interface Answer {
 	questionId: string;
 	answer: string;
+}
+
+export interface User {
+	id: string;
+	email: string;
+	fullName: string;
+	institution: string;
+	department: string;
+	studentId: string;
+	role: "student" | "admin";
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface Challenge {
+	id: string;
+	title: string;
+	description: string;
+	difficulty: "easy" | "medium" | "hard";
+	category: string;
+	points: number;
+	createdAt: Date;
+	updatedAt: Date;
 }

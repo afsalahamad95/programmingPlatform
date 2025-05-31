@@ -18,6 +18,17 @@ type Test struct {
 	AllowedStudents []string   `json:"allowedStudents" bson:"allowedStudents"` // Updated to string for parsing
 }
 
+// CreateTestRequest represents the request body for creating a new test
+type CreateTestRequest struct {
+	Title           string    `json:"title" bson:"title"`
+	Description     string    `json:"description" bson:"description"`
+	StartTime       time.Time `json:"startTime" bson:"startTime"`
+	EndTime         time.Time `json:"endTime" bson:"endTime"`
+	Duration        int       `json:"duration" bson:"duration"`
+	Questions       []string  `json:"questions" bson:"questions"`             // Array of question IDs
+	AllowedStudents []string  `json:"allowedStudents" bson:"allowedStudents"` // Array of student IDs
+}
+
 // TestBSON represents the test document structure as stored in MongoDB
 type TestBSON struct {
 	ID              primitive.ObjectID   `json:"id,omitempty" bson:"_id,omitempty"`

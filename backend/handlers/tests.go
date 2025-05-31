@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"qms-backend/db"
@@ -15,69 +16,113 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// CreateTest handles creating a new test document
+// CreateTest handles the creation of a new test
 func CreateTest(c *fiber.Ctx) error {
-	// We expect question IDs and allowed student IDs as strings in the incoming request
-	type CreateTestRequest struct {
-		Title           string    `json:"title"`
-		Description     string    `json:"description"`
-		StartTime       time.Time `json:"startTime"`
-		EndTime         time.Time `json:"endTime"`
-		Duration        int       `json:"duration"`
-		Questions       []string  `json:"questions"`
-		AllowedStudents []string  `json:"allowedStudents"`
+	fmt.Println("Creating new test...")
+	fmt.Printf("Request body: %s\n", string(c.Body()))
+
+	var req models.CreateTestRequest
+	if err := c.BodyParser(&req); err != nil {
+		fmt.Printf("Error parsing test data: %v\n", err)
+		fmt.Printf("Raw request body: %s\n", string(c.Body()))
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("Invalid test data: %v", err),
+		})
 	}
 
-	req := new(CreateTestRequest)
-	if err := c.BodyParser(req); err != nil {
-		log.Printf("Error unmarshalling body into CreateTestRequest struct: %v", err)
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	// Validate required fields
+	if req.Title == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Title is required",
+		})
+	}
+	if req.Description == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Description is required",
+		})
+	}
+	if req.StartTime.IsZero() {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Start time is required",
+		})
+	}
+	if req.EndTime.IsZero() {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "End time is required",
+		})
+	}
+	if req.Duration <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Duration must be greater than 0",
+		})
 	}
 
-	// Prepare the TestBSON model for DB insertion
+	// Convert question IDs to ObjectIDs
+	var questionIDs []primitive.ObjectID
+	for _, qID := range req.Questions {
+		objID, err := primitive.ObjectIDFromHex(qID)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("Invalid question ID format: %s", qID),
+			})
+		}
+		questionIDs = append(questionIDs, objID)
+	}
+
+	// Create TestBSON for database insertion
 	testBSON := models.TestBSON{
 		Title:           req.Title,
 		Description:     req.Description,
 		StartTime:       req.StartTime,
 		EndTime:         req.EndTime,
 		Duration:        req.Duration,
-		AllowedStudents: req.AllowedStudents, // Assign strings directly
+		Questions:       questionIDs,
+		AllowedStudents: req.AllowedStudents,
 	}
 
-	// Convert question string IDs to ObjectIDs for DB storage
-	for _, qIDStr := range req.Questions {
-		objID, err := primitive.ObjectIDFromHex(qIDStr)
-		if err != nil {
-			log.Printf("Invalid question ID format in create request: %v", qIDStr)
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid question ID format"})
-		}
-		testBSON.Questions = append(testBSON.Questions, objID)
-	}
-
-	// Insert the test document into the database
+	// Create test in database
 	result, err := db.TestsCollection.InsertOne(context.Background(), testBSON)
 	if err != nil {
-		log.Printf("Failed to create test: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create test"})
+		fmt.Printf("Error creating test: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("Failed to create test: %v", err),
+		})
 	}
 
-	// Fetch and return the created test with full question details (similar to GetTest logic)
 	createdTestID := result.InsertedID.(primitive.ObjectID)
+
+	// Fetch the created test to return complete data
 	var createdTestBSON models.TestBSON
 	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": createdTestID}).Decode(&createdTestBSON)
 	if err != nil {
-		log.Printf("Failed to fetch created test after insertion: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve created test details"})
+		fmt.Printf("Error fetching created test: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Test created but failed to fetch details",
+		})
 	}
 
-	// Convert TestBSON to models.Test (fetch questions)
+	// Convert TestBSON to Test with full question details
 	createdTest, err := hydrateTest(createdTestBSON)
 	if err != nil {
-		log.Printf("Failed to hydrate created test: %v", err)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare created test response"})
+		fmt.Printf("Error hydrating test: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Test created but failed to prepare response",
+		})
 	}
 
-	return c.Status(http.StatusCreated).JSON(createdTest)
+	// Broadcast the test update to all connected clients
+	if hub := c.Locals("hub"); hub != nil {
+		if h, ok := hub.(*Hub); ok {
+			fmt.Printf("Broadcasting test update for test ID: %s\n", createdTestID.Hex())
+			h.BroadcastTestUpdate(createdTestID.Hex())
+		} else {
+			fmt.Println("Hub found in context but type assertion failed")
+		}
+	} else {
+		fmt.Println("No hub found in context")
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(createdTest)
 }
 
 // GetTests retrieves all the tests from the database with full question details
@@ -302,28 +347,80 @@ func DeleteTest(c *fiber.Ctx) error {
 
 // SubmitTest handles a test submission
 func SubmitTest(c *fiber.Ctx) error {
-	// Parse the submission body into the TestSubmission struct
-	submission := new(models.TestSubmission)
-	if err := c.BodyParser(submission); err != nil {
+	// Parse the submission body into a map first to handle both formats
+	var submissionMap map[string]interface{}
+	if err := c.BodyParser(&submissionMap); err != nil {
 		log.Printf("Error parsing submission body: %v", err)
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
+	fmt.Printf("[DEBUG] Received submission payload: %+v\n", submissionMap)
 
-	// Validate student ID
+	// Create a new TestSubmission
+	submission := &models.TestSubmission{
+		TestID:      c.Params("id"),
+		SubmittedAt: time.Now(),
+	}
+
+	// Extract common fields
+	if studentID, ok := submissionMap["studentId"].(string); ok {
+		submission.StudentID = studentID
+	}
+	if studentName, ok := submissionMap["studentName"].(string); ok {
+		submission.StudentName = studentName
+	}
+	if studentEmail, ok := submissionMap["studentEmail"].(string); ok {
+		submission.StudentEmail = studentEmail
+	}
+	if timeSpent, ok := submissionMap["timeSpent"].(float64); ok {
+		submission.TimeSpent = int(timeSpent)
+	}
+
+	fmt.Printf("[DEBUG] Parsed studentId: %s, testId: %s\n", submission.StudentID, submission.TestID)
+
+	// Handle answers in either format
+	if answers, ok := submissionMap["answers"]; ok {
+		fmt.Printf("[DEBUG] Raw answers: %+v\n", answers)
+		switch v := answers.(type) {
+		case []interface{}:
+			// Array format
+			for _, ans := range v {
+				if answerMap, ok := ans.(map[string]interface{}); ok {
+					answer := models.Answer{}
+					if qID, ok := answerMap["questionId"].(string); ok {
+						answer.QuestionID = qID
+					}
+					if ans, ok := answerMap["answer"].(string); ok {
+						answer.Answer = ans
+					}
+					submission.Answers = append(submission.Answers, answer)
+				}
+			}
+		case map[string]interface{}:
+			// Object format (questionId -> answer)
+			for qID, ans := range v {
+				if answer, ok := ans.(string); ok {
+					submission.Answers = append(submission.Answers, models.Answer{
+						QuestionID: qID,
+						Answer:     answer,
+					})
+				}
+			}
+		}
+	}
+
+	fmt.Printf("[DEBUG] Parsed answers: %+v\n", submission.Answers)
+
+	// Validate required fields
 	if submission.StudentID == "" {
+		fmt.Printf("[DEBUG] 400 error: Student ID is required\n")
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Student ID is required"})
 	}
-
-	// Validate test ID
 	if submission.TestID == "" {
+		fmt.Printf("[DEBUG] 400 error: Test ID is required\n")
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Test ID is required"})
 	}
-
-	// Set the current submission timestamp
-	submission.SubmittedAt = time.Now()
-
-	// Ensure the submission has answers
 	if len(submission.Answers) == 0 {
+		fmt.Printf("[DEBUG] 400 error: No answers provided\n")
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "No answers provided"})
 	}
 
@@ -398,4 +495,85 @@ func isValidObjectID(id string) bool {
 	}
 
 	return false
+}
+
+// GetActiveTests retrieves all active tests (tests that have started but not ended)
+func GetActiveTests(c *fiber.Ctx) error {
+	fmt.Printf("GetActiveTests handler called\n")
+	now := time.Now()
+
+	filter := bson.M{
+		"startTime": bson.M{
+			"$lte": now,
+		},
+		"endTime": bson.M{
+			"$gt": now,
+		},
+	}
+
+	fmt.Printf("Querying active tests with filter: %+v\n", filter)
+	cursor, err := db.TestsCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Printf("Failed to fetch active tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch active tests"})
+	}
+	defer cursor.Close(context.Background())
+
+	var testsBSON []models.TestBSON
+	if err := cursor.All(context.Background(), &testsBSON); err != nil {
+		log.Printf("Failed to decode active tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode active tests"})
+	}
+
+	fmt.Printf("Found %d active tests\n", len(testsBSON))
+	var tests []models.Test
+	for _, testBSON := range testsBSON {
+		test, err := hydrateTest(testBSON)
+		if err != nil {
+			log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+			continue
+		}
+		tests = append(tests, test)
+	}
+
+	return c.JSON(tests)
+}
+
+// GetScheduledTests retrieves all scheduled tests (tests that haven't started yet)
+func GetScheduledTests(c *fiber.Ctx) error {
+	fmt.Printf("GetScheduledTests handler called\n")
+	now := time.Now()
+
+	filter := bson.M{
+		"startTime": bson.M{
+			"$gt": now,
+		},
+	}
+
+	fmt.Printf("Querying scheduled tests with filter: %+v\n", filter)
+	cursor, err := db.TestsCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Printf("Failed to fetch scheduled tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch scheduled tests"})
+	}
+	defer cursor.Close(context.Background())
+
+	var testsBSON []models.TestBSON
+	if err := cursor.All(context.Background(), &testsBSON); err != nil {
+		log.Printf("Failed to decode scheduled tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode scheduled tests"})
+	}
+
+	fmt.Printf("Found %d scheduled tests\n", len(testsBSON))
+	var tests []models.Test
+	for _, testBSON := range testsBSON {
+		test, err := hydrateTest(testBSON)
+		if err != nil {
+			log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+			continue
+		}
+		tests = append(tests, test)
+	}
+
+	return c.JSON(tests)
 }

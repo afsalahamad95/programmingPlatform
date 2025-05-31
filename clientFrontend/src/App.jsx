@@ -10,6 +10,7 @@ import UserProfile from './components/UserProfile';
 import HealthCheck from './components/HealthCheck';
 import Login from './components/Login';
 import {UserProvider, useUser} from './contexts/UserContext';
+import {WebSocketProvider} from './contexts/WebSocketProvider';
 import * as api from './api';
 
 function AppContent() {
@@ -285,7 +286,9 @@ function AppContent() {
 export default function App() {
   return (
     <UserProvider>
-      <AppContent />
+      <WebSocketProvider>
+        <AppContent />
+      </WebSocketProvider>
     </UserProvider>
   );
 }

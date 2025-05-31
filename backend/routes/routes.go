@@ -12,40 +12,31 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/health", handlers.HealthCheck)
 	app.Get("/api/health", handlers.HealthCheck)
 
-	// Test attempt route (defined early to ensure it's registered)
-	// app.Get("/tests/attempts/:attemptId", handlers.GetTestAttempt)
+	// API routes group
+	api := app.Group("/api")
 
 	// Auth routes
-	app.Post("/auth/login", handlers.Login)
-	app.Post("/auth/logout", handlers.Logout)
-	app.Get("/auth/me", handlers.GetCurrentUser)
+	api.Post("/auth/login", handlers.Login)
+	api.Post("/auth/logout", handlers.Logout)
+	api.Get("/auth/me", handlers.GetCurrentUser)
 
 	// Test routes
-	app.Get("/tests", handlers.GetTests)
-	app.Get("/tests/:id", handlers.GetTest)
-	app.Post("/tests/:id/submit", handlers.SubmitTest)
+	api.Get("/tests", handlers.GetTests)
+	api.Get("/tests/:id", handlers.GetTest)
+	api.Post("/tests", handlers.CreateTest)
+	api.Put("/tests/:id", handlers.UpdateTest)
+	api.Delete("/tests/:id", handlers.DeleteTest)
+	api.Post("/tests/:id/submit", handlers.SubmitTest)
+	api.Get("/tests/attempts/:attemptId", handlers.GetTestAttempt)
 
 	// User routes
-	app.Post("/users", handlers.CreateUser)
-	app.Get("/users/:id", handlers.GetUser)
-	app.Put("/users/:id", handlers.UpdateUser)
+	api.Post("/users", handlers.CreateUser)
+	api.Get("/users/:id", handlers.GetUser)
+	api.Put("/users/:id", handlers.UpdateUser)
+	api.Delete("/users/:id", handlers.DeleteUser)
 
-	// Tests routes
-	tests := app.Group("/tests")
-	tests.Put("/:id", handlers.UpdateTest)
-	tests.Delete("/:id", handlers.DeleteTest)
-	tests.Post("/:id/submit", handlers.SubmitTest)
-	tests.Get("/attempts/:attemptId", handlers.GetTestAttempt)
-
-	// Users routes
-	users := app.Group("/users")
-	users.Post("/", handlers.CreateUser)
-	users.Get("/:id", handlers.GetUser)
-	users.Put("/:id", handlers.UpdateUser)
-	users.Delete("/:id", handlers.DeleteUser)
-
-	// challenge routes
-	challenges := app.Group("/challenges")
+	// Challenge routes
+	challenges := api.Group("/challenges")
 	challenges.Post("/", handlers.CreateChallenge)
 	challenges.Get("/:id", handlers.GetChallenge)
 	challenges.Put("/:id", handlers.UpdateChallenge)
@@ -58,7 +49,7 @@ func SetupRoutes(app *fiber.App) {
 	challenges.Get("/results/challenge/:challengeId", handlers.GetChallengeResultsByChallenge)
 
 	// Admin routes
-	admin := app.Group("/admin")
+	admin := api.Group("/admin")
 
 	// Test results routes
 	admin.Get("/test-results", handlers.GetTestResults)

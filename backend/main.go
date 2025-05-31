@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/websocket/v2"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -27,21 +29,29 @@ func getEnvWithDefault(key, defaultValue string) string {
 }
 
 func main() {
-	// Configure logging
+	// Configure logging to be more visible
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("Starting Question Management System backend...")
+	log.SetOutput(os.Stdout)
+
+	fmt.Println("==========================================")
+	fmt.Println("Starting Question Management System backend...")
+	fmt.Println("==========================================")
 
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using default configuration")
+		fmt.Println("No .env file found, using default configuration")
 	}
 
 	// Get configuration from environment
-	port := getEnvWithDefault("PORT", "3000")
+	port := getEnvWithDefault("PORT", "8080")
 	mongoURI := getEnvWithDefault("MONGODB_URI", "mongodb://localhost:27017")
 	dbName := getEnvWithDefault("DB_NAME", "qms")
-	allowedOrigins := getEnvWithDefault("ALLOWED_ORIGINS", "*")
+	allowedOrigins := getEnvWithDefault("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
 	logLevel := getEnvWithDefault("LOG_LEVEL", "debug")
+
+	fmt.Printf("Server will run on port: %s\n", port)
+	fmt.Printf("MongoDB URI: %s\n", mongoURI)
+	fmt.Printf("Database name: %s\n", dbName)
 
 	// Connect to MongoDB with retry logic
 	var client *mongo.Client
@@ -50,7 +60,7 @@ func main() {
 	retryInterval := time.Second * 3
 
 	for i := 0; i < maxRetries; i++ {
-		log.Printf("Attempting to connect to MongoDB (attempt %d/%d)...\n", i+1, maxRetries)
+		fmt.Printf("Attempting to connect to MongoDB (attempt %d/%d)...\n", i+1, maxRetries)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -61,14 +71,14 @@ func main() {
 		if err == nil {
 			// Test the connection
 			if err = client.Ping(ctx, nil); err == nil {
-				log.Printf("Successfully connected to MongoDB database: %s\n", dbName)
+				fmt.Printf("Successfully connected to MongoDB database: %s\n", dbName)
 				break
 			}
 		}
 
-		log.Printf("Failed to connect to MongoDB: %v\n", err)
+		fmt.Printf("Failed to connect to MongoDB: %v\n", err)
 		if i < maxRetries-1 {
-			log.Printf("Retrying in %v seconds...\n", retryInterval/time.Second)
+			fmt.Printf("Retrying in %v seconds...\n", retryInterval/time.Second)
 			time.Sleep(retryInterval)
 		}
 	}
@@ -82,7 +92,7 @@ func main() {
 
 	// Initialize database collections
 	db.InitDB(client.Database(dbName))
-	log.Println("Database collections initialized")
+	fmt.Println("Database collections initialized")
 
 	// Create Fiber app with custom error handling
 	app := fiber.New(fiber.Config{
@@ -109,16 +119,47 @@ func main() {
 
 	// CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173,http://localhost:3000",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With, X-CSRF-Token, X-API-Key",
+		ExposeHeaders:    "Content-Length, Content-Range",
 		AllowCredentials: true,
-		ExposeHeaders:    "Authorization",
+		MaxAge:           300,
 	}))
 
 	// Health check endpoint
 	app.Get("/health", handlers.HealthCheck)
 	app.Get("/api/health", handlers.HealthCheck)
+
+	// Initialize WebSocket hub
+	fmt.Println("Initializing WebSocket hub...")
+	hub := handlers.NewHub()
+	go hub.Run()
+	fmt.Println("WebSocket hub initialized and running")
+
+	// Middleware to inject hub into context
+	hubMiddleware := func(c *fiber.Ctx) error {
+		c.Locals("hub", hub)
+		return c.Next()
+	}
+
+	// WebSocket endpoint
+	app.Use("/ws", func(c *fiber.Ctx) error {
+		fmt.Printf("WebSocket upgrade request from %s\n", c.IP())
+		if websocket.IsWebSocketUpgrade(c) {
+			fmt.Printf("WebSocket upgrade accepted for %s\n", c.IP())
+			c.Locals("hub", hub) // Add hub to context
+			c.Locals("allowed", true)
+			return c.Next()
+		}
+		fmt.Printf("WebSocket upgrade rejected for %s\n", c.IP())
+		return fiber.ErrUpgradeRequired
+	})
+
+	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+		fmt.Printf("New WebSocket connection established with %s\n", c.RemoteAddr().String())
+		handlers.ServeWs(hub, c)
+	}))
 
 	// API routes
 	api := app.Group("/api")
@@ -162,12 +203,25 @@ func main() {
 	questions.Put("/:id", handlers.UpdateQuestion)
 	questions.Delete("/:id", handlers.DeleteQuestion)
 
-	// Tests routes
+	// Test routes - add hub middleware
 	tests := api.Group("/tests")
-	tests.Post("/", handlers.CreateTest)
-	tests.Get("/", handlers.GetTests)
+	tests.Use(hubMiddleware) // Add hub to context for all test routes
+
+	// Specific routes first
+	tests.Get("/active", func(c *fiber.Ctx) error {
+		fmt.Printf("Handling /active request\n")
+		return handlers.GetActiveTests(c)
+	})
+	tests.Get("/scheduled", func(c *fiber.Ctx) error {
+		fmt.Printf("Handling /scheduled request\n")
+		return handlers.GetScheduledTests(c)
+	})
 	tests.Get("/attempts/:attemptId", handlers.GetTestAttempt)
+
+	// Generic routes last
+	tests.Get("/", handlers.GetTests)
 	tests.Get("/:id", handlers.GetTest)
+	tests.Post("/", handlers.CreateTest)
 	tests.Put("/:id", handlers.UpdateTest)
 	tests.Delete("/:id", handlers.DeleteTest)
 	tests.Post("/:id/submit", handlers.SubmitTest)
@@ -200,15 +254,19 @@ func main() {
 	students.Delete("/:id", handlers.DeleteStudent)
 
 	// Log configuration
-	log.Printf("Environment: %s\n", getEnvWithDefault("GO_ENV", "development"))
-	log.Printf("Log Level: %s\n", logLevel)
-	log.Printf("Server starting on port %s...\n", port)
-	log.Printf("API endpoints available at http://localhost:%s/api\n", port)
-	log.Printf("Health check available at http://localhost:%s/health\n", port)
-	log.Printf("CORS allowed origins: %s\n", allowedOrigins)
+	fmt.Println("==========================================")
+	fmt.Printf("Environment: %s\n", getEnvWithDefault("GO_ENV", "development"))
+	fmt.Printf("Log Level: %s\n", logLevel)
+	fmt.Printf("Server starting on port %s...\n", port)
+	fmt.Printf("API endpoints available at http://localhost:%s/api\n", port)
+	fmt.Printf("Health check available at http://localhost:%s/health\n", port)
+	fmt.Printf("WebSocket endpoint available at ws://localhost:%s/ws\n", port)
+	fmt.Printf("CORS allowed origins: %s\n", allowedOrigins)
+	fmt.Println("==========================================")
 
 	// Start server with graceful shutdown
 	if err := app.Listen(":" + port); err != nil {
+		fmt.Printf("Failed to start server: %v\n", err)
 		log.Fatal("Failed to start server:", err)
 	}
 }

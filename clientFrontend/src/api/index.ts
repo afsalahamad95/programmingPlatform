@@ -1,18 +1,128 @@
 import axios from "axios";
-
-// Use full URL in development mode to avoid proxy issues
-const API_URL = import.meta.env.DEV ? "http://localhost:3000/api" : "/api";
+import { Test, Question, User, Challenge } from "../types";
 
 // Create axios instance with default config
 export const api = axios.create({
-	baseURL: API_URL,
+	baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api",
+	timeout: 15000,
 	headers: {
 		"Content-Type": "application/json",
+		Accept: "application/json",
 	},
-	timeout: 15000, // Increased timeout to 15 seconds
+	withCredentials: true, // Important for handling cookies
 });
 
-// Set auth token for all requests if available
+// Add request interceptor for logging and auth
+api.interceptors.request.use(
+	(config) => {
+		// Add auth token if available
+		const token = localStorage.getItem("token");
+		if (token) {
+			config.headers.Authorization = `Bearer ${token}`;
+		}
+
+		// Remove X-Requested-With header as it's causing CORS issues
+		// config.headers["X-Requested-With"] = "XMLHttpRequest";
+
+		console.log("API Request:", {
+			method: config.method?.toUpperCase(),
+			url: config.url,
+			params: config.params,
+			data: config.data,
+			headers: config.headers,
+		});
+		return config;
+	},
+	(error) => {
+		console.error("API Request Error:", error);
+		return Promise.reject(error);
+	}
+);
+
+// Active tests endpoints
+export const getActiveTests = async (): Promise<Test[]> => {
+	const response = await api.get("/tests/active");
+	return response.data;
+};
+
+export const getScheduledTests = async (): Promise<Test[]> => {
+	const response = await api.get("/tests/scheduled");
+	return response.data;
+};
+
+// Connection status management
+let isConnected = true;
+const connectionListeners: ((status: boolean) => void)[] = [];
+
+export const getConnectionStatus = (): boolean => isConnected;
+
+export const onConnectionStatusChange = (
+	listener: (status: boolean) => void
+): (() => void) => {
+	connectionListeners.push(listener);
+	return () => {
+		const index = connectionListeners.indexOf(listener);
+		if (index > -1) {
+			connectionListeners.splice(index, 1);
+		}
+	};
+};
+
+const updateConnectionStatus = (status: boolean) => {
+	if (isConnected !== status) {
+		isConnected = status;
+		connectionListeners.forEach((listener) => listener(status));
+	}
+};
+
+// Add response interceptor for logging and error handling
+api.interceptors.response.use(
+	(response) => {
+		console.log("API Response:", {
+			status: response.status,
+			data: response.data,
+			headers: response.headers,
+		});
+		updateConnectionStatus(true);
+		return response;
+	},
+	(error) => {
+		console.error("API Error:", {
+			status: error.response?.status,
+			data: error.response?.data,
+			message: error.message,
+			config: {
+				url: error.config?.url,
+				method: error.config?.method,
+				headers: error.config?.headers,
+			},
+		});
+
+		// Handle CORS errors
+		if (!error.response) {
+			updateConnectionStatus(false);
+			return Promise.reject(
+				new Error(
+					"Network error - please check your connection and ensure the backend server is running on port 8080"
+				)
+			);
+		}
+
+		// Handle authentication errors
+		if (error.response.status === 401) {
+			localStorage.removeItem("token");
+			window.location.href = "/login";
+			return Promise.reject(
+				new Error("Session expired - please login again")
+			);
+		}
+
+		updateConnectionStatus(false);
+		return Promise.reject(error);
+	}
+);
+
+// Auth token management
 export const setAuthToken = (token: string | null) => {
 	if (token) {
 		api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -23,378 +133,184 @@ export const setAuthToken = (token: string | null) => {
 	}
 };
 
-// Initialize axios with token from localStorage
+// Initialize auth token from localStorage
 const token = localStorage.getItem("token");
 if (token) {
 	setAuthToken(token);
 }
 
-// Add request interceptor to ensure token is always set
-api.interceptors.request.use(
-	(config) => {
-		const token = localStorage.getItem("token");
-		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
-		}
-		console.log(
-			`🚀 Making ${config.method?.toUpperCase()} request to ${config.url
-			}`,
-			config.data
-		);
-		return config;
-	},
-	(error) => {
-		console.error("❌ Request error:", error);
-		return Promise.reject(error);
-	}
-);
-
-// Add response interceptor to handle auth errors
-api.interceptors.response.use(
-	(response) => {
-		console.log(
-			`✅ Response received from ${response.config.url}:`,
-			response.status,
-			response.data
-		);
-		return response;
-	},
-	(error) => {
-		if (error.response?.status === 401) {
-			// Clear token and redirect to login on auth error
-			setAuthToken(null);
-			window.location.href = "/login";
-		} else if (error.request) {
-			// The request was made but no response was received
-			console.error("❌ No response received:", error.request);
-
-			// Check if we're in development mode and use mock data
-			if (import.meta.env.DEV) {
-				console.log("Server is not responding, using mock data");
-				// Return mock data based on the request URL
-				const mockData = getMockData(error.config.url);
-				if (mockData) {
-					return Promise.resolve({ data: mockData });
-				}
-			}
-
-			throw new Error(
-				"Unable to connect to server. Please check your internet connection and try again."
-			);
-		} else {
-			// Something happened in setting up the request that triggered an Error
-			console.error("❌ Request setup error:", error.message);
-			throw new Error(
-				"An error occurred while setting up the request. Please try again."
-			);
-		}
-		return Promise.reject(error);
-	}
-);
-
-// Helper function to get mock data
-const getMockData = (url: string) => {
-	if (!url) return null;
-
-	// Mock data for different endpoints
-	const mockDataMap: Record<string, any> = {
-		"/students": {
-			id: "mock-student-id",
-			name: "Mock Student",
-			email: "mock@example.com",
-			institution: "Mock University",
-			department: "Computer Science",
-			studentId: "MOCK123",
-		},
-		"/tests": [],
-		"/challenges": [],
-		"/auth/me": {
-			id: "mock-user-id",
-			email: "mock@example.com",
-			fullName: "Mock User",
-			institution: "Mock University",
-			department: "Computer Science",
-			studentId: "MOCK123",
-		},
-	};
-
-	// Find matching mock data
-	for (const [path, data] of Object.entries(mockDataMap)) {
-		if (url.includes(path)) {
-			return data;
-		}
-	}
-
-	return null;
-};
-
 // Health check
-export const checkHealth = async () => {
-	const response = await api.get("/health");
+export const checkHealth = () => api.get("/health");
+
+// Test endpoints
+export const getTests = async (): Promise<Test[]> => {
+	const response = await api.get("/tests");
 	return response.data;
 };
 
-// Questions API
-export const createQuestion = async (data: any) => {
-	const response = await api.post("/questions", data);
+export const getTest = async (id: string): Promise<Test> => {
+	const response = await api.get(`/tests/${id}`);
 	return response.data;
 };
 
-export const getQuestions = async () => {
+export const createTest = async (test: Partial<Test>): Promise<Test> => {
+	const response = await api.post("/tests", test);
+	return response.data;
+};
+
+export const updateTest = async (
+	id: string,
+	test: Partial<Test>
+): Promise<Test> => {
+	const response = await api.put(`/tests/${id}`, test);
+	return response.data;
+};
+
+export const deleteTest = async (id: string): Promise<void> => {
+	await api.delete(`/tests/${id}`);
+};
+
+// Question endpoints
+export const getQuestions = async (): Promise<Question[]> => {
 	const response = await api.get("/questions");
 	return response.data;
 };
 
-export const getQuestion = async (id: string) => {
+export const getQuestion = async (id: string): Promise<Question> => {
 	const response = await api.get(`/questions/${id}`);
 	return response.data;
 };
 
-export const updateQuestion = async (id: string, data: any) => {
-	const response = await api.put(`/questions/${id}`, data);
+export const createQuestion = async (
+	question: Partial<Question>
+): Promise<Question> => {
+	const response = await api.post("/questions", question);
 	return response.data;
 };
 
-export const deleteQuestion = async (id: string) => {
+export const updateQuestion = async (
+	id: string,
+	question: Partial<Question>
+): Promise<Question> => {
+	const response = await api.put(`/questions/${id}`, question);
+	return response.data;
+};
+
+export const deleteQuestion = async (id: string): Promise<void> => {
 	await api.delete(`/questions/${id}`);
 };
 
-// Tests API
-export const createTest = async (data: any) => {
-	const response = await api.post("/tests", data);
-	return response.data;
-};
-
-export const getTests = async () => {
-	try {
-		const response = await api.get("/tests");
-		return response.data;
-	} catch (error: any) {
-		if (error.response?.status === 404) {
-			return []; // Return empty array if no tests found or all expired
-		}
-		throw error;
-	}
-};
-
-export const getTest = async (id: string) => {
-	try {
-		const response = await api.get(`/tests/${id}`);
-		return response.data;
-	} catch (error: any) {
-		if (error.response?.status === 404) {
-			throw new Error("Test not found or has expired");
-		}
-		throw error;
-	}
-};
-
-export const updateTest = async (id: string, data: any) => {
-	const response = await api.put(`/tests/${id}`, data);
-	return response.data;
-};
-
-export const deleteTest = async (id: string) => {
-	await api.delete(`/tests/${id}`);
-};
-
-export const submitTest = async (
-	testId: string,
-	submission: {
-		testId: string;
-		studentId: string;
-		studentName: string;
-		studentEmail: string;
-		institution: string;
-		department: string;
-		answers: { questionId: string; answer: string }[];
-	}
-) => {
-	try {
-		// Validate required fields
-		if (
-			!submission.studentId ||
-			!submission.studentName ||
-			!submission.studentEmail
-		) {
-			// This validation is primarily for client-side feedback
-			throw new Error(
-				"Missing required user information in submission payload"
-			);
-		}
-
-		if (!submission.answers || submission.answers.length === 0) {
-			throw new Error("No answers provided in submission payload");
-		}
-
-		console.log("Submitting test with payload:", submission);
-		const response = await api.post(`/tests/${testId}/submit`, submission);
-		return response.data;
-	} catch (error: any) {
-		if (error.response) {
-			console.error(
-				"Submission API error response:",
-				error.response.data
-			);
-			if (error.response.status === 404) {
-				throw new Error("Cannot submit: Test not found or has expired");
-			}
-			if (error.response.status === 400) {
-				// Use the specific error message from the backend if available
-				throw new Error(
-					`Submission failed: ${error.response.data.error || "Invalid submission data"
-					}`
-				);
-			}
-		}
-		console.error("Submission API general error:", error);
-		throw new Error(
-			`Submission failed: ${error.message || "An unknown error occurred during submission."
-			}`
-		);
-	}
-};
-
-// New function to get a single test attempt by ID
-export const getTestAttempt = async (attemptId: string) => {
-	console.log("Fetching test attempt with ID:", attemptId);
-	try {
-		const response = await api.get(`/tests/attempts/${attemptId}`);
-		console.log("Test attempt response:", response.data);
-		return response.data;
-	} catch (error: any) {
-		console.error("Error fetching test attempt:", {
-			status: error.response?.status,
-			data: error.response?.data,
-			message: error.message,
-		});
-		throw error;
-	}
-};
-
-// Users API
-export const createUser = async (userData: any) => {
-	const response = await api.post("/users", userData);
-	return response.data;
-};
-
-export const getUsers = async () => {
+// User endpoints
+export const getUsers = async (): Promise<User[]> => {
 	const response = await api.get("/users");
 	return response.data;
 };
 
-export const getUser = async (id: string) => {
+export const getUser = async (id: string): Promise<User> => {
 	const response = await api.get(`/users/${id}`);
 	return response.data;
 };
 
-export const updateUser = async (id: string, userData: any) => {
-	const response = await api.put(`/users/${id}`, userData);
+export const createUser = async (user: Partial<User>): Promise<User> => {
+	const response = await api.post("/users", user);
 	return response.data;
 };
 
-export const deleteUser = async (id: string) => {
+export const updateUser = async (
+	id: string,
+	user: Partial<User>
+): Promise<User> => {
+	const response = await api.put(`/users/${id}`, user);
+	return response.data;
+};
+
+export const deleteUser = async (id: string): Promise<void> => {
 	await api.delete(`/users/${id}`);
 };
 
-// Challenges API
-export const createChallenge = async (data: any) => {
-	const response = await api.post("/challenges", data);
+// Challenge endpoints
+export const getChallenges = async (): Promise<Challenge[]> => {
+	const response = await api.get("/challenges");
 	return response.data;
 };
 
-export const getChallenges = async (params?: {
-	difficulty?: string;
-	category?: string;
-}) => {
-	const response = await api.get("/challenges", { params });
-	return response.data;
-};
-
-export const getChallenge = async (id: string) => {
+export const getChallenge = async (id: string): Promise<Challenge> => {
 	const response = await api.get(`/challenges/${id}`);
 	return response.data;
 };
 
-export const updateChallenge = async (id: string, data: any) => {
-	const response = await api.put(`/challenges/${id}`, data);
+export const createChallenge = async (
+	challenge: Partial<Challenge>
+): Promise<Challenge> => {
+	const response = await api.post("/challenges", challenge);
 	return response.data;
 };
 
-export const deleteChallenge = async (id: string) => {
+export const updateChallenge = async (
+	id: string,
+	challenge: Partial<Challenge>
+): Promise<Challenge> => {
+	const response = await api.put(`/challenges/${id}`, challenge);
+	return response.data;
+};
+
+export const deleteChallenge = async (id: string): Promise<void> => {
 	await api.delete(`/challenges/${id}`);
 };
 
-export const submitChallengeAttempt = async (id: string, data: any) => {
-	const response = await api.post(`/challenges/${id}/submit`, data);
-	return response.data;
+// Auth endpoints
+export const login = async (
+	email: string,
+	password: string
+): Promise<{ token: string; user: User }> => {
+	const response = await api.post("/auth/login", { email, password });
+	const { token, user } = response.data;
+	setAuthToken(token);
+	return { token, user };
 };
 
-export const getChallengeAttempts = async (id: string) => {
-	const response = await api.get(`/challenges/${id}/attempts`);
-	return response.data;
+export const logout = async (): Promise<void> => {
+	await api.post("/auth/logout");
+	setAuthToken(null);
 };
 
-export const getUserChallengeAttempts = async (userId: string) => {
-	const response = await api.get(`/challenges/user/${userId}/attempts`);
-	return response.data;
-};
-
-// Auth API functions
-export const login = async (credentials: {
-	email: string;
-	password: string;
-}) => {
-	const response = await api.post("/auth/login", credentials);
-	return response.data;
-};
-
-export const logout = async () => {
-	const response = await api.post(
-		"/auth/logout",
-		{},
-		{
-			headers: {
-				Authorization: `Bearer ${localStorage.getItem("token")}`,
-			},
-		}
-	);
-	return response.data;
-};
-
-export const getCurrentUser = async () => {
+export const getCurrentUser = async (): Promise<User> => {
 	const response = await api.get("/auth/me");
 	return response.data;
 };
 
-// Test Results API
-export const getTestResults = async () => {
-	const response = await api.get("/test-results");
+// Test submission endpoint
+export const submitTest = async (
+	testId: string,
+	submission: any // Accepts a flat object with all fields
+): Promise<{ score: number; feedback: string }> => {
+	const response = await api.post(`/tests/${testId}/submit`, submission);
 	return response.data;
 };
 
-export const getTestResultsByStudent = async (studentId: string) => {
-	const response = await api.get(`/test-results/student/${studentId}`);
+// Challenge submission endpoint
+export const submitChallengeAttempt = async (
+	challengeId: string,
+	solution: string
+): Promise<{ success: boolean; feedback: string; score?: number }> => {
+	const response = await api.post(`/challenges/${challengeId}/submit`, {
+		solution,
+	});
 	return response.data;
 };
 
-export const getTestResultsByTest = async (testId: string) => {
-	const response = await api.get(`/test-results/test/${testId}`);
-	return response.data;
-};
-
-// Challenge Results API
-export const getChallengeResults = async () => {
-	const response = await api.get('/challenges/results');
-	return response.data;
-};
-
-export const getChallengeResultsByStudent = async (studentId: string) => {
-	const response = await api.get(`/challenges/results/student/${studentId}`);
-	return response.data;
-};
-
-export const getChallengeResultsByChallenge = async (challengeId: string) => {
-	const response = await api.get(`/challenges/results/challenge/${challengeId}`);
+// Test attempt endpoints
+export const getTestAttempt = async (
+	attemptId: string
+): Promise<{
+	id: string;
+	testId: string;
+	userId: string;
+	score: number;
+	answers: Record<string, string>;
+	feedback: string;
+	submittedAt: string;
+}> => {
+	const response = await api.get(`/tests/attempts/${attemptId}`);
 	return response.data;
 };
