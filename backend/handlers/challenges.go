@@ -156,7 +156,7 @@ func DeleteChallenge(c *fiber.Ctx) error {
 
 // SubmitChallengeAttempt handles a user's submission for a coding challenge
 func SubmitChallengeAttempt(c *fiber.Ctx) error {
-	// Log the raw request body for debugging
+	// note: debug
 	var rawBody map[string]interface{}
 	if err := c.BodyParser(&rawBody); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{

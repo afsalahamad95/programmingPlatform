@@ -90,7 +90,7 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 				context.Background(),
 				bson.M{"_id": attempt.UserID},
 			).Decode(&student); err != nil {
-				fmt.Println("Error fetching student, inserting a placeholder...", err)
+				fmt.Println("Error fetching student, inserting a placeholder...", attempt.UserID, err)
 				// If we can't find the student, create a placeholder
 				if err == mongo.ErrNoDocuments {
 					student = models.Student{
@@ -258,7 +258,7 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 		).Decode(&student); err != nil {
 			// If we can't find the student, create a placeholder
 			if err == mongo.ErrNoDocuments {
-				fmt.Println("No student found, inserting a placeholder...")
+				fmt.Println("No student found, inserting a placeholder...", attempt.UserID)
 				student = models.Student{
 					ID: attempt.UserID,
 					BasicInfo: models.BasicInfo{
