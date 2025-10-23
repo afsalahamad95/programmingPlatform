@@ -1,7 +1,7 @@
 <h1 align="center">📝 Online Test Platform</h1>  
 
 <p align="center">  
-A flexible and efficient platform designed for creating and attempting tests with various question types, automated scheduling, and advanced functionalities for administrators and users.  
+A flexible, secure and efficient platform designed for creating and attempting tests with various question types, automated scheduling, and advanced functionalities for administrators and users.  
 </p>  
 
 ---
@@ -10,7 +10,9 @@ A flexible and efficient platform designed for creating and attempting tests wit
 
 ### 🎯 Admin Frontend  
 - 🛠️ **Dashboard** for creating tests, adding questions, and managing students.  
-- 📊 View and manage test details efficiently.  
+- 📊 View and manage test details efficiently.
+- Metrics and analytics
+- Efficient test and student management
 
 ### 🌐 Client Frontend  
 - 🎓 **Student-Friendly Interface**: Simple and interactive interface for students to attempt tests.  
@@ -18,6 +20,8 @@ A flexible and efficient platform designed for creating and attempting tests wit
   - Multiple-Choice Questions (MCQs)  
   - Subjective Questions  
   - Coding Challenges
+  - Interview questions
+  - Profile page with integrated certification section and much more.
  
 ### 👤 **User Management Module**: Handle student and instructor accounts. 
 
@@ -27,7 +31,8 @@ A flexible and efficient platform designed for creating and attempting tests wit
 
 ### 💻 Code Execution Engine  
 - ⚡ **Real-Time Code Execution**: Executes coding challenges during tests.  
-- 🔒 **Secure Evaluation**: Scalable solution for evaluating code submissions.  
+- 🔒 **Secure Evaluation**: Scalable solution for evaluating code submissions.
+- Multi-language support(Python, Javascript and C++ as of now), will include more in the future.
 
 ---
 
@@ -39,7 +44,9 @@ A flexible and efficient platform designed for creating and attempting tests wit
 - **Test Scheduling**:  
   ⏲️ Allows scheduling of tests with defined time limits.  
 - ✅ **Automated Grading & Results**: Automatically grade submissions and generate results.  
-- 📈 **Analytics & Reporting**: Provide insights into student performance and test metrics.  
+- 📈 **Analytics & Reporting**: Provide insights into student performance and test metrics.
+- **Timed tests and live reloading result pages**: The platform has a built-in live-reload option for live results, and the tests can be configured with time limits.
+- Optimized backend API performance with golang.
 
 ---
 
@@ -49,6 +56,14 @@ A flexible and efficient platform designed for creating and attempting tests wit
 - Multi language code execution
 - AI support - get help for questions
 - AI proctored tests
+- Improved logging
+- Dockerized images for easy deployments/testing
+- live image reload (docker) integration with delve debugger
+- caching with redis
+- inmem caching and DB query optimizations
+- Use goroutines for concurrency and improved performance
+- Include contest feature and live meetups(short meetings configurable from 1 to 3 hours)
+
 ---
 
 ## 🛠️ Tech Stack  
@@ -63,7 +78,8 @@ A flexible and efficient platform designed for creating and attempting tests wit
 ### 🔑 Prerequisites  
 - [Node.js](https://nodejs.org/) and [npm](https://www.npmjs.com/) for frontend.  
 - [Go](https://golang.org/) for backend.  
-- MongoDB for database.  
+- MongoDB for database.
+- Install Judge0 for local code execution.
 
 ### 🖥️ Installation  
 
@@ -89,9 +105,10 @@ Default URL: http://localhost:8080
 ├── adminFrontend/  
 ├── clientFrontend/  
 ├── backend/  
-└── codeExecutionEngine/  
-🌐 Development URLs
+└── codeExecutionEngine/
+
+🌐 Development URLs(default)
 Admin Frontend: http://localhost:5173
-Client Frontend: http://localhost:5173
+Client Frontend: http://localhost:5174
 Backend: http://localhost:3000
 Code Execution Engine: http://localhost:8081
