@@ -6,6 +6,7 @@ toolchain go1.23.2
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.8
+	github.com/gofiber/websocket/v2 v2.2.1
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/joho/godotenv v1.5.1
 	go.mongodb.org/mongo-driver v1.17.3
@@ -17,7 +18,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/fasthttp/websocket v1.5.3 // indirect
-	github.com/gofiber/websocket/v2 v2.2.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
