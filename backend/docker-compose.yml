@@ -1,1 +1,17 @@
 services:
+  platformd:
+    security_opt:
+      - seccomp:unconfined
+    image: platformd:dev # need to implement this
+    # environment:
+    expose:
+      - 8080
+    ports:
+      - "8080:8080"
+    volumes:
+     - ./:/app
+    # container-name: platformd
+    networks:
+      - default
+    labels:
+      - service=platformd

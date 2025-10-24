@@ -29,7 +29,6 @@ func getEnvWithDefault(key, defaultValue string) string {
 }
 
 func main() {
-	// Configure logging to be more visible
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.SetOutput(os.Stdout)
 
@@ -37,23 +36,20 @@ func main() {
 	fmt.Println("Starting Question Management System backend...")
 	fmt.Println("==========================================")
 
-	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("No .env file found, using default configuration")
 	}
 
-	// Get configuration from environment
 	port := getEnvWithDefault("PORT", "8080")
 	mongoURI := getEnvWithDefault("MONGODB_URI", "mongodb://localhost:27017")
 	dbName := getEnvWithDefault("DB_NAME", "qms")
-	allowedOrigins := getEnvWithDefault("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
+	allowedOrigins := getEnvWithDefault("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000")
 	logLevel := getEnvWithDefault("LOG_LEVEL", "debug")
 
 	fmt.Printf("Server will run on port: %s\n", port)
 	fmt.Printf("MongoDB URI: %s\n", mongoURI)
 	fmt.Printf("Database name: %s\n", dbName)
 
-	// Connect to MongoDB with retry logic
 	var client *mongo.Client
 	var err error
 	maxRetries := 5
@@ -69,7 +65,6 @@ func main() {
 		client, err = mongo.Connect(ctx, clientOptions)
 
 		if err == nil {
-			// Test the connection
 			if err = client.Ping(ctx, nil); err == nil {
 				fmt.Printf("Successfully connected to MongoDB database: %s\n", dbName)
 				break
@@ -94,7 +89,6 @@ func main() {
 	db.InitDB(client.Database(dbName))
 	fmt.Println("Database collections initialized")
 
-	// Create Fiber app with custom error handling
 	app := fiber.New(fiber.Config{
 		AppName:               "QMS Backend v1.0",
 		EnablePrintRoutes:     logLevel == "debug",
@@ -127,28 +121,24 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Health check endpoint
 	app.Get("/health", handlers.HealthCheck)
 	app.Get("/api/health", handlers.HealthCheck)
 
-	// Initialize WebSocket hub
 	fmt.Println("Initializing WebSocket hub...")
 	hub := handlers.NewHub()
 	go hub.Run()
 	fmt.Println("WebSocket hub initialized and running")
 
-	// Middleware to inject hub into context
 	hubMiddleware := func(c *fiber.Ctx) error {
 		c.Locals("hub", hub)
 		return c.Next()
 	}
 
-	// WebSocket endpoint
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		fmt.Printf("WebSocket upgrade request from %s\n", c.IP())
 		if websocket.IsWebSocketUpgrade(c) {
 			fmt.Printf("WebSocket upgrade accepted for %s\n", c.IP())
-			c.Locals("hub", hub) // Add hub to context
+			c.Locals("hub", hub)
 			c.Locals("allowed", true)
 			return c.Next()
 		}
@@ -264,7 +254,6 @@ func main() {
 	fmt.Printf("CORS allowed origins: %s\n", allowedOrigins)
 	fmt.Println("==========================================")
 
-	// Start server with graceful shutdown
 	if err := app.Listen(":" + port); err != nil {
 		fmt.Printf("Failed to start server: %v\n", err)
 		log.Fatal("Failed to start server:", err)
