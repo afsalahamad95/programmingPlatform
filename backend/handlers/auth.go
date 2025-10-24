@@ -791,7 +791,8 @@ func AuthMiddleware() fiber.Handler {
 		// Check for errors
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid or expired token",
+				"error":   "Invalid or expired token",
+				"details": err.Error(),
 			})
 		}
 

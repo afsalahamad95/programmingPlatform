@@ -90,7 +90,7 @@ func main() {
 	fmt.Println("Database collections initialized")
 
 	app := fiber.New(fiber.Config{
-		AppName:               "QMS Backend v1.0",
+		AppName:               "QMS Backend v2.0",
 		EnablePrintRoutes:     logLevel == "debug",
 		DisableStartupMessage: true,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
