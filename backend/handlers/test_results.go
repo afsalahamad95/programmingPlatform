@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 	"strconv"
 	"time"
 
@@ -17,7 +17,7 @@ import (
 
 // GetTestResults handles fetching all test results
 func GetTestResults(c *fiber.Ctx) error {
-	var attempts []models.TestSubmission
+	var attempts []presenter.TestSubmission
 	cursor, err := db.AttemptCollection.Find(
 		context.Background(),
 		bson.M{},
@@ -38,7 +38,7 @@ func GetTestResults(c *fiber.Ctx) error {
 	var results []fiber.Map
 	for _, attempt := range attempts {
 		// Get test details
-		var test models.TestBSON
+		var test presenter.TestData
 		testID, err := primitive.ObjectIDFromHex(attempt.TestID)
 		if err != nil {
 			log.Printf("Invalid test ID format: %v", err)
@@ -55,7 +55,7 @@ func GetTestResults(c *fiber.Ctx) error {
 		scoredPoints := 0
 		for _, answer := range attempt.Answers {
 			// Get question details
-			var question models.Question
+			var question presenter.Question
 			questionID, err := primitive.ObjectIDFromHex(answer.QuestionID)
 			if err != nil {
 				log.Printf("Invalid question ID format: %v", err)
@@ -115,7 +115,7 @@ func GetTestResultsByStudent(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Student ID is required"})
 	}
 
-	var attempts []models.TestSubmission
+	var attempts []presenter.TestSubmission
 	cursor, err := db.AttemptCollection.Find(
 		context.Background(),
 		bson.M{"studentId": studentId},
@@ -135,7 +135,7 @@ func GetTestResultsByStudent(c *fiber.Ctx) error {
 	// Convert attempts to response format (same logic as GetTestResults)
 	var results []fiber.Map
 	for _, attempt := range attempts {
-		var test models.TestBSON
+		var test presenter.TestData
 		testID, err := primitive.ObjectIDFromHex(attempt.TestID)
 		if err != nil {
 			log.Printf("Invalid test ID format: %v", err)
@@ -150,7 +150,7 @@ func GetTestResultsByStudent(c *fiber.Ctx) error {
 		totalPoints := 0
 		scoredPoints := 0
 		for _, answer := range attempt.Answers {
-			var question models.Question
+			var question presenter.Question
 			questionID, err := primitive.ObjectIDFromHex(answer.QuestionID)
 			if err != nil {
 				log.Printf("Invalid question ID format: %v", err)
@@ -210,7 +210,7 @@ func GetTestResultsByTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Test ID is required"})
 	}
 
-	var attempts []models.TestSubmission
+	var attempts []presenter.TestSubmission
 	cursor, err := db.AttemptCollection.Find(
 		context.Background(),
 		bson.M{"testId": testId},
@@ -228,7 +228,7 @@ func GetTestResultsByTest(c *fiber.Ctx) error {
 	}
 
 	// Get test details once
-	var test models.TestBSON
+	var test presenter.TestData
 	testID, err := primitive.ObjectIDFromHex(testId)
 	if err != nil {
 		log.Printf("Invalid test ID format: %v", err)
@@ -246,7 +246,7 @@ func GetTestResultsByTest(c *fiber.Ctx) error {
 		totalPoints := 0
 		scoredPoints := 0
 		for _, answer := range attempt.Answers {
-			var question models.Question
+			var question presenter.Question
 			questionID, err := primitive.ObjectIDFromHex(answer.QuestionID)
 			if err != nil {
 				log.Printf("Invalid question ID format: %v", err)

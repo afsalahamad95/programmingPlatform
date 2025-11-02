@@ -1,4 +1,4 @@
-package models
+package presenter
 
 import (
 	"time"
@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Student represents a student(user) in the system
 type Student struct {
 	ID              primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	BasicInfo       BasicInfo          `json:"basicInfo" bson:"basicInfo"`
@@ -17,6 +18,7 @@ type Student struct {
 	UpdatedAt       time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
 
+// BasicInfo represents the basic information of a student
 type BasicInfo struct {
 	Name            string `json:"name" bson:"name"`
 	Email           string `json:"email" bson:"email"`
@@ -27,12 +29,14 @@ type BasicInfo struct {
 	Points          int    `json:"points" bson:"points"`
 }
 
+// TechnicalSkills represents the technical skills of a student
 type TechnicalSkills struct {
 	ProgrammingLanguages []string `json:"programmingLanguages" bson:"programmingLanguages"`
 	Frameworks           []string `json:"frameworks" bson:"frameworks"`
 	Tools                []string `json:"tools" bson:"tools"`
 }
 
+// Project represents a project of a student
 type Project struct {
 	ID           string       `json:"id" bson:"id"`
 	Name         string       `json:"name" bson:"name"`
@@ -44,11 +48,13 @@ type Project struct {
 	Links        ProjectLinks `json:"links" bson:"links"`
 }
 
+// ProjectLinks represents the links to the project
 type ProjectLinks struct {
 	Github string `json:"github,omitempty" bson:"github,omitempty"`
 	Live   string `json:"live,omitempty" bson:"live,omitempty"`
 }
 
+// Achievement represents an achievement of a student
 type Achievement struct {
 	ID          string `json:"id" bson:"id"`
 	Title       string `json:"title" bson:"title"`
@@ -56,6 +62,7 @@ type Achievement struct {
 	Description string `json:"description,omitempty" bson:"description,omitempty"`
 }
 
+// Certification represents a certification of a student
 type Certification struct {
 	ID            string `json:"id" bson:"id"`
 	Name          string `json:"name" bson:"name"`

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,7 +18,7 @@ import (
 )
 
 func CreateQuestion(c *fiber.Ctx) error {
-	question := new(models.Question)
+	question := new(presenter.Question)
 	if err := c.BodyParser(question); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
@@ -37,7 +37,7 @@ func CreateQuestion(c *fiber.Ctx) error {
 }
 
 func GetQuestions(c *fiber.Ctx) error {
-	var questions []models.Question
+	var questions []presenter.Question
 	cursor, err := db.QuestionsCollection.Find(context.Background(), bson.M{})
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch questions"})
@@ -65,7 +65,7 @@ func GetQuestion(c *fiber.Ctx) error {
 	}
 
 	// Find the question in the database
-	var question models.Question
+	var question presenter.Question
 	err = db.QuestionsCollection.FindOne(c.Context(), bson.M{"_id": id}).Decode(&question)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -102,7 +102,7 @@ func UpdateQuestion(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
-	question := new(models.Question)
+	question := new(presenter.Question)
 	if err := c.BodyParser(question); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}

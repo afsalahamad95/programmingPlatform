@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 	"strconv"
 	"time"
 
@@ -21,7 +21,7 @@ func CreateTest(c *fiber.Ctx) error {
 	fmt.Println("Creating new test...")
 	fmt.Printf("Request body: %s\n", string(c.Body()))
 
-	var req models.CreateTestRequest
+	var req presenter.CreateTestRequest
 	if err := c.BodyParser(&req); err != nil {
 		fmt.Printf("Error parsing test data: %v\n", err)
 		fmt.Printf("Raw request body: %s\n", string(c.Body()))
@@ -70,7 +70,7 @@ func CreateTest(c *fiber.Ctx) error {
 	}
 
 	// Create TestBSON for database insertion
-	testBSON := models.TestBSON{
+	testBSON := presenter.TestData{
 		Title:           req.Title,
 		Description:     req.Description,
 		StartTime:       req.StartTime,
@@ -92,7 +92,7 @@ func CreateTest(c *fiber.Ctx) error {
 	createdTestID := result.InsertedID.(primitive.ObjectID)
 
 	// Fetch the created test to return complete data
-	var createdTestBSON models.TestBSON
+	var createdTestBSON presenter.TestData
 	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": createdTestID}).Decode(&createdTestBSON)
 	if err != nil {
 		fmt.Printf("Error fetching created test: %v\n", err)
@@ -142,13 +142,13 @@ func GetTests(c *fiber.Ctx) error {
 	}
 	defer cursor.Close(context.Background())
 
-	var testsBSON []models.TestBSON
+	var testsBSON []presenter.TestData
 	if err := cursor.All(context.Background(), &testsBSON); err != nil {
 		log.Printf("Failed to decode tests from DB into TestBSON: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode tests"})
 	}
 
-	var tests []models.Test // Slice to hold tests with full Question objects
+	var tests []presenter.Test // Slice to hold tests with full Question objects
 	for _, testBSON := range testsBSON {
 		test, err := hydrateTest(testBSON)
 		if err != nil {
@@ -178,7 +178,7 @@ func GetTest(c *fiber.Ctx) error {
 		},
 	}
 
-	var testBSON models.TestBSON
+	var testBSON presenter.TestData
 	err = db.TestsCollection.FindOne(context.Background(), filter).Decode(&testBSON)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -189,7 +189,7 @@ func GetTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch test"})
 	}
 
-	// Convert TestBSON to models.Test (fetch questions)
+	// Convert TestBSON to presenter.Test (fetch questions)
 	test, err := hydrateTest(testBSON)
 	if err != nil {
 		log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
@@ -257,7 +257,7 @@ func UpdateTest(c *fiber.Ctx) error {
 	}
 
 	// After updating, fetch and return the full test object with questions (similar logic to GetTest)
-	var updatedTestBSON models.TestBSON
+	var updatedTestBSON presenter.TestData
 	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&updatedTestBSON)
 	if err != nil {
 		log.Printf("Failed to fetch updated test after update: %v", err)
@@ -273,9 +273,9 @@ func UpdateTest(c *fiber.Ctx) error {
 	return c.JSON(updatedTest)
 }
 
-// hydrateTest fetches full Question objects for a TestBSON and converts it to models.Test
-func hydrateTest(testBSON models.TestBSON) (models.Test, error) {
-	var test models.Test
+// hydrateTest fetches full Question objects for a TestBSON and converts it to presenter.Test
+func hydrateTest(testBSON presenter.TestData) (presenter.Test, error) {
+	var test presenter.Test
 
 	// Copy basic fields from TestBSON
 	test.ID = testBSON.ID.Hex()
@@ -289,7 +289,7 @@ func hydrateTest(testBSON models.TestBSON) (models.Test, error) {
 	// Since TestBSON.AllowedStudents is now []string, simply assign or copy
 	test.AllowedStudents = testBSON.AllowedStudents
 
-	var questions []models.Question
+	var questions []presenter.Question
 	// Fetch full question details using the ObjectIDs from TestBSON
 	if len(testBSON.Questions) > 0 {
 		cursor, err := db.QuestionsCollection.Find(context.Background(), bson.M{
@@ -297,13 +297,13 @@ func hydrateTest(testBSON models.TestBSON) (models.Test, error) {
 		})
 		if err != nil {
 			log.Printf("Failed to fetch questions for test %s during hydration: %v", testBSON.ID.Hex(), err)
-			return models.Test{}, err // Return error to calling handler
+			return presenter.Test{}, err // Return error to calling handler
 		}
 		defer cursor.Close(context.Background())
 
 		if err := cursor.All(context.Background(), &questions); err != nil {
 			log.Printf("Failed to decode questions for test %s during hydration: %v", testBSON.ID.Hex(), err)
-			return models.Test{}, err // Return error to calling handler
+			return presenter.Test{}, err // Return error to calling handler
 		}
 	}
 
@@ -356,7 +356,7 @@ func SubmitTest(c *fiber.Ctx) error {
 	fmt.Printf("[DEBUG] Received submission payload: %+v\n", submissionMap)
 
 	// Create a new TestSubmission
-	submission := &models.TestSubmission{
+	submission := &presenter.TestSubmission{
 		TestID:      c.Params("id"),
 		SubmittedAt: time.Now(),
 	}
@@ -385,7 +385,7 @@ func SubmitTest(c *fiber.Ctx) error {
 			// Array format
 			for _, ans := range v {
 				if answerMap, ok := ans.(map[string]interface{}); ok {
-					answer := models.Answer{}
+					answer := presenter.Answer{}
 					if qID, ok := answerMap["questionId"].(string); ok {
 						answer.QuestionID = qID
 					}
@@ -399,7 +399,7 @@ func SubmitTest(c *fiber.Ctx) error {
 			// Object format (questionId -> answer)
 			for qID, ans := range v {
 				if answer, ok := ans.(string); ok {
-					submission.Answers = append(submission.Answers, models.Answer{
+					submission.Answers = append(submission.Answers, presenter.Answer{
 						QuestionID: qID,
 						Answer:     answer,
 					})
@@ -452,7 +452,7 @@ func GetTestAttempt(c *fiber.Ctx) error {
 	if err != nil {
 		log.Printf("Error converting attempt ID %s to ObjectID: %v", attemptID, err)
 		// If conversion fails, try to find by string ID
-		var submission models.TestSubmission
+		var submission presenter.TestSubmission
 		err = db.AttemptCollection.FindOne(context.Background(), bson.M{"_id": attemptID}).Decode(&submission)
 		if err != nil {
 			if err == mongo.ErrNoDocuments {
@@ -467,7 +467,7 @@ func GetTestAttempt(c *fiber.Ctx) error {
 	}
 
 	// If we have a valid ObjectID, search by that
-	var submission models.TestSubmission
+	var submission presenter.TestSubmission
 	err = db.AttemptCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&submission)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -519,14 +519,14 @@ func GetActiveTests(c *fiber.Ctx) error {
 	}
 	defer cursor.Close(context.Background())
 
-	var testsBSON []models.TestBSON
+	var testsBSON []presenter.TestData
 	if err := cursor.All(context.Background(), &testsBSON); err != nil {
 		log.Printf("Failed to decode active tests from DB: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode active tests"})
 	}
 
 	fmt.Printf("Found %d active tests\n", len(testsBSON))
-	var tests []models.Test
+	var tests []presenter.Test
 	for _, testBSON := range testsBSON {
 		test, err := hydrateTest(testBSON)
 		if err != nil {
@@ -558,14 +558,14 @@ func GetScheduledTests(c *fiber.Ctx) error {
 	}
 	defer cursor.Close(context.Background())
 
-	var testsBSON []models.TestBSON
+	var testsBSON []presenter.TestData
 	if err := cursor.All(context.Background(), &testsBSON); err != nil {
 		log.Printf("Failed to decode scheduled tests from DB: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode scheduled tests"})
 	}
 
 	fmt.Printf("Found %d scheduled tests\n", len(testsBSON))
-	var tests []models.Test
+	var tests []presenter.Test
 	for _, testBSON := range testsBSON {
 		test, err := hydrateTest(testBSON)
 		if err != nil {

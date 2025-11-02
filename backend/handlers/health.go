@@ -3,20 +3,20 @@ package handlers
 import (
 	"time"
 
-	"qms-backend/services"
+	"qms-backend/db"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func HealthCheck(c *fiber.Ctx) error {
 	// Get real-time status for database
-	dbStatus, dbErr := services.CheckDatabaseHealth()
+	dbStatus, dbErr := db.CheckDatabaseHealth()
 	if dbErr != nil {
 		dbStatus = "error: " + dbErr.Error()
 	}
 
 	// Get real-time status for API
-	apiStatus, apiErr := services.CheckAPIHealth()
+	apiStatus, apiErr := db.CheckAPIHealth()
 	if apiErr != nil {
 		apiStatus = "error: " + apiErr.Error()
 	}

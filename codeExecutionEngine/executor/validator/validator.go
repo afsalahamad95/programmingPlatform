@@ -1,7 +1,7 @@
 package validator
 
 import (
-	"code-executor/models"
+	"code-executor/presenter"
 	"fmt"
 	"math"
 	"strings"
@@ -108,11 +108,11 @@ func max(a, b int) int {
 	return b
 }
 
-func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []models.TestCase) *models.ValidationResult {
-	validationResult := &models.ValidationResult{
+func (v *CodeValidator) Validate(result []*presenter.ExecutionResult, testCases []presenter.TestCase) *presenter.ValidationResult {
+	validationResult := &presenter.ValidationResult{
 		Passed:    true,
-		TestCases: make([]models.Result, 0),
-		Summary: &models.ValidationSummary{
+		TestCases: make([]presenter.Result, 0),
+		Summary: &presenter.ValidationSummary{
 			TotalTests:      len(testCases),
 			PassedTests:     0,
 			FailedTests:     0,
@@ -224,7 +224,7 @@ func (v *CodeValidator) Validate(result []*models.ExecutionResult, testCases []m
 			validationResult.Passed = false
 		}
 
-		validationResult.TestCases = append(validationResult.TestCases, models.Result{
+		validationResult.TestCases = append(validationResult.TestCases, presenter.Result{
 			Input:           testCase.Input,
 			ExpectedOutput:  testCase.ExpectedOutput,
 			ActualOutput:    result[i].Stdout,

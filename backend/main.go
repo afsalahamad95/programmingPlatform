@@ -9,7 +9,7 @@ import (
 
 	"qms-backend/db"
 	"qms-backend/handlers"
-	"qms-backend/services"
+	"qms-backend/util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -21,13 +21,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func getEnvWithDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.SetOutput(os.Stdout)
@@ -36,15 +29,16 @@ func main() {
 	fmt.Println("Starting Question Management System backend...")
 	fmt.Println("==========================================")
 
+	// todo: use viper here
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("No .env file found, using default configuration")
 	}
 
-	port := getEnvWithDefault("PORT", "8080")
-	mongoURI := getEnvWithDefault("MONGODB_URI", "mongodb://localhost:27017")
-	dbName := getEnvWithDefault("DB_NAME", "qms")
-	allowedOrigins := getEnvWithDefault("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000")
-	logLevel := getEnvWithDefault("LOG_LEVEL", "debug")
+	port := util.GetEnvWithDefault("PORT", "8080")
+	mongoURI := util.GetEnvWithDefault("MONGODB_URI", "mongodb://localhost:27017")
+	dbName := util.GetEnvWithDefault("DB_NAME", "qms")
+	allowedOrigins := util.GetEnvWithDefault("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000")
+	logLevel := util.GetEnvWithDefault("LOG_LEVEL", "debug")
 
 	fmt.Printf("Server will run on port: %s\n", port)
 	fmt.Printf("MongoDB URI: %s\n", mongoURI)
@@ -83,7 +77,7 @@ func main() {
 	}
 
 	// Store the MongoDB client for health checks
-	services.MongoClient = client
+	db.MongoClient = client
 
 	// Initialize database collections
 	db.InitDB(client.Database(dbName))
@@ -245,7 +239,7 @@ func main() {
 
 	// Log configuration
 	fmt.Println("==========================================")
-	fmt.Printf("Environment: %s\n", getEnvWithDefault("GO_ENV", "development"))
+	fmt.Printf("Environment: %s\n", util.GetEnvWithDefault("GO_ENV", "development"))
 	fmt.Printf("Log Level: %s\n", logLevel)
 	fmt.Printf("Server starting on port %s...\n", port)
 	fmt.Printf("API endpoints available at http://localhost:%s/api\n", port)

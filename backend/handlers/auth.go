@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 	"strings"
 	"time"
 
@@ -194,7 +194,7 @@ func CheckPasswordHash(password, hash string) bool {
 }
 
 // GenerateJWT generates a JWT token for a user
-func GenerateJWT(user models.AuthUser) (string, error) {
+func GenerateJWT(user presenter.AuthUser) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
 
 	claims := &jwt.MapClaims{
@@ -225,7 +225,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	// Find the user by email
-	var user models.AuthUser
+	var user presenter.AuthUser
 	err := db.UsersCollection.FindOne(context.Background(), bson.M{"email": req.Email}).Decode(&user)
 	if err != nil {
 		log.Printf("User not found for email %s: %v", req.Email, err)
@@ -294,7 +294,7 @@ func GetCurrentUser(c *fiber.Ctx) error {
 	}
 
 	// Find the session in the database
-	var session models.Session
+	var session presenter.Session
 	err := db.SessionsCollection.FindOne(context.Background(), bson.M{"token": token}).Decode(&session)
 	if err != nil {
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid session"})
@@ -308,7 +308,7 @@ func GetCurrentUser(c *fiber.Ctx) error {
 	}
 
 	// Find the user
-	var user models.User
+	var user presenter.User
 	err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": session.UserID}).Decode(&user)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get user information"})
@@ -327,7 +327,7 @@ func GetCurrentUser(c *fiber.Ctx) error {
 
 // Register handles user registration
 func Register(c *fiber.Ctx) error {
-	var req models.RegisterRequest
+	var req presenter.RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
@@ -367,7 +367,7 @@ func Register(c *fiber.Ctx) error {
 
 	// Create new user
 	now := time.Now()
-	newUser := models.AuthUser{
+	newUser := presenter.AuthUser{
 		ID:           primitive.NewObjectID(),
 		Email:        strings.ToLower(req.Email),
 		PasswordHash: hashedPassword,
@@ -542,7 +542,7 @@ func OAuthCallback(c *fiber.Ctx) error {
 	log.Printf("Successfully obtained access token")
 
 	// Get the user info from the provider
-	var userInfo models.OAuthUserInfo
+	var userInfo presenter.OAuthUserInfo
 	var fetchErr error
 
 	log.Printf("Fetching user info from %s...", provider)
@@ -570,7 +570,7 @@ func OAuthCallback(c *fiber.Ctx) error {
 
 	// Check if the user exists
 	log.Printf("Checking if user exists in database...")
-	var user models.AuthUser
+	var user presenter.AuthUser
 	err = db.UsersCollection.FindOne(
 		context.Background(),
 		bson.M{
@@ -586,7 +586,7 @@ func OAuthCallback(c *fiber.Ctx) error {
 		log.Printf("User not found in database, creating new user...")
 		// Create a new user
 		now := time.Now()
-		user = models.AuthUser{
+		user = presenter.AuthUser{
 			ID:            primitive.NewObjectID(),
 			Email:         strings.ToLower(userInfo.Email),
 			FirstName:     userInfo.FirstName,
@@ -656,8 +656,8 @@ func OAuthCallback(c *fiber.Ctx) error {
 }
 
 // getGoogleUserInfo gets the user info from Google
-func getGoogleUserInfo(accessToken string) (models.OAuthUserInfo, error) {
-	var userInfo models.OAuthUserInfo
+func getGoogleUserInfo(accessToken string) (presenter.OAuthUserInfo, error) {
+	var userInfo presenter.OAuthUserInfo
 	// Make a request to Google's userinfo endpoint
 	res, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + accessToken)
 	if err != nil {
@@ -689,8 +689,8 @@ func getGoogleUserInfo(accessToken string) (models.OAuthUserInfo, error) {
 }
 
 // getGithubUserInfo gets the user info from GitHub
-func getGithubUserInfo(accessToken string) (models.OAuthUserInfo, error) {
-	var userInfo models.OAuthUserInfo
+func getGithubUserInfo(accessToken string) (presenter.OAuthUserInfo, error) {
+	var userInfo presenter.OAuthUserInfo
 
 	// Make a request to GitHub's user endpoint
 	req, err := http.NewRequest("GET", "https://api.github.com/user", nil)

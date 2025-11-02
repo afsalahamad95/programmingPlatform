@@ -1,7 +1,7 @@
 package runners
 
 import (
-	"code-executor/models"
+	"code-executor/presenter"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,7 +15,7 @@ func NewJavaScriptRunner() *JavaScriptRunner {
 	return &JavaScriptRunner{}
 }
 
-func (r *JavaScriptRunner) Execute(execution *models.CodeExecution, tmpDir string) *models.ExecutionResult {
+func (r *JavaScriptRunner) Execute(execution *presenter.CodeExecution, tmpDir string) *presenter.ExecutionResult {
 	// Create a wrapper script that handles both console.log and return values
 	wrapperCode := fmt.Sprintf(`
 // Capture console.log output
@@ -39,7 +39,7 @@ if (logs.length > 0) {
 
 	scriptPath := filepath.Join(tmpDir, "script.js")
 	if err := os.WriteFile(scriptPath, []byte(wrapperCode), 0600); err != nil {
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   err.Error(),
 		}

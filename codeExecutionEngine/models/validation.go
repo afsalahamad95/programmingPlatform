@@ -1,4 +1,4 @@
-package models
+package presenter
 
 type TestCase struct {
 	Input           string  `json:"input"`

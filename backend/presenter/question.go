@@ -1,4 +1,4 @@
-package models
+package presenter
 
 import (
 	"time"
@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Question represents a question in the question bank(MCQs)
 type Question struct {
 	ID            primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	Type          string             `json:"type" bson:"type"`
@@ -20,6 +21,7 @@ type Question struct {
 	CorrectAnswer string             `json:"correctAnswer,omitempty" bson:"correctAnswer,omitempty"`
 }
 
+// TestCase represents a test case for a question
 type TestCase struct {
 	Input  string `json:"input" bson:"input"`
 	Output string `json:"output" bson:"output"`

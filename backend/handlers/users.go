@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,7 +16,7 @@ import (
 
 // CreateUser creates a new user
 func CreateUser(c *fiber.Ctx) error {
-	user := new(models.User)
+	user := new(presenter.User)
 	if err := c.BodyParser(user); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
@@ -34,7 +34,7 @@ func CreateUser(c *fiber.Ctx) error {
 }
 
 func GetUsers(c *fiber.Ctx) error {
-	var users []models.User
+	var users []presenter.User
 	cursor, err := db.UsersCollection.Find(context.Background(), bson.M{})
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch users"})
@@ -54,7 +54,7 @@ func GetUser(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
-	var user models.User
+	var user presenter.User
 	err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -72,7 +72,7 @@ func UpdateUser(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID format"})
 	}
 
-	updates := new(models.User)
+	updates := new(presenter.User)
 	if err := c.BodyParser(updates); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}

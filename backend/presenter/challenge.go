@@ -1,4 +1,4 @@
-package models
+package presenter
 
 import (
 	"time"
@@ -6,6 +6,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// CodingChallenge represents a coding challenge(note: a coding question, whose anwer would be code that needs
+// to be evaluated via the code execution engine)
 type CodingChallenge struct {
 	ID            primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
 	Title         string              `json:"title" bson:"title"`
@@ -23,6 +25,7 @@ type CodingChallenge struct {
 	EndTime       *time.Time          `json:"endTime,omitempty" bson:"endTime,omitempty"` // When the challenge ends
 }
 
+// ChallengeTestCase represents a test case for a coding challenge
 type ChallengeTestCase struct {
 	Input           string  `json:"input" bson:"input"`
 	ExpectedOutput  string  `json:"expectedOutput" bson:"expectedOutput"`
@@ -31,6 +34,7 @@ type ChallengeTestCase struct {
 	PointsAvailable float64 `json:"pointsAvailable,omitempty" bson:"pointsAvailable,omitempty"` // Max points for this test case
 }
 
+// ChallengeAttempt represents a user's attempt data at a coding challenge
 type ChallengeAttempt struct {
 	ID          primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	UserID      primitive.ObjectID `json:"userId" bson:"userId"`
@@ -43,6 +47,7 @@ type ChallengeAttempt struct {
 	CreatedAt   time.Time          `json:"createdAt" bson:"createdAt"`
 }
 
+// ValidationResult represents the result of a coding challenge attempt
 type ValidationResult struct {
 	Passed          bool         `json:"passed" bson:"passed"`
 	TestCases       []TestResult `json:"testCases" bson:"testCases"`
@@ -54,6 +59,7 @@ type ValidationResult struct {
 	PercentageScore float64      `json:"percentageScore" bson:"percentageScore"` // Overall score (0-100)
 }
 
+// TestResult represents the result of a test case for a coding challenge attempt
 type TestResult struct {
 	Passed          bool    `json:"passed" bson:"passed"`
 	Input           string  `json:"input" bson:"input"`

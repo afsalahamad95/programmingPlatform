@@ -1,7 +1,7 @@
 package runners
 
 import (
-	"code-executor/models"
+	"code-executor/presenter"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,7 +14,7 @@ func NewPythonRunner() *PythonRunner {
 	return &PythonRunner{}
 }
 
-func (r *PythonRunner) Execute(execution *models.CodeExecution, tmpDir string) *models.ExecutionResult {
+func (r *PythonRunner) Execute(execution *presenter.CodeExecution, tmpDir string) *presenter.ExecutionResult {
 	// Debug log
 	fmt.Printf("Executing Python code: \n%s\n", execution.Code)
 	fmt.Printf("Input: '%s'\n", execution.Input)
@@ -22,7 +22,7 @@ func (r *PythonRunner) Execute(execution *models.CodeExecution, tmpDir string) *
 	// Write the user's code directly to a file
 	scriptPath := filepath.Join(tmpDir, "script.py")
 	if err := os.WriteFile(scriptPath, []byte(execution.Code), 0600); err != nil {
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   err.Error(),
 		}
