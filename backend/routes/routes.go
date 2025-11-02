@@ -20,7 +20,7 @@ func SetupRoutes(app *fiber.App) {
 	api.Post("/auth/logout", handlers.Logout)
 	api.Get("/auth/me", handlers.GetCurrentUser)
 
-	// Test routes
+	// Assessment routes(manage assessments)
 	api.Get("/tests", handlers.GetTests)
 	api.Get("/tests/:id", handlers.GetTest)
 	api.Post("/tests", handlers.CreateTest)
@@ -51,7 +51,7 @@ func SetupRoutes(app *fiber.App) {
 	// Admin routes
 	admin := api.Group("/admin")
 
-	// Test results routes
+	// Assessment results routes
 	admin.Get("/test-results", handlers.GetTestResults)
 	admin.Get("/test-results/student/:studentId", handlers.GetTestResultsByStudent)
 	admin.Get("/test-results/test/:testId", handlers.GetTestResultsByTest)

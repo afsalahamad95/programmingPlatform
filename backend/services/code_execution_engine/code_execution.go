@@ -1,4 +1,4 @@
-package services
+package code_execution_engine
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"qms-backend/models"
+	"qms-backend/presenter"
 	"time"
 )
 
@@ -91,7 +91,7 @@ func NewCodeExecutionService() *CodeExecutionService {
 	}
 }
 
-func (s *CodeExecutionService) ExecuteCode(challenge *models.CodingChallenge, code string) (*models.ValidationResult, error) {
+func (s *CodeExecutionService) ExecuteCode(challenge *presenter.CodingChallenge, code string) (*presenter.ValidationResult, error) {
 	// Prepare the test cases
 	testCases := make([]ExecutionTestCase, 0, len(challenge.TestCases))
 	for _, tc := range challenge.TestCases {
@@ -148,9 +148,9 @@ func (s *CodeExecutionService) ExecuteCode(challenge *models.CodingChallenge, co
 	}
 
 	// Map to our validation result format
-	testResults := make([]models.TestResult, 0, len(executionResponse.Validation.TestCases))
+	testResults := make([]presenter.TestResult, 0, len(executionResponse.Validation.TestCases))
 	for i, tr := range executionResponse.Validation.TestCases {
-		testResults = append(testResults, models.TestResult{
+		testResults = append(testResults, presenter.TestResult{
 			Passed:          tr.Passed,
 			Input:           tr.Input,
 			ExpectedOutput:  tr.ExpectedOutput,
@@ -165,7 +165,7 @@ func (s *CodeExecutionService) ExecuteCode(challenge *models.CodingChallenge, co
 	}
 
 	// Create the final validation result
-	validationResult := &models.ValidationResult{
+	validationResult := &presenter.ValidationResult{
 		Passed:          executionResponse.Validation.Passed,
 		TestCases:       testResults,
 		TotalTests:      executionResponse.Validation.Summary.TotalTests,

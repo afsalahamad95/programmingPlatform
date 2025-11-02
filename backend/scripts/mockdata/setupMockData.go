@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -45,11 +45,13 @@ func main() {
 	log.Println("Mock data setup completed successfully")
 }
 
+// setupMockStudent sets up the mock student data
+// note: this can be used to seed initial set of users
 func setupMockStudent(ctx context.Context) {
 	log.Println("Setting up mock student data...")
 
 	// Check if the student already exists
-	var existingStudent models.Student
+	var existingStudent presenter.Student
 	err := db.StudentsCollection.FindOne(ctx, bson.M{"basicInfo.email": "john.doe@university.edu"}).Decode(&existingStudent)
 	if err == nil {
 		log.Println("Mock student already exists, skipping creation")
@@ -57,8 +59,8 @@ func setupMockStudent(ctx context.Context) {
 	}
 
 	// Create mock student
-	student := models.Student{
-		BasicInfo: models.BasicInfo{
+	student := presenter.Student{
+		BasicInfo: presenter.BasicInfo{
 			Name:            "John Doe",
 			Email:           "john.doe@university.edu",
 			GraduationYear:  2025,
@@ -67,12 +69,12 @@ func setupMockStudent(ctx context.Context) {
 			CurrentSemester: 6,
 			Points:          450,
 		},
-		TechnicalSkills: models.TechnicalSkills{
+		TechnicalSkills: presenter.TechnicalSkills{
 			ProgrammingLanguages: []string{"JavaScript", "Python", "Java", "C++"},
 			Frameworks:           []string{"React", "Node.js", "Express", "Django"},
 			Tools:                []string{"Git", "Docker", "AWS", "MongoDB"},
 		},
-		Projects: []models.Project{
+		Projects: []presenter.Project{
 			{
 				ID:           "1",
 				Name:         "E-commerce Platform",
@@ -81,13 +83,13 @@ func setupMockStudent(ctx context.Context) {
 				StartDate:    "2023-09-01",
 				EndDate:      "2023-12-31",
 				Description:  "Built a full-featured e-commerce platform with user authentication, product management, and payment integration.",
-				Links: models.ProjectLinks{
+				Links: presenter.ProjectLinks{
 					Github: "https://github.com/johndoe/ecommerce",
 					Live:   "https://ecommerce-demo.example.com",
 				},
 			},
 		},
-		Achievements: []models.Achievement{
+		Achievements: []presenter.Achievement{
 			{
 				ID:          "1",
 				Title:       "Hackathon Winner",
@@ -95,7 +97,7 @@ func setupMockStudent(ctx context.Context) {
 				Description: "Won first place in the University Annual Hackathon for developing an innovative AI-powered solution.",
 			},
 		},
-		Certifications: []models.Certification{
+		Certifications: []presenter.Certification{
 			{
 				ID:            "1",
 				Name:          "AWS Certified Cloud Practitioner",

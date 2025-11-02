@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,7 +16,7 @@ import (
 
 // GetStudents retrieves all students
 func GetStudents(c *fiber.Ctx) error {
-	var students []models.Student
+	var students []presenter.Student
 
 	cursor, err := db.StudentsCollection.Find(context.Background(), bson.M{})
 	if err != nil {
@@ -50,7 +50,7 @@ func GetStudent(c *fiber.Ctx) error {
 		})
 	}
 
-	var student models.Student
+	var student presenter.Student
 	err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&student)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -72,7 +72,7 @@ func GetStudent(c *fiber.Ctx) error {
 
 // CreateStudent creates a new student
 func CreateStudent(c *fiber.Ctx) error {
-	student := new(models.Student)
+	student := new(presenter.Student)
 	if err := c.BodyParser(student); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
@@ -112,7 +112,7 @@ func UpdateStudent(c *fiber.Ctx) error {
 	}
 
 	// First fetch the existing student
-	var existingStudent models.Student
+	var existingStudent presenter.Student
 	err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&existingStudent)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -165,7 +165,7 @@ func UpdateStudent(c *fiber.Ctx) error {
 	}
 
 	// Fetch the updated student
-	var updatedStudent models.Student
+	var updatedStudent presenter.Student
 	err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&updatedStudent)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{

@@ -5,7 +5,7 @@ import (
 	"code-executor/executor/runners"
 	"code-executor/executor/store"
 	"code-executor/executor/validator"
-	"code-executor/models"
+	"code-executor/presenter"
 	"fmt"
 	"os"
 	"time"
@@ -27,9 +27,9 @@ func NewExecutor() *Executor {
 	}
 }
 
-func (e *Executor) Execute(execution *models.CodeExecution) {
+func (e *Executor) Execute(execution *presenter.CodeExecution) {
 	e.store.Save(execution)
-	execution.Status = models.StatusRunning
+	execution.Status = presenter.StatusRunning
 
 	tmpDir, err := os.MkdirTemp("", "code-execution-*")
 	if err != nil {
@@ -38,7 +38,7 @@ func (e *Executor) Execute(execution *models.CodeExecution) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	result := &models.ExecutionResult{}
+	result := &presenter.ExecutionResult{}
 	startTime := time.Now()
 
 	// Execute with main input first
@@ -71,19 +71,19 @@ func (e *Executor) Execute(execution *models.CodeExecution) {
 	// If test cases are provided, validate them
 	if len(execution.TestCases) > 0 {
 		// Run code for each test case and collect outputs
-		testResults := make([]*models.ExecutionResult, len(execution.TestCases))
+		testResults := make([]*presenter.ExecutionResult, len(execution.TestCases))
 		for i, tc := range execution.TestCases {
-			var tcResult *models.ExecutionResult
+			var tcResult *presenter.ExecutionResult
 			switch execution.Language {
 			case "javascript":
-				tcResult = e.jsRunner.Execute(&models.CodeExecution{
+				tcResult = e.jsRunner.Execute(&presenter.CodeExecution{
 					Code:     execution.Code,
 					Input:    tc.Input,
 					Language: execution.Language,
 					Config:   execution.Config,
 				}, tmpDir)
 			case "python":
-				tcResult = e.pythonRunner.Execute(&models.CodeExecution{
+				tcResult = e.pythonRunner.Execute(&presenter.CodeExecution{
 					Code:     execution.Code,
 					Input:    tc.Input,
 					Language: execution.Language,
@@ -95,18 +95,18 @@ func (e *Executor) Execute(execution *models.CodeExecution) {
 		execution.Validation = e.validator.Validate(testResults, execution.TestCases)
 	}
 
-	execution.Status = models.StatusCompleted
+	execution.Status = presenter.StatusCompleted
 	execution.Result = result
 	e.store.Save(execution)
 }
 
-func (e *Executor) GetExecution(id string) *models.CodeExecution {
+func (e *Executor) GetExecution(id string) *presenter.CodeExecution {
 	return e.store.Get(id)
 }
 
-func (e *Executor) handleExecutionError(execution *models.CodeExecution, err error) {
-	execution.Status = models.StatusError
-	execution.Result = &models.ExecutionResult{
+func (e *Executor) handleExecutionError(execution *presenter.CodeExecution, err error) {
+	execution.Status = presenter.StatusError
+	execution.Result = &presenter.ExecutionResult{
 		ExitCode: 1,
 		Stderr:   err.Error(),
 	}

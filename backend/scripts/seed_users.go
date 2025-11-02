@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 
-	"qms-backend/models"
+	"qms-backend/presenter"
 	"qms-backend/scripts/seedusers"
 )
 
@@ -41,7 +41,7 @@ func main() {
 	collection := client.Database(dbName).Collection("users")
 
 	// Create default users
-	defaultUsers := []models.User{
+	defaultUsers := []presenter.User{
 		{
 			Email:       "admin@example.com",
 			Password:    hashPassword("admin123"),
@@ -67,7 +67,7 @@ func main() {
 	// Insert users
 	for _, user := range defaultUsers {
 		// Check if user already exists
-		var existingUser models.User
+		var existingUser presenter.User
 		err := collection.FindOne(ctx, map[string]string{"email": user.Email}).Decode(&existingUser)
 		if err == nil {
 			fmt.Printf("User %s already exists, skipping...\n", user.Email)

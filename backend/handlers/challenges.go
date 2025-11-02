@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"qms-backend/db"
-	"qms-backend/models"
-	"qms-backend/services"
+	"qms-backend/presenter"
+	"qms-backend/services/code_execution_engine"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -27,7 +27,7 @@ func min(a, b int) int {
 
 // CreateChallenge creates a new coding challenge
 func CreateChallenge(c *fiber.Ctx) error {
-	challenge := new(models.CodingChallenge)
+	challenge := new(presenter.CodingChallenge)
 	if err := c.BodyParser(challenge); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
@@ -44,7 +44,7 @@ func CreateChallenge(c *fiber.Ctx) error {
 
 // GetChallenges retrieves all coding challenges
 func GetChallenges(c *fiber.Ctx) error {
-	var challenges []models.CodingChallenge
+	var challenges []presenter.CodingChallenge
 
 	// Query parameters for filtering
 	difficulty := c.Query("difficulty")
@@ -87,7 +87,7 @@ func GetChallenge(c *fiber.Ctx) error {
 		})
 	}
 
-	var challenge models.CodingChallenge
+	var challenge presenter.CodingChallenge
 	err = db.ChallengesCollection.FindOne(c.Context(), bson.M{"_id": id}).Decode(&challenge)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -114,7 +114,7 @@ func UpdateChallenge(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
 	}
 
-	challenge := new(models.CodingChallenge)
+	challenge := new(presenter.CodingChallenge)
 	if err := c.BodyParser(challenge); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
@@ -168,7 +168,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	fmt.Printf("Received challenge submission body: %+v\n", rawBody)
 
 	// Now parse into the proper struct
-	attempt := new(models.ChallengeAttempt)
+	attempt := new(presenter.ChallengeAttempt)
 	if err := c.BodyParser(attempt); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body structure",
@@ -217,7 +217,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	}
 
 	// Validate the challenge ID
-	var challenge models.CodingChallenge
+	var challenge presenter.CodingChallenge
 	err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": challengeID}).Decode(&challenge)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -230,7 +230,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	}
 
 	// Execute the code and get the validation result
-	executionService := services.NewCodeExecutionService()
+	executionService := code_execution_engine.NewCodeExecutionService()
 	fmt.Println("Executing code for challenge:", challengeID.Hex())
 	fmt.Println("Code snippet:", attempt.Code[:min(100, len(attempt.Code))]+"...")
 	validationResult, err := executionService.ExecuteCode(&challenge, attempt.Code)
@@ -286,7 +286,7 @@ func GetChallengeAttempts(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid challenge ID"})
 	}
 
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{"challengeId": challengeID},
@@ -312,7 +312,7 @@ func GetUserChallengeAttempts(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid user ID"})
 	}
 
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{"userId": userID},
@@ -333,7 +333,7 @@ func GetUserChallengeAttempts(c *fiber.Ctx) error {
 
 // GetChallengeResults handles fetching all challenge results
 func GetChallengeResults(c *fiber.Ctx) error {
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{},
@@ -352,20 +352,20 @@ func GetChallengeResults(c *fiber.Ctx) error {
 	var results []fiber.Map
 	for _, attempt := range attempts {
 		// Get challenge details
-		var challenge models.CodingChallenge
+		var challenge presenter.CodingChallenge
 		err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": attempt.ChallengeID}).Decode(&challenge)
 		if err != nil {
 			continue
 		}
 
 		// Get student details
-		var student models.Student
+		var student presenter.Student
 		err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": attempt.UserID}).Decode(&student)
 		if err != nil {
 			// If student not found, use placeholder
-			student = models.Student{
+			student = presenter.Student{
 				ID: attempt.UserID,
-				BasicInfo: models.BasicInfo{
+				BasicInfo: presenter.BasicInfo{
 					Name:  "Unknown Student",
 					Email: "unknown@example.com",
 				},
@@ -406,7 +406,7 @@ func GetChallengeResultsByStudent(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid student ID format"})
 	}
 
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{"userId": studentObjectID},
@@ -422,7 +422,7 @@ func GetChallengeResultsByStudent(c *fiber.Ctx) error {
 	}
 
 	// Get student details
-	var student models.Student
+	var student presenter.Student
 	err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": studentObjectID}).Decode(&student)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -434,7 +434,7 @@ func GetChallengeResultsByStudent(c *fiber.Ctx) error {
 	// Convert attempts to response format
 	var results []fiber.Map
 	for _, attempt := range attempts {
-		var challenge models.CodingChallenge
+		var challenge presenter.CodingChallenge
 		err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": attempt.ChallengeID}).Decode(&challenge)
 		if err != nil {
 			continue
@@ -468,7 +468,7 @@ func GetChallengeResultsByChallenge(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid challenge ID"})
 	}
 
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{"challengeId": challengeId},
@@ -484,7 +484,7 @@ func GetChallengeResultsByChallenge(c *fiber.Ctx) error {
 	}
 
 	// Get challenge details
-	var challenge models.CodingChallenge
+	var challenge presenter.CodingChallenge
 	err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": challengeId}).Decode(&challenge)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -497,13 +497,13 @@ func GetChallengeResultsByChallenge(c *fiber.Ctx) error {
 	var results []fiber.Map
 	for _, attempt := range attempts {
 		// Get student details
-		var student models.Student
+		var student presenter.Student
 		err = db.StudentsCollection.FindOne(context.Background(), bson.M{"_id": attempt.UserID}).Decode(&student)
 		if err != nil {
 			// If student not found, use placeholder
-			student = models.Student{
+			student = presenter.Student{
 				ID: attempt.UserID,
-				BasicInfo: models.BasicInfo{
+				BasicInfo: presenter.BasicInfo{
 					Name:  "Unknown Student",
 					Email: "unknown@example.com",
 				},

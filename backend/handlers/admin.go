@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"qms-backend/db"
-	"qms-backend/models"
+	"qms-backend/presenter"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -31,14 +31,14 @@ type StudentResultResponse struct {
 }
 
 // Get student name and email from the Student model
-func getStudentInfo(student models.Student) (string, string) {
+func getStudentInfo(student presenter.Student) (string, string) {
 	return student.BasicInfo.Name, student.BasicInfo.Email
 }
 
 // GetAllStudentResults retrieves all student challenge attempt results with student and challenge details
 func GetAllStudentResults(c *fiber.Ctx) error {
 	// First get all challenge attempts
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{},
@@ -58,12 +58,12 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 	var results []StudentResultResponse
 
 	// Cache for challenges and students to avoid multiple DB lookups
-	challengeCache := make(map[string]models.CodingChallenge)
-	studentCache := make(map[string]models.Student)
+	challengeCache := make(map[string]presenter.CodingChallenge)
+	studentCache := make(map[string]presenter.Student)
 
 	for _, attempt := range attempts {
 		// Get challenge details from cache or database
-		var challenge models.CodingChallenge
+		var challenge presenter.CodingChallenge
 		challengeID := attempt.ChallengeID.Hex()
 
 		if cachedChallenge, found := challengeCache[challengeID]; found {
@@ -80,7 +80,7 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 		}
 
 		// Get student details from cache or database
-		var student models.Student
+		var student presenter.Student
 		studentID := attempt.UserID.Hex()
 
 		if cachedStudent, found := studentCache[studentID]; found {
@@ -93,9 +93,9 @@ func GetAllStudentResults(c *fiber.Ctx) error {
 				fmt.Println("Error fetching student, inserting a placeholder...", attempt.UserID, err)
 				// If we can't find the student, create a placeholder
 				if err == mongo.ErrNoDocuments {
-					student = models.Student{
+					student = presenter.Student{
 						ID: attempt.UserID,
-						BasicInfo: models.BasicInfo{
+						BasicInfo: presenter.BasicInfo{
 							Name:  "Unknown Student",
 							Email: "unknown@example.com",
 						},
@@ -144,7 +144,7 @@ func GetStudentResultsByStudent(c *fiber.Ctx) error {
 	}
 
 	// First get all challenge attempts for this student
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{"userId": studentID},
@@ -161,7 +161,7 @@ func GetStudentResultsByStudent(c *fiber.Ctx) error {
 	}
 
 	// Get student details
-	var student models.Student
+	var student presenter.Student
 	if err := db.StudentsCollection.FindOne(
 		context.Background(),
 		bson.M{"_id": studentID},
@@ -176,7 +176,7 @@ func GetStudentResultsByStudent(c *fiber.Ctx) error {
 	var results []StudentResultResponse
 	for _, attempt := range attempts {
 		// Get challenge details
-		var challenge models.CodingChallenge
+		var challenge presenter.CodingChallenge
 		if err := db.ChallengesCollection.FindOne(
 			context.Background(),
 			bson.M{"_id": attempt.ChallengeID},
@@ -219,7 +219,7 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 	}
 
 	// First get all attempts for this challenge
-	var attempts []models.ChallengeAttempt
+	var attempts []presenter.ChallengeAttempt
 	cursor, err := db.ChallengeAttemptsCollection.Find(
 		context.Background(),
 		bson.M{"challengeId": challengeID},
@@ -236,7 +236,7 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 	}
 
 	// Get challenge details
-	var challenge models.CodingChallenge
+	var challenge presenter.CodingChallenge
 	if err := db.ChallengesCollection.FindOne(
 		context.Background(),
 		bson.M{"_id": challengeID},
@@ -251,7 +251,7 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 	var results []StudentResultResponse
 	for _, attempt := range attempts {
 		// Get student details
-		var student models.Student
+		var student presenter.Student
 		if err := db.StudentsCollection.FindOne(
 			context.Background(),
 			bson.M{"_id": attempt.UserID},
@@ -259,9 +259,9 @@ func GetStudentResultsByChallenge(c *fiber.Ctx) error {
 			// If we can't find the student, create a placeholder
 			if err == mongo.ErrNoDocuments {
 				fmt.Println("No student found, inserting a placeholder...", attempt.UserID)
-				student = models.Student{
+				student = presenter.Student{
 					ID: attempt.UserID,
-					BasicInfo: models.BasicInfo{
+					BasicInfo: presenter.BasicInfo{
 						Name:  "Unknown Student",
 						Email: "unknown@example.com",
 					},

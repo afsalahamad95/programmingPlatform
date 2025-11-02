@@ -1,10 +1,12 @@
-package models
+package presenter
 
 import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+// Test represents a descriptive Q & A test in the system
 
 // Test represents the test document structure for API responses
 type Test struct {
@@ -29,8 +31,8 @@ type CreateTestRequest struct {
 	AllowedStudents []string  `json:"allowedStudents" bson:"allowedStudents"` // Array of student IDs
 }
 
-// TestBSON represents the test document structure as stored in MongoDB
-type TestBSON struct {
+// TestData represents the test document structure as stored in MongoDB
+type TestData struct {
 	ID              primitive.ObjectID   `json:"id,omitempty" bson:"_id,omitempty"`
 	Title           string               `json:"title" bson:"title"`
 	Description     string               `json:"description" bson:"description"`
@@ -41,6 +43,7 @@ type TestBSON struct {
 	AllowedStudents []string             `json:"allowedStudents" bson:"allowedStudents"` // Slice of Student IDs as stored in DB (assuming strings)
 }
 
+// TestSubmission represents a submission of a test by a student
 type TestSubmission struct {
 	ID           string    `json:"id,omitempty" bson:"_id,omitempty"`
 	TestID       string    `json:"testId" bson:"testId"`
@@ -52,6 +55,7 @@ type TestSubmission struct {
 	Answers      []Answer  `json:"answers" bson:"answers"`
 }
 
+// Answer represents an answer to a question by a student
 type Answer struct {
 	QuestionID string `json:"questionId" bson:"questionId"`
 	Answer     string `json:"answer" bson:"answer"`

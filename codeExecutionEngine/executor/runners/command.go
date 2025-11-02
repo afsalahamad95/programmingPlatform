@@ -1,7 +1,7 @@
 package runners
 
 import (
-	"code-executor/models"
+	"code-executor/presenter"
 	"fmt"
 	"io"
 	"os/exec"
@@ -12,7 +12,7 @@ import (
 
 // Platform-specific resource management
 type ResourceManager interface {
-	SetupProcess(cmd *exec.Cmd, config models.ExecutionConfig) error
+	SetupProcess(cmd *exec.Cmd, config presenter.ExecutionConfig) error
 	KillProcess(cmd *exec.Cmd) error
 	GetMemoryUsage(cmd *exec.Cmd) (int64, error)
 }
@@ -20,7 +20,7 @@ type ResourceManager interface {
 // Unix-like systems (Linux, macOS)
 type UnixResourceManager struct{}
 
-func (m *UnixResourceManager) SetupProcess(cmd *exec.Cmd, config models.ExecutionConfig) error {
+func (m *UnixResourceManager) SetupProcess(cmd *exec.Cmd, config presenter.ExecutionConfig) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true, // Allow killing child processes
 	}
@@ -53,7 +53,7 @@ func (m *UnixResourceManager) GetMemoryUsage(cmd *exec.Cmd) (int64, error) {
 // Windows resource manager
 type WindowsResourceManager struct{}
 
-func (m *WindowsResourceManager) SetupProcess(cmd *exec.Cmd, config models.ExecutionConfig) error {
+func (m *WindowsResourceManager) SetupProcess(cmd *exec.Cmd, config presenter.ExecutionConfig) error {
 	// Windows doesn't support easy memory limits
 	// We'll rely on the timeout mechanism
 	return nil
@@ -81,13 +81,13 @@ func getResourceManager() ResourceManager {
 	}
 }
 
-func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *models.ExecutionResult {
+func RunCommand(cmd *exec.Cmd, input string, config presenter.ExecutionConfig) *presenter.ExecutionResult {
 	// Get platform-specific resource manager
 	resourceManager := getResourceManager()
 
 	// Set up process with resource limits
 	if err := resourceManager.SetupProcess(cmd, config); err != nil {
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   fmt.Sprintf("Error setting up process: %v", err),
 		}
@@ -95,7 +95,7 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   fmt.Sprintf("Error creating stdin pipe: %v", err),
 		}
@@ -103,7 +103,7 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   fmt.Sprintf("Error creating stdout pipe: %v", err),
 		}
@@ -111,14 +111,14 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   fmt.Sprintf("Error creating stderr pipe: %v", err),
 		}
 	}
 
 	if err := cmd.Start(); err != nil {
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   fmt.Sprintf("Error starting command: %v", err),
 		}
@@ -151,7 +151,7 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 	// Write input and ensure it ends with a newline
 	if input != "" {
 		if _, err := io.WriteString(stdin, input); err != nil {
-			return &models.ExecutionResult{
+			return &presenter.ExecutionResult{
 				ExitCode: 1,
 				Stderr:   fmt.Sprintf("Error writing to stdin: %v", err),
 			}
@@ -183,12 +183,12 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 	case <-timeout:
 		// Process timed out
 		if err := resourceManager.KillProcess(cmd); err != nil {
-			return &models.ExecutionResult{
+			return &presenter.ExecutionResult{
 				ExitCode: 1,
 				Stderr:   fmt.Sprintf("Error killing timed out process: %v", err),
 			}
 		}
-		return &models.ExecutionResult{
+		return &presenter.ExecutionResult{
 			ExitCode: 1,
 			Stderr:   fmt.Sprintf("Execution timed out after %d seconds", config.TimeoutSeconds),
 		}
@@ -210,7 +210,7 @@ func RunCommand(cmd *exec.Cmd, input string, config models.ExecutionConfig) *mod
 	// Get memory usage
 	memoryUsage, _ := resourceManager.GetMemoryUsage(cmd)
 
-	return &models.ExecutionResult{
+	return &presenter.ExecutionResult{
 		Stdout:      string(stdoutBytes),
 		Stderr:      string(stderrBytes),
 		ExitCode:    exitCode,

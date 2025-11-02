@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
+	"qms-backend/util"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -12,9 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/crypto/bcrypt"
 )
 
+// AuthUser represents a user in the authentication system
 type AuthUser struct {
 	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	Email        string             `json:"email" bson:"email"`
@@ -26,18 +26,6 @@ type AuthUser struct {
 	UpdatedAt    time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
 
-func getConfigWithDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-func hashUserPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
-}
-
 // SeedInitialUsers creates initial admin and instructor users in the database
 func SeedInitialUsers() {
 	// Load environment variables
@@ -46,8 +34,8 @@ func SeedInitialUsers() {
 	}
 
 	// Get configuration from environment
-	mongoURI := getConfigWithDefault("MONGODB_URI", "mongodb://localhost:27017")
-	dbName := getConfigWithDefault("DB_NAME", "qms")
+	mongoURI := util.GetEnvWithDefault("MONGODB_URI", "mongodb://localhost:27017")
+	dbName := util.GetEnvWithDefault("DB_NAME", "qms")
 
 	// Connect to MongoDB
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -80,7 +68,7 @@ func SeedInitialUsers() {
 
 	if err == mongo.ErrNoDocuments {
 		// Create admin user
-		hashedPassword, err := hashUserPassword("admin123")
+		hashedPassword, err := util.HashUserPassword("admin123")
 		if err != nil {
 			log.Fatal("Failed to hash password:", err)
 		}
@@ -115,7 +103,7 @@ func SeedInitialUsers() {
 	}
 
 	if err == mongo.ErrNoDocuments {
-		hashedPassword, err := hashUserPassword("instructor123")
+		hashedPassword, err := util.HashUserPassword("instructor123")
 		if err != nil {
 			log.Fatal("Failed to hash password:", err)
 		}
@@ -150,7 +138,7 @@ func SeedInitialUsers() {
 	}
 
 	if err == mongo.ErrNoDocuments {
-		hashedPassword, err := hashUserPassword("student123")
+		hashedPassword, err := util.HashUserPassword("student123")
 		if err != nil {
 			log.Fatal("Failed to hash password:", err)
 		}
