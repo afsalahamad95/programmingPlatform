@@ -1,7 +1,7 @@
 package runners
 
 import (
-	"code-executor/presenter"
+	presenter "code-executor/models"
 	"fmt"
 	"io"
 	"os/exec"
