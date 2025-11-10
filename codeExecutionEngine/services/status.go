@@ -2,7 +2,7 @@ package services
 
 import (
 	"code-executor/executor"
-	"code-executor/presenter"
+	presenter "code-executor/models"
 )
 
 type StatusService struct {

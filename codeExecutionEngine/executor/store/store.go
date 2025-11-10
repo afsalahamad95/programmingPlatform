@@ -1,7 +1,7 @@
 package store
 
 import (
-	"code-executor/presenter"
+	presenter "code-executor/models"
 	"sync"
 )
 

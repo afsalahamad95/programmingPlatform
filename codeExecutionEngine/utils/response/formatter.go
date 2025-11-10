@@ -1,9 +1,10 @@
 package response
 
 import (
-	"code-executor/presenter"
-	"github.com/gin-gonic/gin"
+	presenter "code-executor/models"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func FormatExecutionResponse(c *gin.Context, execution *presenter.CodeExecution) {
