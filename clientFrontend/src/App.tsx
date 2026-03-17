@@ -12,6 +12,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { useAuth } from "./contexts/AuthContext";
 import TestResult from "./components/TestResult";
+import ChatBot from "./components/ChatBot";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -134,6 +135,7 @@ function App() {
 								/>
 							</Routes>
 						</div>
+						<ChatBot />
 					</div>
 				</Router>
 			</AuthProvider>

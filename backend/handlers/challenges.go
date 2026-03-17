@@ -167,13 +167,17 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 
 	fmt.Printf("Received challenge submission body: %+v\n", rawBody)
 
-	// Now parse into the proper struct
+	// The frontend sends fields nested under a "solution" key — unwrap it
 	attempt := new(presenter.ChallengeAttempt)
-	if err := c.BodyParser(attempt); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body structure",
-			"details": err.Error(),
-		})
+	source := rawBody
+	if solutionMap, ok := rawBody["solution"].(map[string]interface{}); ok {
+		source = solutionMap
+	}
+
+	attempt.Code, _ = source["code"].(string)
+	attempt.Language, _ = source["language"].(string)
+	if ts, ok := source["timeSpent"].(float64); ok {
+		attempt.TimeSpent = int(ts)
 	}
 
 	// Validate required fields
@@ -201,7 +205,7 @@ func SubmitChallengeAttempt(c *fiber.Ctx) error {
 	// Handle the userId - if it's empty or invalid, create a default ObjectID
 	if attempt.UserID.IsZero() {
 		// Check if we got a userId as string that we need to convert
-		if userIDStr, ok := rawBody["userId"].(string); ok && userIDStr != "" {
+		if userIDStr, ok := source["userId"].(string); ok && userIDStr != "" {
 			userID, err := primitive.ObjectIDFromHex(userIDStr)
 			if err != nil {
 				fmt.Printf("Error converting userId %s to ObjectID: %v\n", userIDStr, err)

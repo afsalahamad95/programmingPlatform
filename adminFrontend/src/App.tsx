@@ -29,6 +29,7 @@ import * as api from "./api";
 import ChallengeManagement from "./components/ChallengeManagement";
 import Login from "./components/Login";
 import OAuthCallback from "./components/OAuthCallback";
+import ChatBot from "./components/ChatBot";
 
 // Custom properties for our implementation of QuestionBank
 interface CustomQuestionBankProps {
@@ -426,6 +427,8 @@ function App() {
 							</div>
 						)}
 					</main>
+					{/* Admin Chatbot Sidebar */}
+					<ChatBot />
 				</>
 			) : (
 				<Routes>
