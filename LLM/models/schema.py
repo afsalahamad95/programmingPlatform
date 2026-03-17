@@ -32,3 +32,20 @@ class IngestResponse(BaseModel):
     """Response body for the /llm/ingest endpoint."""
     message: str
     count: int
+
+
+class ResumeRequest(BaseModel):
+    """Request body for generating a resume."""
+    student_id: str
+
+
+class RoadmapRequest(BaseModel):
+    """Request body for generating a career roadmap."""
+    student_id: str
+    target_role: Optional[str] = "Full Stack Developer"
+
+
+class CareerResponse(BaseModel):
+    """Response body for resume and roadmap generation."""
+    answer: str
+    metadata: Optional[dict] = None

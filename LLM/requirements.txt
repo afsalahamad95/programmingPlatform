@@ -9,3 +9,7 @@ langchain-core
 langchain-community
 langchain-groq
 groq
+duckduckgo-search
+mcp
+httpx
+apscheduler
