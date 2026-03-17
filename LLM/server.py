@@ -21,13 +21,19 @@ from fastapi.middleware.cors import CORSMiddleware
 import chromadb
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
+from duckduckgo_search import DDGS
 from groq import Groq
 from models.schema import (
+    ChatResponse,
     IngestRequest,
     IngestResponse,
-    ChatRequest,
-    ChatResponse,
+    ResumeRequest,
+    RoadmapRequest,
+    CareerResponse,
 )
+import httpx
+from contextlib import asynccontextmanager
+from automation import start_scheduler
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 load_dotenv()
@@ -46,6 +52,27 @@ _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 def embed(texts: List[str]) -> List[List[float]]:
     """Return a list of embedding vectors for a list of strings."""
     return _embed_model.encode(texts, show_progress_bar=False).tolist()
+
+
+def perform_web_search(query: str, max_results: int = 5) -> str:
+    """Search the web using DuckDuckGo and return a concatenated string of results."""
+    logger.info("Performing web search for: %s", query)
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=max_results))
+            if not results:
+                return ""
+
+            context_pieces = []
+            for r in results:
+                title = r.get("title", "")
+                body = r.get("body", "")
+                context_pieces.append(f"Source: {title}\nContent: {body}")
+
+            return "\n\n---\n\n".join(context_pieces)
+    except Exception as e:
+        logger.error("Web search failed: %s", e)
+        return ""
 
 
 # ── ChromaDB (persistent) ─────────────────────────────────────────────────────
@@ -73,9 +100,23 @@ else:
         "/llm/ingest and /health still work."
     )
 
+
+# ── Lifespan ─────────────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start background scheduler
+    scheduler = start_scheduler()
+    logger.info("Lifespan: Scheduler started.")
+    yield
+    # Shutdown: Stop scheduler
+    scheduler.shutdown()
+    logger.info("Lifespan: Scheduler shut down.")
+
+
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Programming Platform LLM Server",
+    lifespan=lifespan,
     description="RAG-powered chatbot backend using ChromaDB + Groq",
     version="1.0.0",
 )
@@ -184,6 +225,7 @@ def chat(req: ChatRequest):
     # ── 2. Retrieve relevant chunks from ChromaDB ─────────────────────────────
     sources: List[str] = []
     context_block = ""
+    DISTANCE_THRESHOLD = 0.6  # Adjust based on 'cosine' space
 
     kb_count = _collection.count()
     if kb_count > 0:
@@ -194,15 +236,33 @@ def chat(req: ChatRequest):
             n_results=k,
             include=["documents", "metadatas", "distances"],
         )
-        retrieved_docs: List[str] = results.get("documents", [[]])[0]
-        sources = [doc[:120] + "…" if len(doc) > 120 else doc for doc in retrieved_docs]
 
-        if retrieved_docs:
+        retrieved_docs: List[str] = results.get("documents", [[]])[0]
+        distances: List[float] = results.get("distances", [[]])[0]
+
+        # Only keep docs within the similarity threshold
+        filtered_docs = []
+        for doc, dist in zip(retrieved_docs, distances):
+            if dist <= DISTANCE_THRESHOLD:
+                filtered_docs.append(doc)
+                sources.append(doc[:120] + "…" if len(doc) > 120 else doc)
+
+        if filtered_docs:
             context_block = "\n\n".join(
-                f"[Context {i + 1}]: {doc}" for i, doc in enumerate(retrieved_docs)
+                f"[Local Context {i + 1}]: {doc}" for i, doc in enumerate(filtered_docs)
             )
 
-    # ── 3. Build the system prompt ────────────────────────────────────────────
+    # ── 3. Web Search Fallback ────────────────────────────────────────────────
+    is_web_search = False
+    if not context_block:
+        logger.info("No local context above threshold. Falling back to web search.")
+        web_context = perform_web_search(query_text)
+        if web_context:
+            context_block = web_context
+            is_web_search = True
+            sources.append("Web Search (DuckDuckGo)")
+
+    # ── 4. Build the system prompt ────────────────────────────────────────────
     system_prompt = (
         "You are a helpful AI assistant embedded in a programming education platform. "
         "You help students understand programming concepts, debug code, and prepare for tests and challenges. "
@@ -210,14 +270,15 @@ def chat(req: ChatRequest):
     )
 
     if context_block:
+        source_type = "web search" if is_web_search else "local knowledge-base"
         system_prompt += (
-            "Use the following knowledge-base context to answer the user's question. "
+            f"Use the following {source_type} context to answer the user's question. "
             "If the context is not directly relevant, still try to help based on your general knowledge.\n\n"
             f"{context_block}"
         )
     else:
         system_prompt += (
-            "The knowledge base is currently empty. "
+            "The knowledge base is currently empty and web search yielded no results. "
             "Answer using your general programming knowledge."
         )
 
@@ -242,4 +303,103 @@ def chat(req: ChatRequest):
             detail=f"LLM generation failed: {exc}",
         ) from exc
 
-    return ChatResponse(answer=answer, sources=sources)
+
+# ── Career & Adaptive Endpoints ──────────────────────────────────────────────
+@app.post("/llm/resume", response_model=CareerResponse)
+async def generate_resume(req: ResumeRequest):
+    """Fetch student profile and generate a professional resume."""
+    if not _groq_client:
+        raise HTTPException(status_code=500, detail="Groq not configured")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"http://localhost:3000/api/students/{req.student_id}")
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Student not found")
+        student_data = resp.json()
+
+    prompt = (
+        f"You are a professional technical resume writer. "
+        f"Based on the following student profile, create a polished, one-page markdown resume. "
+        f"Include skills, projects, and certifications. Format it beautifully.\n\n"
+        f"Student Profile: {student_data}"
+    )
+
+    try:
+        completion = _groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+        return CareerResponse(answer=completion.choices[0].message.content)
+    except Exception as e:
+        logger.error(f"Resume generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/roadmap", response_model=CareerResponse)
+async def generate_roadmap(req: RoadmapRequest):
+    """Fetch student profile and generate a career roadmap towards a target role."""
+    if not _groq_client:
+        raise HTTPException(status_code=500, detail="Groq not configured")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"http://localhost:3000/api/students/{req.student_id}")
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Student not found")
+        student_data = resp.json()
+
+    prompt = (
+        f"You are a career coach. Based on the student's current skills and projects, "
+        f"create a step-by-step career roadmap to become a '{req.target_role}'. "
+        f"Highlight specific skills to learn and project ideas. Output in markdown.\n\n"
+        f"Current Profile: {student_data}"
+    )
+
+    try:
+        completion = _groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+        )
+        return CareerResponse(answer=completion.choices[0].message.content)
+    except Exception as e:
+        logger.error(f"Roadmap generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/adaptive-ingest")
+async def adaptive_ingest(student_id: str):
+    """Automatically fetch and ingest docs based on user learning goals."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"http://localhost:3000/api/students/{student_id}")
+        if resp.status_code != 200:
+            raise HTTPException(status_code=404, detail="Student not found")
+        student = resp.json()
+
+    technical_skills = student.get("technicalSkills", {})
+    all_skills = (
+        technical_skills.get("programmingLanguages", [])
+        + technical_skills.get("frameworks", [])
+        + technical_skills.get("tools", [])
+    )
+
+    if not all_skills:
+        return {"message": "No skills found to evolve KB."}
+
+    logger.info(f"Adaptive Ingest: Evolving KB for skills: {all_skills}")
+    # Adaptive Ingestion logic: Search documentation for these skills
+    for skill in all_skills[:3]:  # Limit to top 3 for speed
+        doc_context = perform_web_search(
+            f"{skill} official documentation overview", max_results=1
+        )
+        if doc_context:
+            _collection.add(
+                ids=[str(uuid.uuid4())],
+                documents=[doc_context],
+                metadatas=[{"source": "adaptive_ingest", "skill": skill}],
+            )
+
+    return {
+        "message": "Knowledge base updated based on user learning goals.",
+        "skills_processed": all_skills[:3],
+    }

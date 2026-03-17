@@ -17,7 +17,7 @@ const api = axios.create({
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const retryRequest = async (error: AxiosError, retryCount: number = 0): Promise<any> => {
-  const shouldRetry = retryCount < MAX_RETRIES && 
+  const shouldRetry = retryCount < MAX_RETRIES &&
     (!error.response || error.response.status >= 500);
 
   if (shouldRetry) {
@@ -35,13 +35,13 @@ api.interceptors.response.use(
   response => response,
   async (error: AxiosError) => {
     if (error.response) {
-      const responseData = error.response.data as { 
+      const responseData = error.response.data as {
         error?: { message?: string };
         message?: string;
       };
-      const message = responseData.error?.message || 
-                     responseData.message || 
-                     'Server error occurred';
+      const message = responseData.error?.message ||
+        responseData.message ||
+        'Server error occurred';
       throw new Error(message);
     } else if (error.request) {
       try {
@@ -56,7 +56,7 @@ api.interceptors.response.use(
 
 const checkServerHealth = async (): Promise<boolean> => {
   try {
-    const response = await axios.get(`${API_URL}/health`, { 
+    const response = await axios.get(`${API_URL}/health`, {
       timeout: 5000
     });
     return response.data.status === 'ok' && response.data.database === 'connected';
@@ -73,7 +73,7 @@ export const studentApi = {
       console.warn('Server is not responding, using mock data');
       return initialStudentData;
     }
-    
+
     try {
       const response = await api.get<Student>(`/students/${id}`);
       return response.data;
@@ -88,14 +88,14 @@ export const studentApi = {
     if (!isHealthy) {
       throw new Error('Server is not responding. Please try again later.');
     }
-    
+
     try {
       const response = await api.put<Student>(`/students/${id}`, updates);
       return response.data;
     } catch (error) {
       console.warn('Failed to update student, using mock data');
       // For development: merge updates with mock data and return
-      return { 
+      return {
         ...initialStudentData,
         ...updates
       };
@@ -107,7 +107,7 @@ export const studentApi = {
     if (!isHealthy) {
       throw new Error('Server is not responding. Please try again later.');
     }
-    
+
     try {
       await api.delete(`/students/${id}`);
     } catch (error) {
@@ -121,7 +121,7 @@ export const studentApi = {
     if (!isHealthy) {
       throw new Error('Server is not responding. Please try again later.');
     }
-    
+
     try {
       const response = await api.post<Student>('/students', studentData);
       return response.data;
