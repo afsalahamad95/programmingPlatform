@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { adminApi } from "../api";
+import {
+	BarChart,
+	Bar,
+	XAxis,
+	YAxis,
+	CartesianGrid,
+	Tooltip,
+	ResponsiveContainer,
+	Cell,
+} from "recharts";
+import { TrendingUp, Users, CheckCircle, Clock } from "lucide-react";
 
 interface Student {
 	id: string;
@@ -21,6 +32,7 @@ interface Challenge {
 }
 
 interface TestResult {
+	id: string; // attemptId
 	studentId: string;
 	studentName: string;
 	studentEmail: string;
@@ -98,7 +110,7 @@ const StudentResults: React.FC = () => {
 
 			// Extract unique students from results
 			const uniqueStudents = new Map<string, Student>();
-			[...testResultsData, ...challengeResultsData].forEach((result: TestResult | ChallengeResult) => {
+			[...testResultsData, ...challengeResultsData].forEach((result: any) => {
 				if (!uniqueStudents.has(result.studentId)) {
 					uniqueStudents.set(result.studentId, {
 						id: result.studentId,
@@ -233,14 +245,72 @@ const StudentResults: React.FC = () => {
 		return <div className="text-red-500 text-center p-4">{error}</div>;
 	}
 
+	// ─── Dashboard Stats ─────────────────────────────────────────────────────────
+	const totalAttempts = filteredResults.length;
+	const avgScore = totalAttempts > 0 
+		? (filteredResults.reduce((acc, r) => acc + r.percentageScore, 0) / totalAttempts).toFixed(1)
+		: 0;
+	const passRate = totalAttempts > 0
+		? ((filteredResults.filter(r => r.status === "Passed").length / totalAttempts) * 100).toFixed(1)
+		: 0;
+
+	const chartData = filteredResults.slice(0, 10).map((r, i) => ({
+		name: (r as any).studentName.split(" ")[0],
+		score: r.percentageScore,
+	}));
+
 	return (
-		<div className="container mx-auto px-4 py-8">
+		<div className="container mx-auto px-4 py-8 text-gray-200">
+			{/* Dashboard Summary */}
+			<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+				<div className="glass-card p-6 flex items-center space-x-4">
+					<div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+						<Users className="text-indigo-400 w-6 h-6" />
+					</div>
+					<div>
+						<p className="text-xs font-mono text-indigo-400/70 uppercase tracking-widest">Total Attempts</p>
+						<h3 className="text-2xl font-bold text-white">{totalAttempts}</h3>
+					</div>
+				</div>
+				<div className="glass-card p-6 flex items-center space-x-4">
+					<div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+						<TrendingUp className="text-emerald-400 w-6 h-6" />
+					</div>
+					<div>
+						<p className="text-xs font-mono text-emerald-400/70 uppercase tracking-widest">Avg. Score</p>
+						<h3 className="text-2xl font-bold text-white">{avgScore}%</h3>
+					</div>
+				</div>
+				<div className="glass-card p-6 flex items-center space-x-4">
+					<div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+						<CheckCircle className="text-blue-400 w-6 h-6" />
+					</div>
+					<div>
+						<p className="text-xs font-mono text-blue-400/70 uppercase tracking-widest">Pass Rate</p>
+						<h3 className="text-2xl font-bold text-white">{passRate}%</h3>
+					</div>
+				</div>
+				<div className="glass-card p-6 flex flex-col justify-center">
+					<div className="h-16 w-full">
+						<ResponsiveContainer width="100%" height="100%">
+							<BarChart data={chartData}>
+								<Bar dataKey="score">
+									{chartData.map((_, index) => (
+										<Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#818cf8" : "#34d399"} fillOpacity={0.6} />
+									))}
+								</Bar>
+							</BarChart>
+						</ResponsiveContainer>
+					</div>
+					<p className="text-[10px] font-mono text-gray-500 text-center mt-2 uppercase tracking-tighter">Recent Performance Trend</p>
+				</div>
+			</div>
 			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-bold">Student Results</h1>
+				<h1 className="text-2xl font-bold text-white tracking-wide">Student Results</h1>
 				<div className="space-x-4">
 					<button
 						onClick={exportToCSV}
-						className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+						className="bg-purple-600/50 text-white border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)] px-4 py-2 rounded hover:bg-purple-600/70 transition-colors"
 					>
 						Export to CSV
 					</button>
@@ -258,7 +328,7 @@ const StudentResults: React.FC = () => {
 
 			<div className="grid grid-cols-3 gap-4 mb-6">
 				<div>
-					<label className="block text-sm font-medium mb-2">
+					<label className="block text-sm font-medium text-gray-300 mb-2">
 						Result Type
 					</label>
 					<select
@@ -267,20 +337,20 @@ const StudentResults: React.FC = () => {
 							setResultType(e.target.value as ResultType);
 							setSelectedItem("all");
 						}}
-						className="w-full p-2 border rounded"
+						className="glass-input w-full p-2 rounded"
 					>
 						<option value="test">Tests</option>
 						<option value="challenge">Challenges</option>
 					</select>
 				</div>
 				<div>
-					<label className="block text-sm font-medium mb-2">
+					<label className="block text-sm font-medium text-gray-300 mb-2">
 						Filter by Student
 					</label>
 					<select
 						value={selectedStudent}
 						onChange={(e) => setSelectedStudent(e.target.value)}
-						className="w-full p-2 border rounded"
+						className="glass-input w-full p-2 rounded"
 					>
 						<option value="all">All Students</option>
 						{students.map((student) => (
@@ -291,13 +361,13 @@ const StudentResults: React.FC = () => {
 					</select>
 				</div>
 				<div>
-					<label className="block text-sm font-medium mb-2">
+					<label className="block text-sm font-medium text-gray-300 mb-2">
 						Filter by {resultType === "test" ? "Test" : "Challenge"}
 					</label>
 					<select
 						value={selectedItem}
 						onChange={(e) => setSelectedItem(e.target.value)}
-						className="w-full p-2 border rounded"
+						className="glass-input w-full p-2 rounded"
 					>
 						<option value="all">
 							All {resultType === "test" ? "Tests" : "Challenges"}
@@ -313,10 +383,10 @@ const StudentResults: React.FC = () => {
 				</div>
 			</div>
 
-			<div className="overflow-x-auto">
-				<table className="min-w-full bg-white border">
+			<div className="overflow-x-auto glass-card rounded-lg border-none mt-6">
+				<table className="min-w-full text-left border-collapse">
 					<thead>
-						<tr className="bg-gray-100">
+						<tr className="bg-white/5 border-b border-white/10 text-gray-300 uppercase tracking-wider text-sm font-medium">
 							<th className="px-4 py-2">Student</th>
 							<th className="px-4 py-2">
 								{resultType === "test" ? "Test" : "Challenge"}
@@ -328,18 +398,19 @@ const StudentResults: React.FC = () => {
 							{resultType === "challenge" && (
 								<th className="px-4 py-2">Test Cases</th>
 							)}
+							<th className="px-4 py-2">Actions</th>
 						</tr>
 					</thead>
 					<tbody>
 						{filteredResults.map((result, index) => (
-							<tr key={index} className="border-t">
-								<td className="px-4 py-2">
-									<div>{result.studentName}</div>
-									<div className="text-sm text-gray-500">
+							<tr key={index} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+								<td className="px-4 py-3">
+									<div className="font-medium text-white">{result.studentName}</div>
+									<div className="text-sm text-gray-400">
 										{result.studentEmail}
 									</div>
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 text-gray-300">
 									{resultType === "test"
 										? (result as TestResult).testTitle
 										: (result as ChallengeResult)
@@ -347,26 +418,26 @@ const StudentResults: React.FC = () => {
 								</td>
 								<td className="px-4 py-2">
 									<span
-										className={`px-2 py-1 rounded ${result.status === "Passed"
-											? "bg-green-100 text-green-800"
+										className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm border ${result.status === "Passed"
+											? "bg-green-900/40 text-green-300 border-green-500/30"
 											: result.status === "Failed"
-												? "bg-red-100 text-red-800"
-												: "bg-yellow-100 text-yellow-800"
+												? "bg-red-900/40 text-red-300 border-red-500/30"
+												: "bg-yellow-900/40 text-yellow-300 border-yellow-500/30"
 											}`}
 									>
 										{result.status}
 									</span>
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 font-medium text-white">
 									{result.pointsScored}/{result.totalPoints}
-									<div className="text-sm text-gray-500">
+									<div className="text-sm font-normal text-gray-400">
 										({result.percentageScore}%)
 									</div>
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 text-gray-300">
 									{formatTime(result.timeSpent)}
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 text-gray-400 text-sm">
 									{new Date(
 										result.submittedAt
 									).toLocaleString()}
@@ -377,6 +448,14 @@ const StudentResults: React.FC = () => {
 										{(result as ChallengeResult).testCases?.total || 0}
 									</td>
 								)}
+								<td className="px-4 py-3">
+									<Link
+										to={`/student-results/${(result as TestResult).id || index}`}
+										className="text-xs font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest decoration-indigo-500/30 underline-offset-4 hover:underline"
+									>
+										View Details
+									</Link>
+								</td>
 							</tr>
 						))}
 					</tbody>

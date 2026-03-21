@@ -18,6 +18,19 @@ export interface IngestResponse {
   count: number;
 }
 
+export interface RoadmapFromResultPayload {
+  test_title: string;
+  student_name?: string;
+  score_pct: number;
+  grade: string;
+  correct: number;
+  incorrect: number;
+  pending: number;
+  total_questions: number;
+  subject_breakdown: Record<string, { correct: number; total: number }>;
+  weak_topics: string[];
+}
+
 const LLM_BASE = "/llm";
 
 export const chatApi = {
@@ -52,6 +65,20 @@ export const chatApi = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: "Unknown error" }));
       throw new Error(err.detail ?? "Ingest request failed");
+    }
+    return res.json();
+  },
+
+  /** Generate a study roadmap from test results */
+  async generateRoadmapFromResult(payload: RoadmapFromResultPayload): Promise<{ answer: string }> {
+    const res = await fetch(`${LLM_BASE}/roadmap-from-result`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+      throw new Error(err.detail ?? "Roadmap generation failed");
     }
     return res.json();
   },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getChallenge, submitChallengeAttempt } from "../api";
+import { getChallenge, submitChallengeAttempt, checkChallengeAttempt } from "../api";
 import { CodingChallenge, ValidationResult } from "../types";
 import CodeEditor from "./CodeEditor";
 import ChallengeTimer from "./ChallengeTimer";
@@ -40,6 +40,9 @@ const ChallengeAttempt: React.FC = () => {
 	const [showingResult, setShowingResult] = useState<boolean>(false);
 	const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
 	const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
+	const [checking, setChecking] = useState<boolean>(false);
+	const [hasPassedCheck, setHasPassedCheck] = useState<boolean>(false);
+	const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 
 	// Fetch challenge data
 	useEffect(() => {
@@ -78,12 +81,43 @@ const ChallengeAttempt: React.FC = () => {
 	// Handle code changes
 	const handleCodeChange = (value: string) => {
 		setCode(value);
+		if (hasPassedCheck) {
+			setHasPassedCheck(false);
+			setShowingResult(false);
+		}
 	};
 
 	// Handle time updates
 	const handleTimeUpdate = (time: number) => {
 		setTimeSpent(time);
 	};
+
+	const handleCheck = useCallback(async () => {
+		try {
+			if (!challenge || !id) return;
+			setChecking(true);
+			setError(null);
+			setShowingResult(false);
+			
+			const result = await checkChallengeAttempt(id, code);
+			if (result && result.result) {
+				setValidationResult(result.result);
+				setShowingResult(true);
+				if (result.result.passed) {
+					setHasPassedCheck(true);
+					setShowDebugInfo(false);
+				} else {
+					setHasPassedCheck(false);
+					setShowDebugInfo(true);
+				}
+			}
+		} catch (err: any) {
+			console.error("Failed to check code:", err);
+			setError(`Failed to check code: ${err.message || "Unknown error"}`);
+		} finally {
+			setChecking(false);
+		}
+	}, [challenge, id, code]);
 
 	// Handle challenge submission
 	const handleSubmit = useCallback(async () => {
@@ -160,6 +194,7 @@ const ChallengeAttempt: React.FC = () => {
 
 					setValidationResult(result.result);
 					setShowingResult(true);
+					setIsSubmitted(true);
 
 					// Clear the timer data from localStorage since we've submitted
 					if (id) {
@@ -222,7 +257,7 @@ const ChallengeAttempt: React.FC = () => {
 
 	// Cleanup timer when user navigates away without submitting
 	const cleanupTimer = useCallback(() => {
-		if (id && !showingResult && !isTimeExpired) {
+		if (id && !isSubmitted && !isTimeExpired) {
 			const timerKey = `challenge_timer_${id}`;
 			// We'll keep the timer data in localStorage when navigating away
 			// so users can come back and continue where they left off
@@ -444,7 +479,7 @@ const ChallengeAttempt: React.FC = () => {
 					code={code}
 					language={challenge.language}
 					onChange={handleCodeChange}
-					readOnly={isTimeExpired || showingResult || submitting}
+					readOnly={isTimeExpired || isSubmitted || submitting || checking}
 				/>
 				<div className="mt-4 flex justify-end">
 					{submitting ? (
@@ -476,7 +511,7 @@ const ChallengeAttempt: React.FC = () => {
 						</div>
 					) : (
 						<div className="flex space-x-4 items-center">
-							{isTimeExpired && !showingResult && (
+							{isTimeExpired && !isSubmitted && (
 								<div className="text-red-600">
 									The time for this challenge has expired.
 								</div>
@@ -484,10 +519,23 @@ const ChallengeAttempt: React.FC = () => {
 							<button
 								onClick={handleSubmit}
 								disabled={
-									submitting || isTimeExpired || showingResult
+									checking || submitting || isTimeExpired || isSubmitted
+								}
+								className={`px-6 py-2 rounded-md font-medium border border-indigo-600 ${
+									checking || submitting || isTimeExpired || isSubmitted
+										? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-300"
+										: "text-indigo-600 hover:bg-indigo-50 bg-white"
+								}`}
+							>
+								{checking ? "Checking..." : "Check Code"}
+							</button>
+							<button
+								onClick={handleSubmit}
+								disabled={
+									submitting || checking || isTimeExpired || isSubmitted
 								}
 								className={`px-6 py-2 rounded-md text-white font-medium ${
-									submitting || isTimeExpired || showingResult
+									submitting || checking || isTimeExpired || isSubmitted
 										? "bg-gray-400 cursor-not-allowed"
 										: "bg-indigo-600 hover:bg-indigo-700"
 								}`}
@@ -700,6 +748,8 @@ const ChallengeAttempt: React.FC = () => {
 							<button
 								onClick={() => {
 									setShowingResult(false);
+									setIsSubmitted(false);
+									setHasPassedCheck(false);
 									setValidationResult(null);
 									if (!isTimeExpired) {
 										// Reset the timer

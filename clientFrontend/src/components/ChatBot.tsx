@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import { chatApi, ChatMessage } from "../api/chatApi";
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
@@ -82,6 +84,8 @@ const WELCOME: ChatMessage = {
 };
 
 const ChatBot: React.FC = () => {
+  const { user } = useAuth();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [input, setInput] = useState("");
@@ -115,7 +119,9 @@ const ChatBot: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await chatApi.sendMessage(next);
+      // Strip sources before sending to avoid schema mismatch/payload bloat
+      const historyToSend = next.map(({ role, content }) => ({ role, content }));
+      const res = await chatApi.sendMessage(historyToSend);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: res.answer },
@@ -134,6 +140,10 @@ const ChatBot: React.FC = () => {
       send();
     }
   };
+
+  if (!user || location.pathname === "/login") {
+    return null;
+  }
 
   return (
     <>

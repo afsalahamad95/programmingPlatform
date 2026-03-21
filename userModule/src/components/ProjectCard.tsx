@@ -9,13 +9,13 @@ interface ProjectCardProps {
 
 export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
   return (
-    <div className="bg-white shadow-sm rounded-lg p-6">
+    <div className="glass-card p-6">
       <div className="flex justify-between items-start">
-        <h3 className="text-lg font-medium text-gray-900">{project.name}</h3>
+        <h3 className="text-lg font-medium text-white">{project.name}</h3>
         <div className="flex space-x-2">
           <button
             onClick={() => onEdit(project)}
-            className="text-sm text-gray-600 hover:text-indigo-600"
+            className="text-sm text-gray-300 hover:text-indigo-600"
           >
             Edit
           </button>
@@ -28,16 +28,16 @@ export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardPr
         </div>
       </div>
       
-      <div className="mt-2 text-sm text-gray-500">{project.role}</div>
+      <div className="mt-2 text-sm text-gray-400">{project.role}</div>
       
-      <p className="mt-3 text-gray-600">{project.description}</p>
+      <p className="mt-3 text-gray-300">{project.description}</p>
       
       <div className="mt-4 flex items-center space-x-4">
-        <div className="flex items-center text-sm text-gray-500">
+        <div className="flex items-center text-sm text-gray-400">
           <Code className="h-4 w-4 mr-1" />
           {project.technologies.join(', ')}
         </div>
-        <div className="flex items-center text-sm text-gray-500">
+        <div className="flex items-center text-sm text-gray-400">
           <Calendar className="h-4 w-4 mr-1" />
           {new Date(project.startDate).toLocaleDateString()} - 
           {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Present'}

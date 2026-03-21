@@ -89,7 +89,7 @@ func GetTestResults(c *fiber.Ctx) error {
 		}
 
 		result := fiber.Map{
-			"studentId":       attempt.StudentID,
+			"id": attempt.ID, "studentId":       attempt.StudentID,
 			"studentName":     attempt.StudentName,
 			"studentEmail":    attempt.StudentEmail,
 			"testId":          attempt.TestID,
@@ -184,7 +184,7 @@ func GetTestResultsByStudent(c *fiber.Ctx) error {
 		}
 
 		result := fiber.Map{
-			"studentId":       attempt.StudentID,
+			"id": attempt.ID, "studentId":       attempt.StudentID,
 			"studentName":     attempt.StudentName,
 			"studentEmail":    attempt.StudentEmail,
 			"testId":          attempt.TestID,
@@ -280,7 +280,7 @@ func GetTestResultsByTest(c *fiber.Ctx) error {
 		}
 
 		result := fiber.Map{
-			"studentId":       attempt.StudentID,
+			"id": attempt.ID, "studentId":       attempt.StudentID,
 			"studentName":     attempt.StudentName,
 			"studentEmail":    attempt.StudentEmail,
 			"testId":          attempt.TestID,

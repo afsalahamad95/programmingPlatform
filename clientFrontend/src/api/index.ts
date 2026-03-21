@@ -3,7 +3,7 @@ import { Test, Question, User, Challenge } from "../types";
 
 // Create axios instance with default config
 export const api = axios.create({
-	baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api",
+	baseURL: "/api",
 	timeout: 15000,
 	headers: {
 		"Content-Type": "application/json",
@@ -294,6 +294,17 @@ export const submitChallengeAttempt = async (
 	solution: string
 ): Promise<{ success: boolean; feedback: string; score?: number }> => {
 	const response = await api.post(`/challenges/${challengeId}/submit`, {
+		solution,
+	});
+	return response.data;
+};
+
+// Challenge check endpoint
+export const checkChallengeAttempt = async (
+	challengeId: string,
+	solution: string
+): Promise<{ message: string; result: any }> => {
+	const response = await api.post(`/challenges/${challengeId}/check`, {
 		solution,
 	});
 	return response.data;

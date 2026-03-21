@@ -8,18 +8,22 @@ import Achievements from './pages/Achievements';
 import Certifications from './pages/Certifications';
 import InterviewPrep from './pages/InterviewPrep';
 import Settings from './pages/Settings';
+import ResumeBuilder from './pages/ResumeBuilder';
+import CareerRoadmap from './pages/CareerRoadmap';
 
 function App() {
   return (
     <NotificationProvider>
       <Router>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen text-gray-200">
           <Navbar />
           <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/projects" element={<Projects />} />
+              <Route path="/resume" element={<ResumeBuilder />} />
+              <Route path="/roadmap" element={<CareerRoadmap />} />
               <Route path="/achievements" element={<Achievements />} />
               <Route path="/certifications" element={<Certifications />} />
               <Route path="/interview-prep" element={<InterviewPrep />} />

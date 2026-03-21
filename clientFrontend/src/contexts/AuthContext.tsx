@@ -76,14 +76,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			setLoading(true);
 			setError(null);
 			const response = await api.post("/auth/login", { email, password });
-			const { token, user } = response.data;
+			const { token } = response.data;
 
 			// Store token in localStorage
 			localStorage.setItem("token", token);
 
 			// Set user from decoded token
 			const decoded = jwtDecode<User>(token);
-			setUser(decoded);
+			setUser({
+        ...decoded,
+        id: decoded.userId // Map userId to id for consistency
+      });
 
 			return response.data;
 		} catch (err) {

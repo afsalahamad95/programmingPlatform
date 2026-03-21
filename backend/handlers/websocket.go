@@ -127,20 +127,12 @@ func ServeWs(hub *Hub, c *websocket.Conn) {
 			c.Close()
 		}()
 
-		for {
-			select {
-			case message, ok := <-client.send:
-				if !ok {
-					fmt.Printf("Client %s send channel closed\n", c.RemoteAddr().String())
-					return
-				}
-
-				if err := c.WriteMessage(websocket.TextMessage, message); err != nil {
-					fmt.Printf("Error writing message to %s: %v\n", c.RemoteAddr().String(), err)
-					return
-				}
-				fmt.Printf("Message sent to %s\n", c.RemoteAddr().String())
+		for message := range client.send {
+			if err := c.WriteMessage(websocket.TextMessage, message); err != nil {
+				fmt.Printf("Error writing message to %s: %v\n", c.RemoteAddr().String(), err)
+				return
 			}
+			fmt.Printf("Message sent to %s\n", c.RemoteAddr().String())
 		}
 	}()
 }

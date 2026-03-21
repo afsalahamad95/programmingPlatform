@@ -28,8 +28,8 @@ from models.schema import (
     IngestRequest,
     IngestResponse,
     ResumeRequest,
-    RoadmapRequest,
     CareerResponse,
+    RoadmapFromResultRequest,
 )
 import httpx
 from contextlib import asynccontextmanager
@@ -312,7 +312,7 @@ async def generate_resume(req: ResumeRequest):
         raise HTTPException(status_code=500, detail="Groq not configured")
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:3000/api/students/{req.student_id}")
+        resp = await client.get(f"http://localhost:8080/api/students/{req.student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student_data = resp.json()
@@ -330,7 +330,7 @@ async def generate_resume(req: ResumeRequest):
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
-        return CareerResponse(answer=completion.choices[0].message.content)
+        return CareerResponse(markdown_content=completion.choices[0].message.content)
     except Exception as e:
         logger.error(f"Resume generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -343,7 +343,7 @@ async def generate_roadmap(req: RoadmapRequest):
         raise HTTPException(status_code=500, detail="Groq not configured")
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:3000/api/students/{req.student_id}")
+        resp = await client.get(f"http://localhost:8080/api/students/{req.student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student_data = resp.json()
@@ -361,7 +361,7 @@ async def generate_roadmap(req: RoadmapRequest):
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
         )
-        return CareerResponse(answer=completion.choices[0].message.content)
+        return CareerResponse(markdown_content=completion.choices[0].message.content)
     except Exception as e:
         logger.error(f"Roadmap generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -403,3 +403,35 @@ async def adaptive_ingest(student_id: str):
         "message": "Knowledge base updated based on user learning goals.",
         "skills_processed": all_skills[:3],
     }
+@app.post("/llm/roadmap-from-result", response_model=CareerResponse)
+async def generate_roadmap_from_result(req: RoadmapFromResultRequest):
+    """Generate a personalised study roadmap based on a specific test performance."""
+    if not _groq_client:
+        raise HTTPException(status_code=500, detail="Groq not configured")
+
+    subjects_str = "\n".join([f"- {s}: {d['correct']}/{d['total']}" for s, d in req.subject_breakdown.items()])
+    weak_topics_str = "\n".join([f"- {t}" for t in req.weak_topics[:5]]) # Limit to 5 for brevity
+
+    prompt = (
+        f"You are an expert technical mentor. Generate a highly personalised, phased study roadmap for a student "
+        f"named {req.student_name} who just completed a test titled '{req.test_title}'.\n\n"
+        f"### Performance Summary:\n"
+        f"- Grade: {req.grade} ({req.score_pct:.1f}%)\n"
+        f"- Statistics: {req.correct} Correct, {req.incorrect} Incorrect, {req.pending} Pending Review\n"
+        f"- Total Questions: {req.total_questions}\n\n"
+        f"### Subject Breakdown:\n{subjects_str}\n\n"
+        f"### Areas Needing Improvement (Weak Topics):\n{weak_topics_str}\n\n"
+        f"Please provide a 4-week study plan to master these weak areas and progress further. "
+        f"Use emojis, markdown tables, and clear headings. Make it feel encouraging and 'futuristic' in tone."
+    )
+
+    try:
+        completion = _groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.6,
+        )
+        return CareerResponse(answer=completion.choices[0].message.content)
+    except Exception as e:
+        logger.error(f"Roadmap from result generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

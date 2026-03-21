@@ -58,11 +58,11 @@ export default function Projects() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
+        <h1 className="text-2xl font-bold text-white">Projects</h1>
         {!isAddingProject && !editingProject && (
           <button
             onClick={() => setIsAddingProject(true)}
-            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+            className="flex items-center text-sm font-medium text-white glass-button-primary"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
             Add Project
@@ -71,8 +71,8 @@ export default function Projects() {
       </div>
 
       {(isAddingProject || editingProject) && (
-        <div className="bg-white shadow-sm rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
+        <div className="glass-card p-6">
+          <h2 className="text-lg font-medium text-white mb-4">
             {editingProject ? 'Edit Project' : 'Add New Project'}
           </h2>
           <ProjectForm
@@ -88,7 +88,7 @@ export default function Projects() {
 
       <div className="grid grid-cols-1 gap-6">
         {student.projects.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">
+          <p className="text-center text-gray-400 py-8">
             No projects added yet. Click the "Add Project" button to get started.
           </p>
         ) : (

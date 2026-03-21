@@ -534,3 +534,64 @@ func GetChallengeResultsByChallenge(c *fiber.Ctx) error {
 
 	return c.JSON(results)
 }
+
+// CheckChallengeAttempt evaluates code against test cases without recording the submission to the database
+func CheckChallengeAttempt(c *fiber.Ctx) error {
+	var rawBody map[string]interface{}
+	if err := c.BodyParser(&rawBody); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request body format",
+			"details": err.Error(),
+		})
+	}
+
+	attempt := new(presenter.ChallengeAttempt)
+	source := rawBody
+	if solutionMap, ok := rawBody["solution"].(map[string]interface{}); ok {
+		source = solutionMap
+	}
+
+	attempt.Code, _ = source["code"].(string)
+	attempt.Language, _ = source["language"].(string)
+
+	if attempt.Code == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Code is required"})
+	}
+	if attempt.Language == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Language is required"})
+	}
+
+	challengeID, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid challenge ID format",
+			"details": err.Error(),
+		})
+	}
+
+	var challenge presenter.CodingChallenge
+	err = db.ChallengesCollection.FindOne(context.Background(), bson.M{"_id": challengeID}).Decode(&challenge)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Challenge not found"})
+		}
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to fetch challenge",
+			"details": err.Error(),
+		})
+	}
+
+	executionService := code_execution_engine.NewCodeExecutionService()
+	validationResult, err := executionService.ExecuteCode(&challenge, attempt.Code)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Code execution failed",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Code check complete",
+		"result":  validationResult,
+	})
+}

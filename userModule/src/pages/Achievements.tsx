@@ -43,10 +43,10 @@ export default function Achievements() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Achievements</h1>
+        <h1 className="text-2xl font-bold text-white">Achievements</h1>
         <button
           onClick={() => setIsAddingAchievement(true)}
-          className="flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+          className="flex items-center text-sm font-medium text-white glass-button-primary"
         >
           <PlusCircle className="h-5 w-5 mr-2" />
           Add Achievement
@@ -55,11 +55,11 @@ export default function Achievements() {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {student.achievements.map((achievement) => (
-          <div key={achievement.id} className="bg-white shadow-sm rounded-lg p-6">
+          <div key={achievement.id} className="glass-card p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center">
                 <Trophy className="h-6 w-6 text-indigo-600 mr-2" />
-                <h3 className="text-lg font-medium text-gray-900">{achievement.title}</h3>
+                <h3 className="text-lg font-medium text-white">{achievement.title}</h3>
               </div>
               <button
                 onClick={() => handleDeleteAchievement(achievement.id)}
@@ -68,20 +68,20 @@ export default function Achievements() {
                 Delete
               </button>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-400">
               {new Date(achievement.date).toLocaleDateString()}
             </p>
             {achievement.description && (
-              <p className="mt-2 text-sm text-gray-600">{achievement.description}</p>
+              <p className="mt-2 text-sm text-gray-300">{achievement.description}</p>
             )}
           </div>
         ))}
       </div>
 
       {isAddingAchievement && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Add Achievement</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card p-6 max-w-md w-full">
+            <h2 className="text-lg font-medium text-white mb-4">Add Achievement</h2>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -95,42 +95,42 @@ export default function Achievements() {
               className="space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700">Title</label>
+                <label className="block text-sm font-medium text-gray-200">Title</label>
                 <input
                   type="text"
                   name="title"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
+                <label className="block text-sm font-medium text-gray-200">Date</label>
                 <input
                   type="date"
                   name="date"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <label className="block text-sm font-medium text-gray-200">Description</label>
                 <textarea
                   name="description"
                   rows={3}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsAddingAchievement(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-200 bg-white border border-white/20 rounded-md hover:bg-white/5"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                  className="text-sm font-medium text-white glass-button-primary"
                 >
                   Add Achievement
                 </button>

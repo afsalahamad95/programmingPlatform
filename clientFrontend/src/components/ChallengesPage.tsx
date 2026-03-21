@@ -39,20 +39,20 @@ const ChallengesPage: React.FC = () => {
 	return (
 		<div className="max-w-6xl mx-auto p-4">
 			<div className="mb-8">
-				<h1 className="text-3xl font-bold text-gray-900 mb-2">
+				<h1 className="text-3xl font-bold text-white mb-2">
 					Coding Challenges
 				</h1>
-				<p className="text-gray-600">
+				<p className="text-gray-300">
 					Test your programming skills with these timed coding
 					challenges. Select a challenge to begin.
 				</p>
 			</div>
 
 			{/* Filters */}
-			<div className="bg-white shadow rounded-lg p-6 mb-6">
+			<div className="glass-card p-6 mb-6">
 				<div className="flex flex-col sm:flex-row sm:justify-between space-y-4 sm:space-y-0">
 					<div>
-						<h2 className="text-lg font-medium text-gray-900 mb-2">
+						<h2 className="text-lg font-medium text-white mb-2">
 							Filter by Difficulty
 						</h2>
 						<div className="flex flex-wrap gap-2">
@@ -75,7 +75,7 @@ const ChallengesPage: React.FC = () => {
 					</div>
 
 					<div>
-						<h2 className="text-lg font-medium text-gray-900 mb-2">
+						<h2 className="text-lg font-medium text-white mb-2">
 							Filter by Category
 						</h2>
 						<div className="flex flex-wrap gap-2">

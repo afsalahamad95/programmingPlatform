@@ -41,6 +41,7 @@ func SetupRoutes(app *fiber.App) {
 	challenges.Get("/:id", handlers.GetChallenge)
 	challenges.Put("/:id", handlers.UpdateChallenge)
 	challenges.Delete("/:id", handlers.DeleteChallenge)
+	challenges.Post("/:id/check", handlers.CheckChallengeAttempt)
 	challenges.Post("/:id/submit", handlers.SubmitChallengeAttempt)
 	challenges.Get("/:id/attempts", handlers.GetChallengeAttempts)
 	challenges.Get("/:id/attempts/:userId", handlers.GetUserChallengeAttempts)

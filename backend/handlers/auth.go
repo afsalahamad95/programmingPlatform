@@ -194,14 +194,15 @@ func CheckPasswordHash(password, hash string) bool {
 }
 
 // GenerateJWT generates a JWT token for a user
-func GenerateJWT(user presenter.AuthUser) (string, error) {
+func GenerateJWT(userID string, studentID string, email string, role string) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
-
+  
 	claims := &jwt.MapClaims{
-		"userId": user.ID.Hex(),
-		"email":  user.Email,
-		"role":   user.Role,
-		"exp":    expirationTime.Unix(),
+		"userId":    userID,
+    "studentId": studentID, 
+		"email":     email,
+		"role":      role,
+		"exp":       expirationTime.Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -226,7 +227,7 @@ func Login(c *fiber.Ctx) error {
 
 	// Find the user by email
 	var user presenter.AuthUser
-	err := db.UsersCollection.FindOne(context.Background(), bson.M{"email": req.Email}).Decode(&user)
+	err := db.UsersCollection.FindOne(context.Background(), bson.M{"email": strings.ToLower(req.Email)}).Decode(&user)
 	if err != nil {
 		log.Printf("User not found for email %s: %v", req.Email, err)
 		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid email or password"})
@@ -238,7 +239,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	// Generate JWT token
-	token, err := GenerateJWT(user)
+	token, err := GenerateJWT(user.ID.Hex(), user.ID.Hex(), user.Email, user.Role)
 	if err != nil {
 		log.Printf("Failed to generate token: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
@@ -250,8 +251,8 @@ func Login(c *fiber.Ctx) error {
 		"user": fiber.Map{
 			"id":        user.ID,
 			"email":     user.Email,
-			"firstName": user.FirstName,
-			"lastName":  user.LastName,
+			"fullName":  user.FirstName + " " + user.LastName,
+			"studentId": user.ID.Hex(),
 			"role":      user.Role,
 		},
 	})
@@ -387,7 +388,7 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	// Generate JWT token
-	token, err := GenerateJWT(newUser)
+	token, err := GenerateJWT(newUser.ID.Hex(), "", newUser.Email, newUser.Role)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate authentication token",
@@ -630,7 +631,7 @@ func OAuthCallback(c *fiber.Ctx) error {
 
 	// Generate JWT token
 	log.Printf("Generating JWT token for user ID: %s", user.ID.Hex())
-	jwtToken, err := GenerateJWT(user)
+	jwtToken, err := GenerateJWT(user.ID.Hex(), "", user.Email, user.Role)
 	if err != nil {
 		log.Printf("Failed to generate authentication token: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

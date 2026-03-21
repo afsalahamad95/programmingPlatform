@@ -36,7 +36,7 @@ export default function EditableSkills({
         {skills.map((skill) => (
           <span
             key={skill}
-            className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-900/40 border border-indigo-500/30 text-indigo-300 shadow-sm"
           >
             {skill}
             {isEditing && (
@@ -59,11 +59,11 @@ export default function EditableSkills({
             value={newSkill}
             onChange={(e) => setNewSkill(e.target.value)}
             placeholder={`Add ${category}`}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="glass-input block w-full py-2 px-3 sm:text-sm transition-colors"
           />
           <button
             type="submit"
-            className="inline-flex items-center p-2 text-indigo-600 hover:text-indigo-700"
+            className="inline-flex items-center p-2 text-purple-400 hover:text-purple-300 transition-colors"
             aria-label={`Add ${category}`}
           >
             <Plus className="h-5 w-5" />

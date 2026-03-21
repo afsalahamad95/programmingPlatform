@@ -47,17 +47,17 @@ export default function InterviewPrep() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow-sm rounded-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Mock Interviews</h2>
+      <div className="glass-card p-6">
+        <h2 className="text-xl font-bold text-white mb-4">Mock Interviews</h2>
         
-        <div className="border-b border-gray-200">
+        <div className="border-b border-white/10">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('upcoming')}
               className={`${
                 activeTab === 'upcoming'
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-white/20'
               } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm`}
             >
               Upcoming
@@ -67,7 +67,7 @@ export default function InterviewPrep() {
               className={`${
                 activeTab === 'completed'
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-white/20'
               } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm`}
             >
               Completed
@@ -81,27 +81,27 @@ export default function InterviewPrep() {
             .map((interview) => (
               <div
                 key={interview.id}
-                className="mb-4 p-4 border border-gray-200 rounded-lg"
+                className="mb-4 p-4 border border-white/10 rounded-lg"
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3 className="text-lg font-medium text-white">
                       {interview.company}
                     </h3>
-                    <p className="text-sm text-gray-500">{interview.role}</p>
+                    <p className="text-sm text-gray-400">{interview.role}</p>
                   </div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-300">
                     {interview.type}
                   </span>
                 </div>
-                <div className="mt-2 text-sm text-gray-500">
+                <div className="mt-2 text-sm text-gray-400">
                   {new Date(interview.date).toLocaleDateString()} at {interview.time}
                 </div>
                 {interview.status === 'completed' && (
-                  <div className="mt-4 border-t border-gray-200 pt-4">
-                    <p className="text-sm text-gray-600">{interview.feedback}</p>
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <p className="text-sm text-gray-300">{interview.feedback}</p>
                     <div className="mt-2 flex items-center">
-                      <span className="text-sm font-medium text-gray-700 mr-2">
+                      <span className="text-sm font-medium text-gray-200 mr-2">
                         Rating:
                       </span>
                       <div className="flex items-center">
@@ -128,30 +128,30 @@ export default function InterviewPrep() {
         </div>
       </div>
 
-      <div className="bg-white shadow-sm rounded-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Preparation Resources</h2>
+      <div className="glass-card p-6">
+        <h2 className="text-xl font-bold text-white mb-4">Preparation Resources</h2>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {resources.map((resource) => (
             <div
               key={resource.title}
-              className="border border-gray-200 rounded-lg p-4"
+              className="border border-white/10 rounded-lg p-4"
             >
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-white mb-2">
                 {resource.title}
               </h3>
               <div className="space-y-2">
                 {resource.topics.map((topic) => (
-                  <p key={topic} className="text-sm text-gray-600">
+                  <p key={topic} className="text-sm text-gray-300">
                     • {topic}
                   </p>
                 ))}
               </div>
               <div className="mt-4">
-                <div className="flex items-center justify-between text-sm text-gray-600">
+                <div className="flex items-center justify-between text-sm text-gray-300">
                   <span>Progress</span>
                   <span>{resource.progress}%</span>
                 </div>
-                <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
+                <div className="mt-1 w-full bg-white/20 rounded-full h-2">
                   <div
                     className="bg-indigo-600 h-2 rounded-full"
                     style={{ width: `${resource.progress}%` }}
