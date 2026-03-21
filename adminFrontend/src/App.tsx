@@ -24,6 +24,7 @@ import TestList from "./components/TestList";
 import TestAttempt from "./components/TestAttempt";
 import UserProfile, { UserData } from "./components/UserProfile";
 import StudentResults from "./components/StudentResults";
+import TestResultDetail from "./components/TestResultDetail";
 import { Question, QuestionType, Test } from "./types";
 import * as api from "./api";
 import ChallengeManagement from "./components/ChallengeManagement";
@@ -410,6 +411,10 @@ function App() {
 							<Route
 								path="/student-results"
 								element={<StudentResults />}
+							/>
+							<Route
+								path="/student-results/:attemptId"
+								element={<TestResultDetail />}
 							/>
 						</Routes>
 

@@ -232,6 +232,18 @@ export const adminApi = {
 		);
 		return response.data;
 	},
+	getTestAttempt: async (attemptId: string) => {
+		const response = await axios.get(`${API_URL}/tests/attempts/${attemptId}`);
+		return response.data;
+	},
+	getTest: async (testId: string) => {
+		const response = await axios.get(`${API_URL}/tests/${testId}`);
+		return response.data;
+	},
+	generateRoadmapFromResult: async (payload: any) => {
+		const response = await axios.post(`/llm/roadmap-from-result`, payload);
+		return response.data;
+	},
 };
 
 // Check if user has admin role

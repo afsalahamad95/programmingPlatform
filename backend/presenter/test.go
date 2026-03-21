@@ -45,7 +45,7 @@ type TestData struct {
 
 // TestSubmission represents a submission of a test by a student
 type TestSubmission struct {
-	ID           string    `json:"id,omitempty" bson:"_id,omitempty"`
+	ID           primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
 	TestID       string    `json:"testId" bson:"testId"`
 	StudentID    string    `json:"studentId" bson:"studentId"`
 	StudentName  string    `json:"studentName" bson:"studentName"`

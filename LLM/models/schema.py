@@ -46,6 +46,18 @@ class RoadmapRequest(BaseModel):
     target_role: Optional[str] = "Full Stack Developer"
 
 
+class RoadmapFromResultRequest(BaseModel):
+    """Request body for generating a roadmap from a specific test result."""
+    test_title: str
+    student_name: Optional[str] = "Student"
+    score_pct: float
+    grade: str
+    correct: int
+    incorrect: int
+    pending: int
+    total_questions: int
+    subject_breakdown: dict  # subject name -> {correct, total}
+    weak_topics: List[str]   # list of question contents failed
 class CareerResponse(BaseModel):
     """Response body for resume and roadmap generation."""
     answer: str
