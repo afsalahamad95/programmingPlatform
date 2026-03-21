@@ -53,15 +53,10 @@ A flexible, secure and efficient platform designed for creating and attempting t
 ## 📝 TODO   
 - Authentication - Oauth2 support, JWT token
 - Improved state management
-- Multi language code execution
-- AI support - get help for questions
 - AI proctored tests
-- Improved logging
 - Dockerized images for easy deployments/testing
 - live image reload (docker) integration with delve debugger
-- caching with redis
 - inmem caching and DB query optimizations
-- Use goroutines for concurrency and improved performance
 - Include contest feature and live meetups(short meetings configurable from 1 to 3 hours)
 
 ---
