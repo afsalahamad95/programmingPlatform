@@ -8,6 +8,7 @@ class ChatMessage(BaseModel):
     """A single message in a conversation."""
     role: str  # "user" or "assistant"
     content: str
+    sources: Optional[List[str]] = None
 
 
 class ChatRequest(BaseModel):

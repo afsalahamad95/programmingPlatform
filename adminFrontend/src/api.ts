@@ -125,6 +125,7 @@ export const submitTest = async (testId: string, answers: any) => {
 	return response.data;
 };
 
+<<<<<<< Updated upstream
 // Student Results APIs
 export const getStudentResults = async () => {
 	const response = await axios.get(`${API_URL}/admin/student-results`);
@@ -239,3 +240,33 @@ export const isAdmin = () => {
 	const role = localStorage.getItem("userRole");
 	return role === "admin";
 };
+=======
+export const isAdmin = () => localStorage.getItem("userRole") === "admin";
+
+// Health check
+export const checkHealth = async () => (await axios.get(`${API_URL}/health`)).data;
+
+// Additional Tests API
+export const submitTest = async (id: string, answers: any) => (await axios.post(`${API_URL}/tests/${id}/submit`, { answers })).data;
+
+// Challenges API
+export const createChallenge = async (data: any) => (await axios.post(`${API_URL}/challenges`, data)).data;
+export const getChallenges = async (params?: { difficulty?: string; category?: string; }) => {
+	try {
+		return (await axios.get(`${API_URL}/challenges`, { params })).data;
+	} catch (error) {
+		console.error("Failed to fetch challenges:", error);
+		return [];
+	}
+};
+export const getChallenge = async (id: string) => {
+	try {
+		return (await axios.get(`${API_URL}/challenges/${id}`)).data;
+	} catch (error) {
+		console.error(`Failed to fetch challenge with id ${id}:`, error);
+		return null;
+	}
+};
+export const updateChallenge = async (id: string, data: any) => (await axios.put(`${API_URL}/challenges/${id}`, data)).data;
+export const deleteChallenge = async (id: string) => (await axios.delete(`${API_URL}/challenges/${id}`)).data;
+>>>>>>> Stashed changes
