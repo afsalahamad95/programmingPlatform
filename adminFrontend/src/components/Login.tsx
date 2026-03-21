@@ -51,9 +51,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 	};
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-gray-100">
-			<div className="max-w-md w-full p-8 bg-white rounded-lg shadow-lg">
-				<h1 className="text-2xl font-bold text-center mb-6">
+		<div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+			<div className="glass-card max-w-md w-full p-8">
+				<h1 className="mt-6 text-2xl font-bold text-center mb-6 text-white tracking-wide">
 					Admin Login
 				</h1>
 
@@ -67,7 +67,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 					<div>
 						<label
 							htmlFor="email"
-							className="block text-sm font-medium text-gray-700"
+							className="block text-sm font-medium text-gray-300"
 						>
 							Email
 						</label>
@@ -77,7 +77,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 							required
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
-							className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+							className="glass-input mt-1 block w-full px-3 py-2 rounded-md shadow-sm"
 							placeholder="your@email.com"
 						/>
 					</div>
@@ -85,7 +85,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 					<div>
 						<label
 							htmlFor="password"
-							className="block text-sm font-medium text-gray-700"
+							className="block text-sm font-medium text-gray-300"
 						>
 							Password
 						</label>
@@ -95,7 +95,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 							required
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
-							className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+							className="glass-input mt-1 block w-full px-3 py-2 rounded-md shadow-sm"
 							placeholder="••••••••"
 						/>
 					</div>
@@ -104,7 +104,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 						<button
 							type="submit"
 							disabled={isLoading}
-							className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+							className="group relative w-full flex justify-center py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-purple-600/50 border border-purple-500/50 hover:bg-purple-600/80 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
 						>
 							{isLoading ? "Logging in..." : "Login with Email"}
 						</button>
@@ -114,10 +114,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 				<div className="mt-6">
 					<div className="relative">
 						<div className="absolute inset-0 flex items-center">
-							<div className="w-full border-t border-gray-300"></div>
+							<div className="w-full border-t border-white/10"></div>
 						</div>
 						<div className="relative flex justify-center text-sm">
-							<span className="px-2 bg-white text-gray-500">
+							<span className="px-2 bg-transparent text-gray-400">
 								Or continue with
 							</span>
 						</div>
@@ -126,7 +126,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 					<div className="mt-6 grid grid-cols-2 gap-3">
 						<button
 							onClick={() => handleOAuthLogin("google")}
-							className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+							className="w-full inline-flex justify-center py-2 px-4 border border-white/10 rounded-md shadow-sm bg-white/5 text-sm font-medium text-gray-300 hover:bg-white/10 transition-colors"
 						>
 							<svg
 								className="w-5 h-5 mr-2"
@@ -140,7 +140,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
 						<button
 							onClick={() => handleOAuthLogin("github")}
-							className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+							className="w-full inline-flex justify-center py-2 px-4 border border-white/10 rounded-md shadow-sm bg-white/5 text-sm font-medium text-gray-300 hover:bg-white/10 transition-colors"
 						>
 							<svg
 								className="w-5 h-5 mr-2"

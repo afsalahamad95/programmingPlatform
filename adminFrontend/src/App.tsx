@@ -295,22 +295,22 @@ function App() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-100">
+		<div className="min-h-screen text-gray-200">
 			{isAuthenticated && isAdmin ? (
 				<>
-					<header className="bg-white shadow">
+					<header className="glass-nav sticky top-0 z-50">
 						<div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
 							<div className="flex justify-between items-center">
-								<h1 className="text-2xl font-bold text-gray-900">
+								<h1 className="text-2xl font-bold text-white tracking-wide">
 									Admin Panel
 								</h1>
 								<div className="flex space-x-4 items-center">
 									<button
-										className={`px-4 py-2 rounded-md ${
+										className={`px-4 py-2 rounded-md transition-colors ${
 											isQuestions &&
 											location.pathname === "/"
-												? "bg-indigo-600 text-white"
-												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+												? "bg-purple-600/50 text-white border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+												: "bg-white/5 text-gray-300 hover:bg-white/10"
 										}`}
 										onClick={() => {
 											selectQuestions();
@@ -320,10 +320,10 @@ function App() {
 										Question Bank
 									</button>
 									<button
-										className={`px-4 py-2 rounded-md ${
+										className={`px-4 py-2 rounded-md transition-colors ${
 											isTests
-												? "bg-indigo-600 text-white"
-												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+												? "bg-purple-600/50 text-white border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+												: "bg-white/5 text-gray-300 hover:bg-white/10"
 										}`}
 										onClick={() => {
 											selectTests();
@@ -333,11 +333,11 @@ function App() {
 										Schedule Tests
 									</button>
 									<button
-										className={`px-4 py-2 rounded-md ${
+										className={`px-4 py-2 rounded-md transition-colors ${
 											isChallenges &&
 											location.pathname === "/"
-												? "bg-indigo-600 text-white"
-												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+												? "bg-purple-600/50 text-white border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+												: "bg-white/5 text-gray-300 hover:bg-white/10"
 										}`}
 										onClick={() => {
 											selectChallenges();
@@ -347,11 +347,11 @@ function App() {
 										Coding Challenges
 									</button>
 									<button
-										className={`px-4 py-2 rounded-md ${
+										className={`px-4 py-2 rounded-md transition-colors ${
 											location.pathname ===
 											"/student-results"
-												? "bg-indigo-600 text-white"
-												: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+												? "bg-purple-600/50 text-white border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+												: "bg-white/5 text-gray-300 hover:bg-white/10"
 										}`}
 										onClick={() =>
 											navigate("/student-results")
@@ -361,7 +361,7 @@ function App() {
 									</button>
 									<button
 										onClick={handleLogout}
-										className="ml-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+										className="ml-4 px-4 py-2 bg-red-900/50 border border-red-500/50 text-red-200 rounded-md hover:bg-red-800/50 transition-colors"
 									>
 										Logout
 									</button>

@@ -94,12 +94,12 @@ export default function TestList() {
 	}
 
 	return (
-		<div className="bg-white rounded-lg shadow">
-			<div className="p-6 border-b border-gray-200">
+		<div className="glass-card">
+			<div className="p-6 border-b border-white/10">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-3">
-						<Calendar className="w-6 h-6 text-indigo-600" />
-						<h2 className="text-xl font-semibold text-gray-800">
+						<Calendar className="w-6 h-6 text-purple-400" />
+						<h2 className="text-xl font-semibold text-white">
 							Available Tests
 						</h2>
 					</div>
@@ -126,15 +126,15 @@ export default function TestList() {
 			{!tests.length ? (
 				<div className="p-12 text-center">
 					<InboxIcon className="mx-auto h-12 w-12 text-gray-400" />
-					<h3 className="mt-2 text-sm font-medium text-gray-900">
+					<h3 className="mt-2 text-sm font-medium text-gray-200">
 						No tests available
 					</h3>
-					<p className="mt-1 text-sm text-gray-500">
+					<p className="mt-1 text-sm text-gray-400">
 						There are no active or scheduled tests at the moment.
 					</p>
 				</div>
 			) : (
-				<div className="divide-y divide-gray-200">
+				<div className="divide-y divide-white/10">
 					{tests.map((test: Test) => {
 						const now = new Date();
 						const status =
@@ -153,15 +153,15 @@ export default function TestList() {
 						return (
 							<div
 								key={`${test.id}-${status}`}
-								className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+								className="p-6 hover:bg-white/5 transition-colors cursor-pointer"
 								onClick={() => navigate(`/tests/${test.id}`)}
 							>
 								<div className="flex justify-between items-start mb-4">
 									<div>
-										<h3 className="text-lg font-medium text-gray-900">
+										<h3 className="text-lg font-medium text-white">
 											{test.title}
 										</h3>
-										<p className="text-sm text-gray-500 mt-1">
+										<p className="text-sm text-gray-300 mt-1">
 											{test.description}
 										</p>
 									</div>

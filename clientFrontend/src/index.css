@@ -8,3 +8,33 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-gray-100 min-h-screen bg-fixed;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
+  }
+  .glass-nav {
+    @apply bg-black/30 backdrop-blur-md border-b border-white/10;
+  }
+  .glass-input {
+    @apply bg-white/5 border border-white/10 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 text-white placeholder-white/50 rounded-md;
+  }
+  .glass-button {
+    @apply bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-all shadow-lg hover:shadow-purple-500/20 rounded-md px-4 py-2;
+  }
+  .glass-button-primary {
+    @apply bg-indigo-600/80 hover:bg-indigo-500 border border-indigo-400/50 text-white transition-all shadow-lg hover:shadow-indigo-500/40 rounded-md px-4 py-2;
+  }
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl;
+  }
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400;
+  }
+}

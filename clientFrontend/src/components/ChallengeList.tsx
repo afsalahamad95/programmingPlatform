@@ -49,29 +49,29 @@ const ChallengeList: React.FC<ChallengeListProps> = ({ filter }) => {
 	const getDifficultyColor = (difficulty: string) => {
 		switch (difficulty) {
 			case "Easy":
-				return "bg-green-100 text-green-800";
+				return "bg-green-900/40 text-green-300 border border-green-500/30";
 			case "Medium":
-				return "bg-yellow-100 text-yellow-800";
+				return "bg-yellow-900/40 text-yellow-300 border border-yellow-500/30";
 			case "Hard":
-				return "bg-red-100 text-red-800";
+				return "bg-red-900/40 text-red-300 border border-red-500/30";
 			default:
-				return "bg-gray-100 text-gray-800";
+				return "bg-gray-800/40 text-gray-300 border border-gray-500/30";
 		}
 	};
 
 	return (
-		<div className="bg-white shadow overflow-hidden sm:rounded-md">
-			<ul className="divide-y divide-gray-200">
+		<div className="glass-card overflow-hidden">
+			<ul className="divide-y divide-white/10">
 				{challenges.map((challenge) => (
 					<li key={challenge.id}>
 						<Link
 							to={`/challenges/${challenge.id}`}
-							className="block hover:bg-gray-50"
+							className="block hover:bg-white/10 transition-colors"
 						>
 							<div className="px-4 py-4 sm:px-6">
 								<div className="flex items-center justify-between">
 									<div className="flex items-center">
-										<p className="text-sm font-medium text-indigo-600 truncate">
+										<p className="text-sm font-medium text-purple-300 truncate">
 											{challenge.title}
 										</p>
 										<div className="ml-2 flex-shrink-0 flex">
@@ -85,14 +85,14 @@ const ChallengeList: React.FC<ChallengeListProps> = ({ filter }) => {
 										</div>
 									</div>
 									<div className="ml-2 flex-shrink-0 flex">
-										<p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+										<p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-900/40 text-purple-300 border border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.2)]">
 											{challenge.category}
 										</p>
 									</div>
 								</div>
 								<div className="mt-2 sm:flex sm:justify-between">
 									<div className="sm:flex">
-										<p className="flex items-center text-sm text-gray-500">
+										<p className="flex items-center text-sm text-gray-300">
 											<span className="truncate">
 												{challenge.description.substring(
 													0,
@@ -102,7 +102,7 @@ const ChallengeList: React.FC<ChallengeListProps> = ({ filter }) => {
 											</span>
 										</p>
 									</div>
-									<div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+									<div className="mt-2 flex items-center text-sm text-gray-400 sm:mt-0">
 										<p>
 											Time Limit: {challenge.timeLimit}{" "}
 											minutes

@@ -234,13 +234,13 @@ const StudentResults: React.FC = () => {
 	}
 
 	return (
-		<div className="container mx-auto px-4 py-8">
+		<div className="container mx-auto px-4 py-8 text-gray-200">
 			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-bold">Student Results</h1>
+				<h1 className="text-2xl font-bold text-white tracking-wide">Student Results</h1>
 				<div className="space-x-4">
 					<button
 						onClick={exportToCSV}
-						className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+						className="bg-purple-600/50 text-white border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.4)] px-4 py-2 rounded hover:bg-purple-600/70 transition-colors"
 					>
 						Export to CSV
 					</button>
@@ -258,7 +258,7 @@ const StudentResults: React.FC = () => {
 
 			<div className="grid grid-cols-3 gap-4 mb-6">
 				<div>
-					<label className="block text-sm font-medium mb-2">
+					<label className="block text-sm font-medium text-gray-300 mb-2">
 						Result Type
 					</label>
 					<select
@@ -267,20 +267,20 @@ const StudentResults: React.FC = () => {
 							setResultType(e.target.value as ResultType);
 							setSelectedItem("all");
 						}}
-						className="w-full p-2 border rounded"
+						className="glass-input w-full p-2 rounded"
 					>
 						<option value="test">Tests</option>
 						<option value="challenge">Challenges</option>
 					</select>
 				</div>
 				<div>
-					<label className="block text-sm font-medium mb-2">
+					<label className="block text-sm font-medium text-gray-300 mb-2">
 						Filter by Student
 					</label>
 					<select
 						value={selectedStudent}
 						onChange={(e) => setSelectedStudent(e.target.value)}
-						className="w-full p-2 border rounded"
+						className="glass-input w-full p-2 rounded"
 					>
 						<option value="all">All Students</option>
 						{students.map((student) => (
@@ -291,13 +291,13 @@ const StudentResults: React.FC = () => {
 					</select>
 				</div>
 				<div>
-					<label className="block text-sm font-medium mb-2">
+					<label className="block text-sm font-medium text-gray-300 mb-2">
 						Filter by {resultType === "test" ? "Test" : "Challenge"}
 					</label>
 					<select
 						value={selectedItem}
 						onChange={(e) => setSelectedItem(e.target.value)}
-						className="w-full p-2 border rounded"
+						className="glass-input w-full p-2 rounded"
 					>
 						<option value="all">
 							All {resultType === "test" ? "Tests" : "Challenges"}
@@ -313,10 +313,10 @@ const StudentResults: React.FC = () => {
 				</div>
 			</div>
 
-			<div className="overflow-x-auto">
-				<table className="min-w-full bg-white border">
+			<div className="overflow-x-auto glass-card rounded-lg border-none mt-6">
+				<table className="min-w-full text-left border-collapse">
 					<thead>
-						<tr className="bg-gray-100">
+						<tr className="bg-white/5 border-b border-white/10 text-gray-300 uppercase tracking-wider text-sm font-medium">
 							<th className="px-4 py-2">Student</th>
 							<th className="px-4 py-2">
 								{resultType === "test" ? "Test" : "Challenge"}
@@ -332,14 +332,14 @@ const StudentResults: React.FC = () => {
 					</thead>
 					<tbody>
 						{filteredResults.map((result, index) => (
-							<tr key={index} className="border-t">
-								<td className="px-4 py-2">
-									<div>{result.studentName}</div>
-									<div className="text-sm text-gray-500">
+							<tr key={index} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+								<td className="px-4 py-3">
+									<div className="font-medium text-white">{result.studentName}</div>
+									<div className="text-sm text-gray-400">
 										{result.studentEmail}
 									</div>
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 text-gray-300">
 									{resultType === "test"
 										? (result as TestResult).testTitle
 										: (result as ChallengeResult)
@@ -347,26 +347,26 @@ const StudentResults: React.FC = () => {
 								</td>
 								<td className="px-4 py-2">
 									<span
-										className={`px-2 py-1 rounded ${result.status === "Passed"
-											? "bg-green-100 text-green-800"
+										className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm border ${result.status === "Passed"
+											? "bg-green-900/40 text-green-300 border-green-500/30"
 											: result.status === "Failed"
-												? "bg-red-100 text-red-800"
-												: "bg-yellow-100 text-yellow-800"
+												? "bg-red-900/40 text-red-300 border-red-500/30"
+												: "bg-yellow-900/40 text-yellow-300 border-yellow-500/30"
 											}`}
 									>
 										{result.status}
 									</span>
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 font-medium text-white">
 									{result.pointsScored}/{result.totalPoints}
-									<div className="text-sm text-gray-500">
+									<div className="text-sm font-normal text-gray-400">
 										({result.percentageScore}%)
 									</div>
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 text-gray-300">
 									{formatTime(result.timeSpent)}
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-4 py-3 text-gray-400 text-sm">
 									{new Date(
 										result.submittedAt
 									).toLocaleString()}

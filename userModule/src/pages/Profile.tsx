@@ -81,7 +81,7 @@ export default function Profile() {
 	return (
 		<div className="space-y-6">
 			<div className="flex justify-between items-center">
-				<h1 className="text-2xl font-bold text-gray-900">Profile</h1>
+				<h1 className="text-2xl font-bold text-white tracking-wide">Profile</h1>
 				<Button
 					variant="secondary"
 					icon={Edit}
@@ -99,12 +99,12 @@ export default function Profile() {
 
 			<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 				<Card>
-					<h2 className="text-lg font-medium text-gray-900 mb-4">
+					<h2 className="text-lg font-medium text-white mb-4">
 						Technical Skills
 					</h2>
 					<div className="space-y-4">
 						<div>
-							<h3 className="text-sm font-medium text-gray-500">
+							<h3 className="text-sm font-medium text-gray-300">
 								Programming Languages
 							</h3>
 							<EditableSkills
@@ -123,7 +123,7 @@ export default function Profile() {
 							/>
 						</div>
 						<div>
-							<h3 className="text-sm font-medium text-gray-500">
+							<h3 className="text-sm font-medium text-gray-300">
 								Frameworks
 							</h3>
 							<EditableSkills
@@ -137,7 +137,7 @@ export default function Profile() {
 							/>
 						</div>
 						<div>
-							<h3 className="text-sm font-medium text-gray-500">
+							<h3 className="text-sm font-medium text-gray-300">
 								Tools
 							</h3>
 							<EditableSkills
@@ -154,39 +154,39 @@ export default function Profile() {
 				</Card>
 
 				<Card>
-					<h2 className="text-lg font-medium text-gray-900 mb-4">
+					<h2 className="text-lg font-medium text-white mb-4">
 						Overview
 					</h2>
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div className="flex items-center space-x-3">
-							<Code className="h-6 w-6 text-indigo-600" />
+							<Code className="h-6 w-6 text-purple-400" />
 							<div>
-								<p className="text-sm font-medium text-gray-500">
+								<p className="text-sm font-medium text-gray-300">
 									Projects
 								</p>
-								<p className="text-lg font-semibold text-gray-900">
+								<p className="text-lg font-semibold text-white">
 									{student.projects.length}
 								</p>
 							</div>
 						</div>
 						<div className="flex items-center space-x-3">
-							<Award className="h-6 w-6 text-indigo-600" />
+							<Award className="h-6 w-6 text-purple-400" />
 							<div>
-								<p className="text-sm font-medium text-gray-500">
+								<p className="text-sm font-medium text-gray-300">
 									Achievements
 								</p>
-								<p className="text-lg font-semibold text-gray-900">
+								<p className="text-lg font-semibold text-white">
 									{student.achievements.length}
 								</p>
 							</div>
 						</div>
 						<div className="flex items-center space-x-3">
-							<Briefcase className="h-6 w-6 text-indigo-600" />
+							<Briefcase className="h-6 w-6 text-purple-400" />
 							<div>
-								<p className="text-sm font-medium text-gray-500">
+								<p className="text-sm font-medium text-gray-300">
 									Certifications
 								</p>
-								<p className="text-lg font-semibold text-gray-900">
+								<p className="text-lg font-semibold text-white">
 									{student.certifications.length}
 								</p>
 							</div>
