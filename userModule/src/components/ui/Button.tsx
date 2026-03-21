@@ -18,9 +18,9 @@ export default function Button({
 
 	const variants = {
 		primary:
-			"text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500",
+			"text-white glass-button-primary focus:ring-indigo-500",
 		secondary:
-			"text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-indigo-500",
+			"text-gray-200 bg-white border border-white/20 hover:bg-white/5 focus:ring-indigo-500",
 		danger: "text-white bg-red-600 hover:bg-red-700 focus:ring-red-500",
 	};
 

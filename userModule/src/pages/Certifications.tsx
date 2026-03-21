@@ -42,10 +42,10 @@ export default function Certifications() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Certifications</h1>
+        <h1 className="text-2xl font-bold text-white">Certifications</h1>
         <button
           onClick={() => setIsAddingCertification(true)}
-          className="flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+          className="flex items-center text-sm font-medium text-white glass-button-primary"
         >
           <PlusCircle className="h-5 w-5 mr-2" />
           Add Certification
@@ -54,11 +54,11 @@ export default function Certifications() {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {student.certifications.map((certification) => (
-          <div key={certification.id} className="bg-white shadow-sm rounded-lg p-6">
+          <div key={certification.id} className="glass-card p-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center">
                 <Award className="h-6 w-6 text-indigo-600 mr-2" />
-                <h3 className="text-lg font-medium text-gray-900">{certification.name}</h3>
+                <h3 className="text-lg font-medium text-white">{certification.name}</h3>
               </div>
               <button
                 onClick={() => handleDeleteCertification(certification.id)}
@@ -67,8 +67,8 @@ export default function Certifications() {
                 Delete
               </button>
             </div>
-            <p className="mt-2 text-sm text-gray-500">{certification.provider}</p>
-            <div className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-gray-400">{certification.provider}</p>
+            <div className="mt-2 text-sm text-gray-300">
               <p>Issued: {new Date(certification.issueDate).toLocaleDateString()}</p>
               {certification.expiryDate && (
                 <p>Expires: {new Date(certification.expiryDate).toLocaleDateString()}</p>
@@ -90,9 +90,9 @@ export default function Certifications() {
       </div>
 
       {isAddingCertification && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Add Certification</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card p-6 max-w-md w-full">
+            <h2 className="text-lg font-medium text-white mb-4">Add Certification</h2>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -108,59 +108,59 @@ export default function Certifications() {
               className="space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <label className="block text-sm font-medium text-gray-200">Name</label>
                 <input
                   type="text"
                   name="name"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Provider</label>
+                <label className="block text-sm font-medium text-gray-200">Provider</label>
                 <input
                   type="text"
                   name="provider"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Issue Date</label>
+                <label className="block text-sm font-medium text-gray-200">Issue Date</label>
                 <input
                   type="date"
                   name="issueDate"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
+                <label className="block text-sm font-medium text-gray-200">Expiry Date</label>
                 <input
                   type="date"
                   name="expiryDate"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Credential URL</label>
+                <label className="block text-sm font-medium text-gray-200">Credential URL</label>
                 <input
                   type="url"
                   name="credentialUrl"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="mt-1 block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsAddingCertification(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-200 bg-white border border-white/20 rounded-md hover:bg-white/5"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                  className="text-sm font-medium text-white glass-button-primary"
                 >
                   Add Certification
                 </button>

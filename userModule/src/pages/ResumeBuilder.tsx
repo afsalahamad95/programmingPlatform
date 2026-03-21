@@ -78,7 +78,7 @@ export default function ResumeBuilder() {
       ) : (
         !loading && !error && (
           <Card className="text-center py-24">
-            <FileText className="mx-auto h-16 w-16 text-gray-500 mb-4" />
+            <FileText className="mx-auto h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-xl font-medium text-gray-300">Ready to build your career?</h3>
             <p className="text-gray-400 mt-2 max-w-md mx-auto">
               Click the generate button above and our AI will analyze your projects, 

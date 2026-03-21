@@ -299,6 +299,17 @@ export const submitChallengeAttempt = async (
 	return response.data;
 };
 
+// Challenge check endpoint
+export const checkChallengeAttempt = async (
+	challengeId: string,
+	solution: string
+): Promise<{ message: string; result: any }> => {
+	const response = await api.post(`/challenges/${challengeId}/check`, {
+		solution,
+	});
+	return response.data;
+};
+
 // Test attempt endpoints
 export const getTestAttempt = async (
 	attemptId: string

@@ -87,7 +87,7 @@ export default function CareerRoadmap() {
       ) : (
         !loading && !error && (
           <Card className="text-center py-24">
-            <Map className="mx-auto h-16 w-16 text-gray-500 mb-4" />
+            <Map className="mx-auto h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-xl font-medium text-gray-300">Where to next?</h3>
             <p className="text-gray-400 mt-2 max-w-md mx-auto">
               Enter a job title above and unleash the AI to calculate the exact skills, 

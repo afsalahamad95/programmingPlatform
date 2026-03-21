@@ -23,7 +23,7 @@ export default function EditableField({
   }, [value]);
 
   if (!isEditing) {
-    return <span className="text-gray-900">{value}</span>;
+    return <span className="text-white">{value}</span>;
   }
 
   return (
@@ -32,7 +32,7 @@ export default function EditableField({
         type={type}
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
-        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        className="block w-full rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         aria-label={label}
       />
       <button

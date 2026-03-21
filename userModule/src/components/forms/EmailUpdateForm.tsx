@@ -12,7 +12,7 @@ export default function EmailUpdateForm({ defaultEmail, onSubmit }: EmailUpdateF
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-200"
         >
           Email Address
         </label>
@@ -25,14 +25,14 @@ export default function EmailUpdateForm({ defaultEmail, onSubmit }: EmailUpdateF
             name="email"
             id="email"
             defaultValue={defaultEmail}
-            className="block w-full pl-10 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="block w-full pl-10 rounded-md border-white/20 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           />
         </div>
       </div>
       <div>
         <button
           type="submit"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white glass-button-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           Update Email
         </button>
