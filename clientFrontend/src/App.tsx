@@ -7,6 +7,7 @@ import TestList from "./components/TestList";
 import ChallengesPage from "./components/ChallengesPage";
 import ChallengeAttempt from "./components/ChallengeAttempt";
 import Login from "./components/Login";
+import Register from "./components/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -105,6 +106,7 @@ function App() {
 						<div className="flex-grow py-8 px-4 sm:px-6 lg:px-8">
 							<Routes>
 								<Route path="/login" element={<Login />} />
+								<Route path="/register" element={<Register />} />
 								<Route
 									path="/"
 									element={

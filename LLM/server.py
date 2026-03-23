@@ -24,10 +24,12 @@ from sentence_transformers import SentenceTransformer
 from duckduckgo_search import DDGS
 from groq import Groq
 from models.schema import (
+    ChatRequest,
     ChatResponse,
     IngestRequest,
     IngestResponse,
     ResumeRequest,
+    RoadmapRequest,
     CareerResponse,
     RoadmapFromResultRequest,
 )
@@ -312,7 +314,7 @@ async def generate_resume(req: ResumeRequest):
         raise HTTPException(status_code=500, detail="Groq not configured")
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:8080/api/students/{req.student_id}")
+        resp = await client.get(f"http://localhost:3000/api/users/{req.student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student_data = resp.json()
@@ -330,7 +332,7 @@ async def generate_resume(req: ResumeRequest):
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
-        return CareerResponse(markdown_content=completion.choices[0].message.content)
+        return CareerResponse(answer=completion.choices[0].message.content)
     except Exception as e:
         logger.error(f"Resume generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -343,7 +345,7 @@ async def generate_roadmap(req: RoadmapRequest):
         raise HTTPException(status_code=500, detail="Groq not configured")
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:8080/api/students/{req.student_id}")
+        resp = await client.get(f"http://localhost:3000/api/users/{req.student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student_data = resp.json()
@@ -361,7 +363,7 @@ async def generate_roadmap(req: RoadmapRequest):
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
         )
-        return CareerResponse(markdown_content=completion.choices[0].message.content)
+        return CareerResponse(answer=completion.choices[0].message.content)
     except Exception as e:
         logger.error(f"Roadmap generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -371,7 +373,7 @@ async def generate_roadmap(req: RoadmapRequest):
 async def adaptive_ingest(student_id: str):
     """Automatically fetch and ingest docs based on user learning goals."""
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:3000/api/students/{student_id}")
+        resp = await client.get(f"http://localhost:3000/api/users/{student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student = resp.json()

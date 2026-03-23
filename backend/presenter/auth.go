@@ -15,6 +15,8 @@ type AuthUser struct {
 	FirstName     string             `json:"firstName" bson:"firstName"`
 	LastName      string             `json:"lastName" bson:"lastName"`
 	Role          string             `json:"role" bson:"role"` // admin, instructor, or student
+	TargetRole    string             `json:"targetRole" bson:"targetRole"`
+	Preferences   []string           `json:"preferences" bson:"preferences"`
 	OAuthID       string             `json:"-" bson:"oauthId,omitempty"`
 	OAuthProvider string             `json:"-" bson:"oauthProvider,omitempty"`
 	CreatedAt     time.Time          `json:"createdAt" bson:"createdAt"`
@@ -36,10 +38,12 @@ type LoginResponse struct {
 
 // RegisterRequest is the request body for user registration
 type RegisterRequest struct {
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
+	Email       string   `json:"email"`
+	Password    string   `json:"password"`
+	FirstName   string   `json:"firstName"`
+	LastName    string   `json:"lastName"`
+	TargetRole  string   `json:"targetRole"`
+	Preferences []string `json:"preferences"`
 }
 
 // OAuthCallbackRequest is the request body for OAuth callback

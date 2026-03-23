@@ -203,6 +203,66 @@ func GetTest(c *fiber.Ctx) error {
 	return c.JSON(test)
 }
 
+// GetTestAdmin retrieves a single test by its ID without checking expiry (for Admin dashboard)
+func GetTestAdmin(c *fiber.Ctx) error {
+	id, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		log.Printf("Invalid ID format: %v", err)
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+
+	filter := bson.M{"_id": id}
+
+	var testBSON presenter.TestData
+	err = db.TestsCollection.FindOne(context.Background(), filter).Decode(&testBSON)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Printf("Test not found for ID %s: %v", id.Hex(), err)
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
+		}
+		log.Printf("Error fetching test from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch test"})
+	}
+
+	test, err := hydrateTest(testBSON)
+	if err != nil {
+		log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare test response"})
+	}
+
+	return c.JSON(test)
+}
+
+// GetTestsAdmin retrieves all tests without checking expiry
+func GetTestsAdmin(c *fiber.Ctx) error {
+	filter := bson.M{}
+
+	cursor, err := db.TestsCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Printf("Failed to fetch tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch tests"})
+	}
+	defer cursor.Close(context.Background())
+
+	var testsBSON []presenter.TestData
+	if err := cursor.All(context.Background(), &testsBSON); err != nil {
+		log.Printf("Failed to decode tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode tests"})
+	}
+
+	var tests []presenter.Test
+	for _, testBSON := range testsBSON {
+		test, err := hydrateTest(testBSON)
+		if err != nil {
+			log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+			continue
+		}
+		tests = append(tests, test)
+	}
+
+	return c.JSON(tests)
+}
+
 // UpdateTest updates an existing test by its ID
 func UpdateTest(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))

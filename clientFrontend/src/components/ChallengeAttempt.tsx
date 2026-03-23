@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getChallenge, submitChallengeAttempt, checkChallengeAttempt } from "../api";
 import { CodingChallenge, ValidationResult } from "../types";
@@ -41,8 +41,17 @@ const ChallengeAttempt: React.FC = () => {
 	const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
 	const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
 	const [checking, setChecking] = useState<boolean>(false);
-	const [hasPassedCheck, setHasPassedCheck] = useState<boolean>(false);
 	const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+
+	// Proctoring States
+	const [warnings, setWarnings] = useState(0);
+	const [proctoringActive, setProctoringActive] = useState(false);
+	const videoRef = useRef<HTMLVideoElement>(null);
+	const codeRef = useRef(code);
+	
+	useEffect(() => {
+		codeRef.current = code;
+	}, [code]);
 
 	// Fetch challenge data
 	useEffect(() => {
@@ -118,6 +127,97 @@ const ChallengeAttempt: React.FC = () => {
 			setChecking(false);
 		}
 	}, [challenge, id, code]);
+
+	// Proctoring Logic
+	useEffect(() => {
+		if (loading || !challenge || isSubmitted) return;
+
+		let stream: MediaStream | null = null;
+		
+		const startProctoring = async () => {
+			try {
+				// 1. Request Webcam
+				stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+				if (videoRef.current) {
+					videoRef.current.srcObject = stream;
+				}
+				setProctoringActive(true);
+
+				// 2. Request Fullscreen
+				if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+					await document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+				}
+			} catch (err) {
+				console.error("Proctoring failed to start:", err);
+				alert("Proctoring Warning: Please ensure webcam is connected and allowed. The challenge environment requires monitoring.");
+			}
+		};
+
+		startProctoring();
+
+		// 3. Tab switching & window blur tracking
+		const handleVisibilityChange = () => {
+			if (document.hidden && !isSubmitted) {
+				handleViolation();
+			}
+		};
+
+		const handleBlur = () => {
+			if (!isSubmitted) {
+				handleViolation();
+			}
+		};
+		
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		window.addEventListener("blur", handleBlur);
+
+		return () => {
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			window.removeEventListener("blur", handleBlur);
+			if (stream) {
+				stream.getTracks().forEach(track => track.stop());
+			}
+			if (document.fullscreenElement) {
+				document.exitFullscreen().catch(e => console.log(e));
+			}
+		};
+	}, [loading, challenge, isSubmitted]);
+
+	const violationSubmit = async () => {
+		if (!challenge || !id) return;
+		setSubmitting(true);
+		try {
+			const submissionData = {
+				userId: "65fd6e2f6b7f00000000000a", 
+				code: codeRef.current,
+				language: challenge.language,
+				timeSpent,
+			};
+			const result = await submitChallengeAttempt(id, submissionData);
+			if (result && result.result) {
+				setValidationResult(result.result);
+				setShowingResult(true);
+				setIsSubmitted(true);
+			}
+		} catch (e) {
+			console.error(e);
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
+	const handleViolation = () => {
+		setWarnings(prev => {
+			const current = prev + 1;
+			if (current >= 3) {
+				alert("SECURITY VIOLATION: You have exceeded the maximum number of warnings. Your challenge is being automatically submitted.");
+				violationSubmit();
+			} else {
+				alert(`PROCTORING WARNING (${current}/3): Please stay on this page. Leaving the tab or window will cause the challenge to auto-submit.`);
+			}
+			return current;
+		});
+	};
 
 	// Handle challenge submission
 	const handleSubmit = useCallback(async () => {
@@ -373,7 +473,29 @@ const ChallengeAttempt: React.FC = () => {
 	}
 
 	return (
-		<div className="max-w-6xl mx-auto p-4">
+		<div className="max-w-6xl mx-auto p-4 relative pt-12 pb-24">
+			{/* Proctoring HUD */}
+			{proctoringActive && !isSubmitted && (
+				<div className="fixed bottom-4 right-4 z-50 glass-card p-2 flex flex-col items-center gap-2 border-emerald-500/30">
+					<div className="text-[10px] text-emerald-400 font-medium uppercase tracking-widest flex items-center gap-2">
+						<span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+						Proctoring Active
+					</div>
+					<video 
+						ref={videoRef} 
+						autoPlay 
+						muted 
+						playsInline
+						className="w-48 h-32 object-cover rounded shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-black"
+					/>
+					{warnings > 0 && (
+						<div className="text-xs text-red-400 font-bold">
+							Warnings: {warnings}/3
+						</div>
+					)}
+				</div>
+			)}
+
 			{/* Challenge header */}
 			<div className="bg-white shadow rounded-lg mb-6 p-6">
 				<div className="flex justify-between items-center mb-4">

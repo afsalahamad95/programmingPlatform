@@ -100,14 +100,13 @@ func GetTestResults(c *fiber.Ctx) error {
 	for _, attempt := range attempts {
 		var test presenter.TestData
 		testID, err := primitive.ObjectIDFromHex(attempt.TestID)
-		if err != nil {
-			log.Printf("Invalid test ID format: %v", err)
-			continue
-		}
-		err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testID}).Decode(&test)
-		if err != nil {
-			log.Printf("Failed to fetch test details: %v", err)
-			continue
+		if err == nil {
+			err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testID}).Decode(&test)
+			if err != nil {
+				test.Title = "Unknown/Deleted Test"
+			}
+		} else {
+			test.Title = "Unknown/Deleted Test"
 		}
 		results = append(results, buildResultFromAttempt(attempt, test))
 	}
@@ -153,14 +152,13 @@ func GetTestResultsByStudent(c *fiber.Ctx) error {
 	for _, attempt := range attempts {
 		var test presenter.TestData
 		testID, err := primitive.ObjectIDFromHex(attempt.TestID)
-		if err != nil {
-			log.Printf("Invalid test ID format: %v", err)
-			continue
-		}
-		err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testID}).Decode(&test)
-		if err != nil {
-			log.Printf("Failed to fetch test details: %v", err)
-			continue
+		if err == nil {
+			err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testID}).Decode(&test)
+			if err != nil {
+				test.Title = "Unknown/Deleted Test"
+			}
+		} else {
+			test.Title = "Unknown/Deleted Test"
 		}
 		results = append(results, buildResultFromAttempt(attempt, test))
 	}

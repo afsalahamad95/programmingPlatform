@@ -19,6 +19,14 @@ interface AuthContextType {
 	loading: boolean;
 	error: string | null;
 	login: (email: string, password: string) => Promise<void>;
+	register: (userData: {
+		email: string;
+		password: string;
+		firstName: string;
+		lastName: string;
+		targetRole: string;
+		preferences: string[];
+	}) => Promise<void>;
 	logout: () => Promise<void>;
 	checkAuth: () => void;
 }
@@ -97,6 +105,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 	};
 
+	const register = async (userData: {
+		email: string;
+		password: string;
+		firstName: string;
+		lastName: string;
+		targetRole: string;
+		preferences: string[];
+	}) => {
+		try {
+			setLoading(true);
+			setError(null);
+			const response = await api.post("/auth/register", userData);
+			const { token } = response.data;
+
+			localStorage.setItem("token", token);
+
+			const decoded = jwtDecode<User>(token);
+			setUser({
+				...decoded,
+				id: decoded.userId
+			});
+
+			return response.data;
+		} catch (err: any) {
+			setError(err.response?.data?.error || "Registration failed");
+			throw err;
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	const logout = async () => {
 		try {
 			const token = localStorage.getItem("token");
@@ -123,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	return (
 		<AuthContext.Provider
-			value={{ user, loading, error, login, logout, checkAuth }}
+			value={{ user, loading, error, login, register, logout, checkAuth }}
 		>
 			{children}
 		</AuthContext.Provider>

@@ -83,13 +83,13 @@ func GetTestResultsAnalytics(c *fiber.Ctx) error {
 	for _, attempt := range attempts {
 		// Compute score for this attempt
 		var test presenter.TestData
+		var testTitle = "Unknown/Deleted Test"
 		testID, err := primitive.ObjectIDFromHex(attempt.TestID)
-		if err != nil {
-			continue
-		}
-		err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testID}).Decode(&test)
-		if err != nil {
-			continue
+		if err == nil {
+			err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testID}).Decode(&test)
+			if err == nil {
+				testTitle = test.Title
+			}
 		}
 
 		totalPoints := 0
@@ -145,7 +145,7 @@ func GetTestResultsAnalytics(c *fiber.Ctx) error {
 				PassRate  float64 `json:"passRate"`
 				scoreSum  float64
 				passCount int
-			}{Title: test.Title}
+			}{Title: testTitle}
 		}
 		ts := testStats[attempt.TestID]
 		ts.Attempts++

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { getTest, submitTest } from "../api";
@@ -32,6 +32,16 @@ const TestAttempt: React.FC = () => {
 	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 	const [answers, setAnswers] = useState<Record<string, string>>({});
 	const [showConfirmation, setShowConfirmation] = useState(false);
+
+	// Proctoring States
+	const [warnings, setWarnings] = useState(0);
+	const [proctoringActive, setProctoringActive] = useState(false);
+	const videoRef = useRef<HTMLVideoElement>(null);
+	const answersRef = useRef(answers);
+	
+	useEffect(() => {
+		answersRef.current = answers;
+	}, [answers]);
 
 	const { data: test, isLoading } = useQuery<Test>(
 		["test", id],
@@ -88,6 +98,78 @@ const TestAttempt: React.FC = () => {
 			},
 		}
 	);
+
+	// Proctoring Logic
+	useEffect(() => {
+		if (isLoading || !test) return;
+
+		let stream: MediaStream | null = null;
+		
+		const startProctoring = async () => {
+			try {
+				// 1. Request Webcam
+				stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+				if (videoRef.current) {
+					videoRef.current.srcObject = stream;
+				}
+				setProctoringActive(true);
+
+				// 2. Request Fullscreen
+				if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+					await document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+				}
+			} catch (err) {
+				console.error("Proctoring failed to start:", err);
+				alert("Proctoring Warning: Please ensure webcam is connected and allowed. The test environment requires monitoring.");
+			}
+		};
+
+		startProctoring();
+
+		// 3. Tab switching & window blur tracking
+		const handleVisibilityChange = () => {
+			if (document.hidden) {
+				handleViolation();
+			}
+		};
+
+		const handleBlur = () => {
+			handleViolation();
+		};
+		
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		window.addEventListener("blur", handleBlur);
+
+		return () => {
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			window.removeEventListener("blur", handleBlur);
+			if (stream) {
+				stream.getTracks().forEach(track => track.stop());
+			}
+			if (document.fullscreenElement) {
+				document.exitFullscreen().catch(e => console.log(e));
+			}
+		};
+	}, [isLoading, test]);
+
+	const handleViolation = () => {
+		setWarnings(prev => {
+			const current = prev + 1;
+			if (current >= 3) {
+				alert("SECURITY VIOLATION: You have exceeded the maximum number of warnings. Your test is being automatically submitted.");
+				// Force submit
+				if (test && user) {
+					submitTestMutation.mutate({
+						testId: test.id,
+						answers: answersRef.current,
+					});
+				}
+			} else {
+				alert(`PROCTORING WARNING (${current}/3): Please stay on this page. Leaving the tab or window will cause the test to auto-submit.`);
+			}
+			return current;
+		});
+	};
 
 	if (isLoading || !test) {
 		return (
@@ -343,7 +425,29 @@ const TestAttempt: React.FC = () => {
 	};
 
 	return (
-		<div className="max-w-3xl mx-auto">
+		<div className="max-w-3xl mx-auto relative pt-12 pb-24">
+			{/* Proctoring HUD */}
+			{proctoringActive && (
+				<div className="fixed bottom-4 right-4 z-50 glass-card p-2 flex flex-col items-center gap-2 border-emerald-500/30">
+					<div className="text-[10px] text-emerald-400 font-medium uppercase tracking-widest flex items-center gap-2">
+						<span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+						Proctoring Active
+					</div>
+					<video 
+						ref={videoRef} 
+						autoPlay 
+						muted 
+						playsInline
+						className="w-48 h-32 object-cover rounded shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-black"
+					/>
+					{warnings > 0 && (
+						<div className="text-xs text-red-400 font-bold">
+							Warnings: {warnings}/3
+						</div>
+					)}
+				</div>
+			)}
+			
 			<div className="bg-white shadow sm:rounded-lg">
 				<div className="px-4 py-5 sm:p-6">
 					<div className="flex justify-between items-center mb-4">

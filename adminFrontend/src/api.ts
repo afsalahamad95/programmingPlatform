@@ -250,7 +250,7 @@ export const adminApi = {
 		return response.data;
 	},
 	getTest: async (testId: string) => {
-		const response = await axios.get(`${API_URL}/tests/${testId}`);
+		const response = await axios.get(`${API_URL}/admin-protected/tests/${testId}`);
 		return response.data;
 	},
 	generateRoadmapFromResult: async (payload: any) => {
