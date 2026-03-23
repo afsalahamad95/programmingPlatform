@@ -42,4 +42,6 @@ services:
       - mongodb-config:/data/configdb
 
 volumes:
-  redis-data: 
+  redis-data:
+  mongodb-data:
+  mongodb-config:

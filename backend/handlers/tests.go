@@ -122,6 +122,10 @@ func CreateTest(c *fiber.Ctx) error {
 		fmt.Println("No hub found in context")
 	}
 
+	// Invalidate test caches after creation
+	CacheInvalidatePrefix(c.Context(), CacheKey("tests"))
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
+
 	return c.Status(fiber.StatusCreated).JSON(createdTest)
 }
 
@@ -270,6 +274,10 @@ func UpdateTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare updated test response"})
 	}
 
+	// Invalidate test caches after update
+	CacheInvalidatePrefix(c.Context(), CacheKey("tests"))
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
+
 	return c.JSON(updatedTest)
 }
 
@@ -341,6 +349,10 @@ func DeleteTest(c *fiber.Ctx) error {
 	if result.DeletedCount == 0 {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
 	}
+
+	// Invalidate test caches after deletion
+	CacheInvalidatePrefix(c.Context(), CacheKey("tests"))
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
 
 	return c.SendStatus(204)
 }
@@ -434,6 +446,9 @@ func SubmitTest(c *fiber.Ctx) error {
 	// Set the inserted ID on the submission object
 	submission.ID = result.InsertedID.(primitive.ObjectID)
 	log.Printf("Successfully created test attempt with ID: %s", submission.ID)
+
+	// Invalidate test result caches after submission
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
 
 	// Respond with the submission details
 	return c.Status(http.StatusCreated).JSON(submission)

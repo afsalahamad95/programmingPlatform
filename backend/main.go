@@ -9,6 +9,7 @@ import (
 
 	"qms-backend/db"
 	"qms-backend/handlers"
+	rediscache "qms-backend/infrastructure/cache/redis"
 	"qms-backend/util"
 
 	"github.com/gofiber/fiber/v2"
@@ -39,6 +40,7 @@ func main() {
 	dbName := util.GetEnvWithDefault("DB_NAME", "qms")
 	allowedOrigins := util.GetEnvWithDefault("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000")
 	logLevel := util.GetEnvWithDefault("LOG_LEVEL", "debug")
+	redisAddr := util.GetEnvWithDefault("REDIS_ADDR", "localhost:6379")
 
 	fmt.Printf("Server will run on port: %s\n", port)
 	fmt.Printf("MongoDB URI: %s\n", mongoURI)
@@ -81,6 +83,18 @@ func main() {
 
 	// Initialize database collections
 	db.InitDB(client.Database(dbName))
+
+	// Initialize Redis cache (graceful degradation if unavailable)
+	fmt.Printf("Connecting to Redis at %s...\n", redisAddr)
+	redisCtx, redisCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer redisCancel()
+	redisClient, redisErr := rediscache.NewRedisClient(redisCtx, redisAddr)
+	if redisErr != nil {
+		fmt.Printf("⚠️  Redis unavailable (%v) — caching disabled, falling through to MongoDB\n", redisErr)
+	} else {
+		handlers.CacheClient = redisClient
+		fmt.Println("✅ Redis connected — caching enabled")
+	}
 	fmt.Println("Database collections initialized")
 
 	app := fiber.New(fiber.Config{
@@ -173,6 +187,7 @@ func main() {
 	adminApi.Get("/test-results", handlers.GetTestResults)
 	adminApi.Get("/test-results/student/:studentId", handlers.GetTestResultsByStudent)
 	adminApi.Get("/test-results/test/:testId", handlers.GetTestResultsByTest)
+	adminApi.Get("/test-results/analytics", handlers.GetTestResultsAnalytics)
 
 	// Admin data routes
 	adminApi.Get("/students", handlers.GetStudents)

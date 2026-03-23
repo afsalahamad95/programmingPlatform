@@ -2,9 +2,8 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"time"
-
-	l "qms-backend/pkg/Logger"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -14,61 +13,60 @@ type RedisClient struct {
 	client *redis.Client
 }
 
-// NewRedisClient creates a new redis client
-func NewRedisClient(ctx context.Context, addr string) *RedisClient {
+// NewRedisClient creates a new redis client and verifies connectivity
+func NewRedisClient(ctx context.Context, addr string) (*RedisClient, error) {
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: addr,
+		Addr:         addr,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		PoolSize:     10,
 	})
-	return &RedisClient{
-		client: redisClient,
+
+	// Verify connectivity
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("redis connection failed: %w", err)
 	}
+
+	return &RedisClient{client: redisClient}, nil
 }
 
-// Get fetches the value for the specified key
-func (r *RedisClient) Get(ctx context.Context, key string) (interface{}, error) {
-	stringCmd := r.client.Get(ctx, key)
-	err := stringCmd.Err()
-	if err != nil {
-		l.Log.Warnf("error fetching the key, err=%v", err)
-		return nil, err
-	}
-	var value interface{}
-	err = stringCmd.Scan(value)
-	if err != nil {
-		l.Log.Warnf("error scanning value, err=%v", err)
-		return nil, err
-	}
-	return value, nil
+// Ping checks if the redis connection is alive
+func (r *RedisClient) Ping(ctx context.Context) error {
+	return r.client.Ping(ctx).Err()
 }
 
-// Set inserts a key-value pair in the cache client
-func (r *RedisClient) Set(ctx context.Context, key string, value interface{}) error {
-	status := r.client.Set(ctx, key, value, 5*time.Minute)
-	err := status.Err()
+// Get fetches the value for the specified key as a string
+func (r *RedisClient) Get(ctx context.Context, key string) (string, error) {
+	val, err := r.client.Get(ctx, key).Result()
 	if err != nil {
-		l.Log.Warnf("error setting the key in cache client, err=%v", err)
+		return "", err
 	}
-	result, err := status.Result()
-	if err != nil {
-		l.Log.Warnf("error fetching the result status, err=%v", err)
-	}
-	l.Log.Warnf("Value set in cache client, code=%v", result)
-	return nil
+	return val, nil
+}
+
+// Set inserts a key-value pair in the cache client with a TTL
+func (r *RedisClient) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+	return r.client.Set(ctx, key, value, ttl).Err()
 }
 
 // Delete deletes a value based on the key from the cache client
 func (r *RedisClient) Delete(ctx context.Context, key string) error {
-	// todo: the client supports bulk delete based on multiple keys. Implement multi-delete.
-	intCmd := r.client.Del(ctx, key)
-	err := intCmd.Err()
-	if err != nil {
-		l.Log.Warnf("error deleting the given key, err=%v", err)
-		return err
+	return r.client.Del(ctx, key).Err()
+}
+
+// DeleteByPrefix deletes all keys matching a given prefix using SCAN
+func (r *RedisClient) DeleteByPrefix(ctx context.Context, prefix string) error {
+	iter := r.client.Scan(ctx, 0, prefix+"*", 100).Iterator()
+	var keys []string
+	for iter.Next(ctx) {
+		keys = append(keys, iter.Val())
 	}
-	result, err := intCmd.Result()
-	if err != nil {
-		l.Log.Warnf("error getting the delete result, err=%v", err)
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("scan error: %w", err)
 	}
-	l.Log.Warnf("delete success, code = %v", result)
+	if len(keys) > 0 {
+		return r.client.Del(ctx, keys...).Err()
+	}
 	return nil
 }

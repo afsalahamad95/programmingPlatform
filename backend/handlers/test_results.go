@@ -15,8 +15,70 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// GetTestResults handles fetching all test results
+// buildResultFromAttempt converts a raw attempt + test into a response map
+func buildResultFromAttempt(attempt presenter.TestSubmission, test presenter.TestData) fiber.Map {
+	totalPoints := 0
+	scoredPoints := 0
+	for _, answer := range attempt.Answers {
+		var question presenter.Question
+		questionID, err := primitive.ObjectIDFromHex(answer.QuestionID)
+		if err != nil {
+			log.Printf("Invalid question ID format: %v", err)
+			continue
+		}
+		err = db.QuestionsCollection.FindOne(context.Background(), bson.M{"_id": questionID}).Decode(&question)
+		if err != nil {
+			log.Printf("Failed to fetch question details: %v", err)
+			continue
+		}
+
+		totalPoints += question.Points
+		if question.Type == "mcq" {
+			selectedIndex, err := strconv.ParseInt(answer.Answer, 10, 64)
+			if err == nil && int(selectedIndex) == question.CorrectOption {
+				scoredPoints += question.Points
+			}
+		}
+	}
+
+	percentageScore := 0.0
+	if totalPoints > 0 {
+		percentageScore = float64(scoredPoints) / float64(totalPoints) * 100
+	}
+
+	status := "Submitted"
+	if percentageScore >= 70 {
+		status = "Passed"
+	} else if percentageScore > 0 {
+		status = "Failed"
+	}
+
+	return fiber.Map{
+		"id": attempt.ID, "studentId": attempt.StudentID,
+		"studentName":     attempt.StudentName,
+		"studentEmail":    attempt.StudentEmail,
+		"testId":          attempt.TestID,
+		"testTitle":       test.Title,
+		"status":          status,
+		"percentageScore": percentageScore,
+		"pointsScored":    scoredPoints,
+		"totalPoints":     totalPoints,
+		"timeSpent":       attempt.TimeSpent,
+		"submittedAt":     attempt.SubmittedAt.Format(time.RFC3339),
+		"answers":         attempt.Answers,
+	}
+}
+
+// GetTestResults handles fetching all test results (cached)
 func GetTestResults(c *fiber.Ctx) error {
+	cacheKey := CacheKey("test_results", "all")
+
+	// Try cache first
+	var cached []fiber.Map
+	if CacheGet(c.Context(), cacheKey, &cached) {
+		return c.JSON(cached)
+	}
+
 	var attempts []presenter.TestSubmission
 	cursor, err := db.AttemptCollection.Find(
 		context.Background(),
@@ -34,10 +96,8 @@ func GetTestResults(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode test results"})
 	}
 
-	// Convert attempts to response format
 	var results []fiber.Map
 	for _, attempt := range attempts {
-		// Get test details
 		var test presenter.TestData
 		testID, err := primitive.ObjectIDFromHex(attempt.TestID)
 		if err != nil {
@@ -49,70 +109,27 @@ func GetTestResults(c *fiber.Ctx) error {
 			log.Printf("Failed to fetch test details: %v", err)
 			continue
 		}
-
-		// Calculate total points and scored points
-		totalPoints := 0
-		scoredPoints := 0
-		for _, answer := range attempt.Answers {
-			// Get question details
-			var question presenter.Question
-			questionID, err := primitive.ObjectIDFromHex(answer.QuestionID)
-			if err != nil {
-				log.Printf("Invalid question ID format: %v", err)
-				continue
-			}
-			err = db.QuestionsCollection.FindOne(context.Background(), bson.M{"_id": questionID}).Decode(&question)
-			if err != nil {
-				log.Printf("Failed to fetch question details: %v", err)
-				continue
-			}
-
-			totalPoints += question.Points
-			if question.Type == "mcq" {
-				selectedIndex, err := strconv.ParseInt(answer.Answer, 10, 64)
-				if err == nil && int(selectedIndex) == question.CorrectOption {
-					scoredPoints += question.Points
-				}
-			}
-		}
-
-		percentageScore := 0.0
-		if totalPoints > 0 {
-			percentageScore = float64(scoredPoints) / float64(totalPoints) * 100
-		}
-
-		status := "Submitted"
-		if percentageScore >= 70 {
-			status = "Passed"
-		} else if percentageScore > 0 {
-			status = "Failed"
-		}
-
-		result := fiber.Map{
-			"id": attempt.ID, "studentId":       attempt.StudentID,
-			"studentName":     attempt.StudentName,
-			"studentEmail":    attempt.StudentEmail,
-			"testId":          attempt.TestID,
-			"testTitle":       test.Title,
-			"status":          status,
-			"percentageScore": percentageScore,
-			"pointsScored":    scoredPoints,
-			"totalPoints":     totalPoints,
-			"timeSpent":       attempt.TimeSpent,
-			"submittedAt":     attempt.SubmittedAt.Format(time.RFC3339),
-			"answers":         attempt.Answers,
-		}
-		results = append(results, result)
+		results = append(results, buildResultFromAttempt(attempt, test))
 	}
+
+	// Cache the result
+	CacheSet(c.Context(), cacheKey, results, DefaultCacheTTL)
 
 	return c.JSON(results)
 }
 
-// GetTestResultsByStudent handles fetching test results for a specific student
+// GetTestResultsByStudent handles fetching test results for a specific student (cached)
 func GetTestResultsByStudent(c *fiber.Ctx) error {
 	studentId := c.Params("studentId")
 	if studentId == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Student ID is required"})
+	}
+
+	cacheKey := CacheKey("test_results", "student", studentId)
+
+	var cached []fiber.Map
+	if CacheGet(c.Context(), cacheKey, &cached) {
+		return c.JSON(cached)
 	}
 
 	var attempts []presenter.TestSubmission
@@ -132,7 +149,6 @@ func GetTestResultsByStudent(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode student results"})
 	}
 
-	// Convert attempts to response format (same logic as GetTestResults)
 	var results []fiber.Map
 	for _, attempt := range attempts {
 		var test presenter.TestData
@@ -146,68 +162,26 @@ func GetTestResultsByStudent(c *fiber.Ctx) error {
 			log.Printf("Failed to fetch test details: %v", err)
 			continue
 		}
-
-		totalPoints := 0
-		scoredPoints := 0
-		for _, answer := range attempt.Answers {
-			var question presenter.Question
-			questionID, err := primitive.ObjectIDFromHex(answer.QuestionID)
-			if err != nil {
-				log.Printf("Invalid question ID format: %v", err)
-				continue
-			}
-			err = db.QuestionsCollection.FindOne(context.Background(), bson.M{"_id": questionID}).Decode(&question)
-			if err != nil {
-				log.Printf("Failed to fetch question details: %v", err)
-				continue
-			}
-
-			totalPoints += question.Points
-			if question.Type == "mcq" {
-				selectedIndex, err := strconv.ParseInt(answer.Answer, 10, 64)
-				if err == nil && int(selectedIndex) == question.CorrectOption {
-					scoredPoints += question.Points
-				}
-			}
-		}
-
-		percentageScore := 0.0
-		if totalPoints > 0 {
-			percentageScore = float64(scoredPoints) / float64(totalPoints) * 100
-		}
-
-		status := "Submitted"
-		if percentageScore >= 70 {
-			status = "Passed"
-		} else if percentageScore > 0 {
-			status = "Failed"
-		}
-
-		result := fiber.Map{
-			"id": attempt.ID, "studentId":       attempt.StudentID,
-			"studentName":     attempt.StudentName,
-			"studentEmail":    attempt.StudentEmail,
-			"testId":          attempt.TestID,
-			"testTitle":       test.Title,
-			"status":          status,
-			"percentageScore": percentageScore,
-			"pointsScored":    scoredPoints,
-			"totalPoints":     totalPoints,
-			"timeSpent":       attempt.TimeSpent,
-			"submittedAt":     attempt.SubmittedAt.Format(time.RFC3339),
-			"answers":         attempt.Answers,
-		}
-		results = append(results, result)
+		results = append(results, buildResultFromAttempt(attempt, test))
 	}
+
+	CacheSet(c.Context(), cacheKey, results, DefaultCacheTTL)
 
 	return c.JSON(results)
 }
 
-// GetTestResultsByTest handles fetching test results for a specific test
+// GetTestResultsByTest handles fetching test results for a specific test (cached)
 func GetTestResultsByTest(c *fiber.Ctx) error {
 	testId := c.Params("testId")
 	if testId == "" {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Test ID is required"})
+	}
+
+	cacheKey := CacheKey("test_results", "test", testId)
+
+	var cached []fiber.Map
+	if CacheGet(c.Context(), cacheKey, &cached) {
+		return c.JSON(cached)
 	}
 
 	var attempts []presenter.TestSubmission
@@ -240,61 +214,12 @@ func GetTestResultsByTest(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch test details"})
 	}
 
-	// Convert attempts to response format
 	var results []fiber.Map
 	for _, attempt := range attempts {
-		totalPoints := 0
-		scoredPoints := 0
-		for _, answer := range attempt.Answers {
-			var question presenter.Question
-			questionID, err := primitive.ObjectIDFromHex(answer.QuestionID)
-			if err != nil {
-				log.Printf("Invalid question ID format: %v", err)
-				continue
-			}
-			err = db.QuestionsCollection.FindOne(context.Background(), bson.M{"_id": questionID}).Decode(&question)
-			if err != nil {
-				log.Printf("Failed to fetch question details: %v", err)
-				continue
-			}
-
-			totalPoints += question.Points
-			if question.Type == "mcq" {
-				selectedIndex, err := strconv.ParseInt(answer.Answer, 10, 64)
-				if err == nil && int(selectedIndex) == question.CorrectOption {
-					scoredPoints += question.Points
-				}
-			}
-		}
-
-		percentageScore := 0.0
-		if totalPoints > 0 {
-			percentageScore = float64(scoredPoints) / float64(totalPoints) * 100
-		}
-
-		status := "Submitted"
-		if percentageScore >= 70 {
-			status = "Passed"
-		} else if percentageScore > 0 {
-			status = "Failed"
-		}
-
-		result := fiber.Map{
-			"id": attempt.ID, "studentId":       attempt.StudentID,
-			"studentName":     attempt.StudentName,
-			"studentEmail":    attempt.StudentEmail,
-			"testId":          attempt.TestID,
-			"testTitle":       test.Title,
-			"status":          status,
-			"percentageScore": percentageScore,
-			"pointsScored":    scoredPoints,
-			"totalPoints":     totalPoints,
-			"timeSpent":       attempt.TimeSpent,
-			"submittedAt":     attempt.SubmittedAt.Format(time.RFC3339),
-			"answers":         attempt.Answers,
-		}
-		results = append(results, result)
+		results = append(results, buildResultFromAttempt(attempt, test))
 	}
+
+	CacheSet(c.Context(), cacheKey, results, DefaultCacheTTL)
 
 	return c.JSON(results)
 }

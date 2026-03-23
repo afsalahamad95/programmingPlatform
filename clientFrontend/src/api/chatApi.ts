@@ -82,4 +82,32 @@ export const chatApi = {
     }
     return res.json();
   },
+
+  /** Generate a career roadmap based on student's profile */
+  async generateRoadmap(studentId: string, targetRole: string): Promise<{ answer: string }> {
+    const res = await fetch(`${LLM_BASE}/roadmap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId, target_role: targetRole }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+      throw new Error(err.detail ?? "Roadmap generation failed");
+    }
+    return res.json();
+  },
+
+  /** Generate a tailored resume based on student's profile */
+  async generateResume(studentId: string): Promise<{ answer: string }> {
+    const res = await fetch(`${LLM_BASE}/resume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+      throw new Error(err.detail ?? "Resume generation failed");
+    }
+    return res.json();
+  },
 };

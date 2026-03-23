@@ -33,6 +33,10 @@ func CreateQuestion(c *fiber.Ctx) error {
 	}
 
 	question.ID = result.InsertedID.(primitive.ObjectID)
+
+	// Invalidate question caches
+	CacheInvalidatePrefix(c.Context(), CacheKey("questions"))
+
 	return c.Status(http.StatusCreated).JSON(question)
 }
 
@@ -123,6 +127,9 @@ func UpdateQuestion(c *fiber.Ctx) error {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Question not found"})
 	}
 
+	// Invalidate question caches
+	CacheInvalidatePrefix(c.Context(), CacheKey("questions"))
+
 	return c.JSON(question)
 }
 
@@ -140,6 +147,9 @@ func DeleteQuestion(c *fiber.Ctx) error {
 	if result.DeletedCount == 0 {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Question not found"})
 	}
+
+	// Invalidate question caches
+	CacheInvalidatePrefix(c.Context(), CacheKey("questions"))
 
 	return c.SendStatus(http.StatusNoContent)
 }

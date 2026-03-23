@@ -194,6 +194,13 @@ export const getTestResultsByTest = async (testId: string) => {
 	return response.data;
 };
 
+export const getTestResultsAnalytics = async () => {
+	const response = await axios.get(
+		`${API_URL}/admin-protected/test-results/analytics`
+	);
+	return response.data;
+};
+
 // Admin-specific API endpoints
 export const adminApi = {
 	getStudentResults: async () => {
@@ -229,6 +236,12 @@ export const adminApi = {
 	getTestResultsByTest: async (testId: string) => {
 		const response = await axios.get(
 			`${API_URL}/admin-protected/test-results/test/${testId}`
+		);
+		return response.data;
+	},
+	getTestResultsAnalytics: async () => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/test-results/analytics`
 		);
 		return response.data;
 	},

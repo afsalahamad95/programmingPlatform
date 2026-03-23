@@ -13,6 +13,8 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { useAuth } from "./contexts/AuthContext";
 import TestResult from "./components/TestResult";
 import ChatBot from "./components/ChatBot";
+import RoadmapGenerator from "./components/RoadmapGenerator";
+import ResumeGenerator from "./components/ResumeGenerator";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -58,6 +60,18 @@ function Navigation() {
 									className="border-transparent text-gray-200 hover:text-white hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
 								>
 									Challenges
+								</Link>
+								<Link
+									to="/roadmap"
+									className="border-transparent text-indigo-300 hover:text-indigo-100 hover:border-indigo-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+								>
+									AI Roadmap
+								</Link>
+								<Link
+									to="/resume"
+									className="border-transparent text-emerald-300 hover:text-emerald-100 hover:border-emerald-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+								>
+									AI Resume
 								</Link>
 							</div>
 						)}
@@ -130,6 +144,22 @@ function App() {
 									element={
 										<ProtectedRoute>
 											<TestResult />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/roadmap"
+									element={
+										<ProtectedRoute>
+											<RoadmapGenerator />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/resume"
+									element={
+										<ProtectedRoute>
+											<ResumeGenerator />
 										</ProtectedRoute>
 									}
 								/>
