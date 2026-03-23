@@ -437,3 +437,58 @@ async def generate_roadmap_from_result(req: RoadmapFromResultRequest):
     except Exception as e:
         logger.error(f"Roadmap from result generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+from pydantic import BaseModel
+
+class AutoScheduleRequest(BaseModel):
+    prompt: str
+    available_questions: list # list of dicts: id, title, topic, type
+
+class AutoScheduleResponse(BaseModel):
+    title: str
+    description: str
+    duration: int
+    selected_question_ids: list
+
+@app.post("/llm/auto-schedule", response_model=AutoScheduleResponse)
+async def auto_schedule_test(req: AutoScheduleRequest):
+    """Automatically generate test specs and pick questions based on admin prompt."""
+    if not _groq_client:
+        raise HTTPException(status_code=500, detail="Groq not configured")
+
+    import json
+    questions_context = json.dumps(req.available_questions)
+
+    prompt = (
+        f"You are an AI test generation assistant for a tech platform admin. "
+        f"The admin wants to generate a test based on this description: '{req.prompt}'.\n\n"
+        f"Available questions in the question bank (JSON format):\n"
+        f"{questions_context}\n\n"
+        f"Task:\n"
+        f"1. Generate a fitting, professional 'title'.\n"
+        f"2. Generate a compelling 'description'.\n"
+        f"3. Estimate an appropriate 'duration' in minutes (integer).\n"
+        f"4. Select a subset of 'selected_question_ids' from the available questions that best match the prompt.\n\n"
+        f"Output ONLY a valid JSON object matching this schema exactly:\n"
+        f"{{\n"
+        f"  \"title\": \"string\",\n"
+        f"  \"description\": \"string\",\n"
+        f"  \"duration\": number,\n"
+        f"  \"selected_question_ids\": [\"id1\", \"id2\"]\n"
+        f"}}\n"
+        f"Do not include any intro, outro, or markdown backticks."
+    )
+
+    try:
+        completion = _groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            response_format={"type": "json_object"}
+        )
+        content = completion.choices[0].message.content
+        data = json.loads(content)
+        return AutoScheduleResponse(**data)
+    except Exception as e:
+        logger.error(f"Auto-schedule generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

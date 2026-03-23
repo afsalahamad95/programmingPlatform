@@ -491,6 +491,27 @@ func SubmitTest(c *fiber.Ctx) error {
 		fmt.Printf("[DEBUG] 400 error: Test ID is required\n")
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Test ID is required"})
 	}
+
+	// Enforce Test Expiration check
+	testObjID, err := primitive.ObjectIDFromHex(submission.TestID)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid Test ID"})
+	}
+
+	var testData presenter.TestData
+	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testObjID}).Decode(&testData)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
+		}
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify test expiration"})
+	}
+
+	if time.Now().After(testData.EndTime) {
+		log.Printf("Rejected late submission for test %s: Expired at %v", testData.ID.Hex(), testData.EndTime)
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "This test has already expired. Submissions are over."})
+	}
+
 	if len(submission.Answers) == 0 {
 		fmt.Printf("[DEBUG] 400 error: No answers provided\n")
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "No answers provided"})
