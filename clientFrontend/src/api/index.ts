@@ -291,11 +291,9 @@ export const submitTest = async (
 // Challenge submission endpoint
 export const submitChallengeAttempt = async (
 	challengeId: string,
-	solution: string
-): Promise<{ success: boolean; feedback: string; score?: number }> => {
-	const response = await api.post(`/challenges/${challengeId}/submit`, {
-		solution,
-	});
+	submission: any
+): Promise<any> => {
+	const response = await api.post(`/challenges/${challengeId}/submit`, submission);
 	return response.data;
 };
 

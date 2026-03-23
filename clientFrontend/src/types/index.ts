@@ -88,6 +88,21 @@ export interface Challenge {
 	difficulty: "easy" | "medium" | "hard";
 	category: string;
 	points: number;
+	starterCode?: string;
+	language?: string;
+	endTime?: Date;
 	createdAt: Date;
 	updatedAt: Date;
+}
+
+export interface ValidationResult {
+	passed: boolean;
+	passedTests: number;
+	totalTests: number;
+	percentageScore: number;
+	scoredPoints: number;
+	totalPoints: number;
+	feedback?: string;
+	error?: string;
+	testCases?: any[];
 }

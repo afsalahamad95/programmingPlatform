@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, ArrowLeft, Wand2, Sparkles, Loader2, X } from 'lucide-react';
+import { Calendar, ArrowLeft, Wand2, Sparkles, Loader2, X } from 'lucide-react';
 import { Question, Student } from '../types';
 import QuestionSelector from './QuestionSelector';
 import StudentSelector from './StudentSelector';
@@ -64,7 +64,7 @@ export default function TestScheduler({ onSchedule, onBack, questions }: TestSch
     setAiError(null);
     try {
       const slimQuestions = questions.map(q => ({
-        id: q.id, title: q.title, topic: q.topic, type: q.type
+        id: q.id, title: q.content, topic: q.subject, type: q.type
       }));
       const res = await chatApi.autoSchedule(aiPrompt, slimQuestions);
       

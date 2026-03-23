@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getChallenge, submitChallengeAttempt, checkChallengeAttempt } from "../api";
-import { CodingChallenge, ValidationResult } from "../types";
+import { Challenge, ValidationResult } from "../types";
 import CodeEditor from "./CodeEditor";
 import ChallengeTimer from "./ChallengeTimer";
 
@@ -29,7 +29,7 @@ const normalizeOutput = (output: string): string => {
 const ChallengeAttempt: React.FC = () => {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
-	const [challenge, setChallenge] = useState<CodingChallenge | null>(null);
+	const [challenge, setChallenge] = useState<Challenge | null>(null);
 	const [code, setCode] = useState<string>("");
 	const [timeSpent, setTimeSpent] = useState<number>(0);
 	const [loading, setLoading] = useState<boolean>(true);
@@ -42,12 +42,15 @@ const ChallengeAttempt: React.FC = () => {
 	const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
 	const [checking, setChecking] = useState<boolean>(false);
 	const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+	const [hasPassedCheck, setHasPassedCheck] = useState<boolean>(false);
 
 	// Proctoring States
 	const [warnings, setWarnings] = useState(0);
 	const [proctoringActive, setProctoringActive] = useState(false);
 	const [violationMessage, setViolationMessage] = useState<string | null>(null);
+	const [hasStarted, setHasStarted] = useState(false);
 	const videoRef = useRef<HTMLVideoElement>(null);
+	const streamRef = useRef<MediaStream | null>(null);
 	const lastViolationRef = useRef<number>(0);
 	const codeRef = useRef(code);
 	
@@ -130,32 +133,32 @@ const ChallengeAttempt: React.FC = () => {
 		}
 	}, [challenge, id, code]);
 
-	// Proctoring Logic
-	useEffect(() => {
-		if (loading || !challenge || isSubmitted) return;
-
-		let stream: MediaStream | null = null;
-		
-		const startProctoring = async () => {
-			try {
-				// 1. Request Webcam
-				stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-				if (videoRef.current) {
-					videoRef.current.srcObject = stream;
-				}
-				setProctoringActive(true);
-
-				// 2. Request Fullscreen
-				if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
-					await document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
-				}
-			} catch (err) {
-				console.error("Proctoring failed to start:", err);
-				alert("Proctoring Warning: Please ensure webcam is connected and allowed. The challenge environment requires monitoring.");
+	const handleStartChallenge = async () => {
+		try {
+			// 1. Request Webcam
+			const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+			streamRef.current = stream;
+			if (videoRef.current) {
+				videoRef.current.srcObject = stream;
 			}
-		};
+			setProctoringActive(true);
 
-		startProctoring();
+			// 2. Request Fullscreen
+			const elem = document.documentElement;
+			if (elem.requestFullscreen && !document.fullscreenElement) {
+				await elem.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+			}
+
+			setHasStarted(true);
+		} catch (err) {
+			console.error("Proctoring failed to start:", err);
+			alert("Proctoring Error: Please ensure you grant webcam permissions. Access is required to start.");
+		}
+	};
+
+	// Proctoring Event Listeners
+	useEffect(() => {
+		if (loading || !challenge || isSubmitted || !hasStarted) return;
 
 		// 3. Tab switching & window blur tracking
 		const handleVisibilityChange = () => {
@@ -176,14 +179,19 @@ const ChallengeAttempt: React.FC = () => {
 		return () => {
 			document.removeEventListener("visibilitychange", handleVisibilityChange);
 			window.removeEventListener("blur", handleBlur);
-			if (stream) {
-				stream.getTracks().forEach(track => track.stop());
+		};
+	}, [loading, challenge, isSubmitted, hasStarted]);
+
+	useEffect(() => {
+		return () => {
+			if (streamRef.current) {
+				streamRef.current.getTracks().forEach(track => track.stop());
 			}
 			if (document.fullscreenElement) {
 				document.exitFullscreen().catch(e => console.log(e));
 			}
 		};
-	}, [loading, challenge, isSubmitted]);
+	}, []);
 
 	const violationSubmit = async () => {
 		if (!challenge || !id) return;
@@ -474,6 +482,46 @@ const ChallengeAttempt: React.FC = () => {
 				>
 					Back to Challenges
 				</button>
+			</div>
+		);
+	}
+
+	if (!hasStarted) {
+		return (
+			<div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-8 text-center pt-24">
+				<div className="max-w-2xl w-full">
+					<h2 className="text-4xl font-bold mb-4 text-gray-900">{challenge.title}</h2>
+					<p className="text-lg text-gray-600 mb-10">{challenge.description}</p>
+					
+					<div className="bg-white rounded-2xl shadow-xl p-8 border-t-4 border-indigo-600 mb-8 mx-auto">
+						<h3 className="text-2xl font-semibold mb-6 text-indigo-900 flex items-center justify-center gap-2">
+							<svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+							Before You Begin
+						</h3>
+						
+						<ul className="text-left space-y-4 mb-8 text-gray-700 bg-gray-50 p-6 rounded-xl">
+							<li className="flex items-start">
+								<svg className="w-5 h-5 text-indigo-500 mr-3 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+								<span><strong>Webcam Required:</strong> You must grant webcam access for AI proctoring tracking.</span>
+							</li>
+							<li className="flex items-start">
+								<svg className="w-5 h-5 text-indigo-500 mr-3 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+								<span><strong>Fullscreen Mode:</strong> The assessment will automatically open in fullscreen.</span>
+							</li>
+							<li className="flex items-start">
+								<svg className="w-5 h-5 text-indigo-500 mr-3 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+								<span><strong>No Tab Switching:</strong> Switching tabs or minimizing the window is prohibited. Doing so 3 times will result in immediate termination and auto-submission.</span>
+							</li>
+						</ul>
+						
+						<button 
+							onClick={handleStartChallenge}
+							className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 text-lg"
+						>
+							Grant Permissions & Start
+						</button>
+					</div>
+				</div>
 			</div>
 		);
 	}

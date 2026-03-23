@@ -246,8 +246,9 @@ def chat(req: ChatRequest):
         filtered_docs = []
         for doc, dist in zip(retrieved_docs, distances):
             if dist <= DISTANCE_THRESHOLD:
-                filtered_docs.append(doc)
-                sources.append(doc[:120] + "…" if len(doc) > 120 else doc)
+                doc_str = str(doc)
+                filtered_docs.append(doc_str)
+                sources.append(doc_str[:120] + "…" if len(doc_str) > 120 else doc_str)
 
         if filtered_docs:
             context_block = "\n\n".join(
