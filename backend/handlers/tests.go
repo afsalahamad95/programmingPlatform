@@ -122,6 +122,10 @@ func CreateTest(c *fiber.Ctx) error {
 		fmt.Println("No hub found in context")
 	}
 
+	// Invalidate test caches after creation
+	CacheInvalidatePrefix(c.Context(), CacheKey("tests"))
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
+
 	return c.Status(fiber.StatusCreated).JSON(createdTest)
 }
 
@@ -199,6 +203,66 @@ func GetTest(c *fiber.Ctx) error {
 	return c.JSON(test)
 }
 
+// GetTestAdmin retrieves a single test by its ID without checking expiry (for Admin dashboard)
+func GetTestAdmin(c *fiber.Ctx) error {
+	id, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		log.Printf("Invalid ID format: %v", err)
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+
+	filter := bson.M{"_id": id}
+
+	var testBSON presenter.TestData
+	err = db.TestsCollection.FindOne(context.Background(), filter).Decode(&testBSON)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Printf("Test not found for ID %s: %v", id.Hex(), err)
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
+		}
+		log.Printf("Error fetching test from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch test"})
+	}
+
+	test, err := hydrateTest(testBSON)
+	if err != nil {
+		log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare test response"})
+	}
+
+	return c.JSON(test)
+}
+
+// GetTestsAdmin retrieves all tests without checking expiry
+func GetTestsAdmin(c *fiber.Ctx) error {
+	filter := bson.M{}
+
+	cursor, err := db.TestsCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Printf("Failed to fetch tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch tests"})
+	}
+	defer cursor.Close(context.Background())
+
+	var testsBSON []presenter.TestData
+	if err := cursor.All(context.Background(), &testsBSON); err != nil {
+		log.Printf("Failed to decode tests from DB: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode tests"})
+	}
+
+	var tests []presenter.Test
+	for _, testBSON := range testsBSON {
+		test, err := hydrateTest(testBSON)
+		if err != nil {
+			log.Printf("Failed to hydrate test %s: %v", testBSON.ID.Hex(), err)
+			continue
+		}
+		tests = append(tests, test)
+	}
+
+	return c.JSON(tests)
+}
+
 // UpdateTest updates an existing test by its ID
 func UpdateTest(c *fiber.Ctx) error {
 	id, err := primitive.ObjectIDFromHex(c.Params("id"))
@@ -269,6 +333,10 @@ func UpdateTest(c *fiber.Ctx) error {
 		log.Printf("Failed to hydrate updated test: %v", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to prepare updated test response"})
 	}
+
+	// Invalidate test caches after update
+	CacheInvalidatePrefix(c.Context(), CacheKey("tests"))
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
 
 	return c.JSON(updatedTest)
 }
@@ -341,6 +409,10 @@ func DeleteTest(c *fiber.Ctx) error {
 	if result.DeletedCount == 0 {
 		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
 	}
+
+	// Invalidate test caches after deletion
+	CacheInvalidatePrefix(c.Context(), CacheKey("tests"))
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
 
 	return c.SendStatus(204)
 }
@@ -419,6 +491,27 @@ func SubmitTest(c *fiber.Ctx) error {
 		fmt.Printf("[DEBUG] 400 error: Test ID is required\n")
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Test ID is required"})
 	}
+
+	// Enforce Test Expiration check
+	testObjID, err := primitive.ObjectIDFromHex(submission.TestID)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid Test ID"})
+	}
+
+	var testData presenter.TestData
+	err = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testObjID}).Decode(&testData)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "Test not found"})
+		}
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify test expiration"})
+	}
+
+	if time.Now().After(testData.EndTime) {
+		log.Printf("Rejected late submission for test %s: Expired at %v", testData.ID.Hex(), testData.EndTime)
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "This test has already expired. Submissions are over."})
+	}
+
 	if len(submission.Answers) == 0 {
 		fmt.Printf("[DEBUG] 400 error: No answers provided\n")
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "No answers provided"})
@@ -434,6 +527,9 @@ func SubmitTest(c *fiber.Ctx) error {
 	// Set the inserted ID on the submission object
 	submission.ID = result.InsertedID.(primitive.ObjectID)
 	log.Printf("Successfully created test attempt with ID: %s", submission.ID)
+
+	// Invalidate test result caches after submission
+	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
 
 	// Respond with the submission details
 	return c.Status(http.StatusCreated).JSON(submission)

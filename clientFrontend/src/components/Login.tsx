@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { setAuthToken } from "../api";
 
@@ -77,6 +77,14 @@ const Login = () => {
 						>
 							Sign in
 						</button>
+					</div>
+					<div className="text-center mt-4 pt-4 border-t border-white/10">
+						<p className="text-sm text-gray-400">
+							Don't have an account?{" "}
+							<Link to="/register" className="font-medium text-emerald-400 hover:text-emerald-300">
+								Sign up
+							</Link>
+						</p>
 					</div>
 				</form>
 			</div>

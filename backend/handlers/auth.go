@@ -375,6 +375,8 @@ func Register(c *fiber.Ctx) error {
 		FirstName:    req.FirstName,
 		LastName:     req.LastName,
 		Role:         "user", // Default role
+		TargetRole:   req.TargetRole,
+		Preferences:  req.Preferences,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}

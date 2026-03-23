@@ -55,4 +55,23 @@ export const chatApi = {
     }
     return res.json();
   },
+
+  /** Auto-schedule a test using AI */
+  async autoSchedule(prompt: string, availableQuestions: any[]): Promise<{
+    title: string;
+    description: string;
+    duration: number;
+    selected_question_ids: string[];
+  }> {
+    const res = await fetch(`${LLM_BASE}/auto-schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, available_questions: availableQuestions }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+      throw new Error(err.detail ?? "Auto-schedule request failed");
+    }
+    return res.json();
+  },
 };

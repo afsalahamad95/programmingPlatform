@@ -194,6 +194,13 @@ export const getTestResultsByTest = async (testId: string) => {
 	return response.data;
 };
 
+export const getTestResultsAnalytics = async () => {
+	const response = await axios.get(
+		`${API_URL}/admin-protected/test-results/analytics`
+	);
+	return response.data;
+};
+
 // Admin-specific API endpoints
 export const adminApi = {
 	getStudentResults: async () => {
@@ -232,12 +239,18 @@ export const adminApi = {
 		);
 		return response.data;
 	},
+	getTestResultsAnalytics: async () => {
+		const response = await axios.get(
+			`${API_URL}/admin-protected/test-results/analytics`
+		);
+		return response.data;
+	},
 	getTestAttempt: async (attemptId: string) => {
 		const response = await axios.get(`${API_URL}/tests/attempts/${attemptId}`);
 		return response.data;
 	},
 	getTest: async (testId: string) => {
-		const response = await axios.get(`${API_URL}/tests/${testId}`);
+		const response = await axios.get(`${API_URL}/admin-protected/tests/${testId}`);
 		return response.data;
 	},
 	generateRoadmapFromResult: async (payload: any) => {

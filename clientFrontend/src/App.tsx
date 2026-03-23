@@ -7,12 +7,15 @@ import TestList from "./components/TestList";
 import ChallengesPage from "./components/ChallengesPage";
 import ChallengeAttempt from "./components/ChallengeAttempt";
 import Login from "./components/Login";
+import Register from "./components/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { useAuth } from "./contexts/AuthContext";
 import TestResult from "./components/TestResult";
 import ChatBot from "./components/ChatBot";
+import RoadmapGenerator from "./components/RoadmapGenerator";
+import ResumeGenerator from "./components/ResumeGenerator";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -59,6 +62,18 @@ function Navigation() {
 								>
 									Challenges
 								</Link>
+								<Link
+									to="/roadmap"
+									className="border-transparent text-indigo-300 hover:text-indigo-100 hover:border-indigo-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+								>
+									AI Roadmap
+								</Link>
+								<Link
+									to="/resume"
+									className="border-transparent text-emerald-300 hover:text-emerald-100 hover:border-emerald-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+								>
+									AI Resume
+								</Link>
 							</div>
 						)}
 					</div>
@@ -91,6 +106,7 @@ function App() {
 						<div className="flex-grow py-8 px-4 sm:px-6 lg:px-8">
 							<Routes>
 								<Route path="/login" element={<Login />} />
+								<Route path="/register" element={<Register />} />
 								<Route
 									path="/"
 									element={
@@ -130,6 +146,22 @@ function App() {
 									element={
 										<ProtectedRoute>
 											<TestResult />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/roadmap"
+									element={
+										<ProtectedRoute>
+											<RoadmapGenerator />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/resume"
+									element={
+										<ProtectedRoute>
+											<ResumeGenerator />
 										</ProtectedRoute>
 									}
 								/>

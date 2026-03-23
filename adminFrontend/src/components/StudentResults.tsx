@@ -2,16 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { adminApi } from "../api";
 import {
-	BarChart,
-	Bar,
-	XAxis,
-	YAxis,
-	CartesianGrid,
 	Tooltip,
 	ResponsiveContainer,
-	Cell,
+	AreaChart,
+	Area,
 } from "recharts";
-import { TrendingUp, Users, CheckCircle, Clock } from "lucide-react";
+import { TrendingUp, Users, CheckCircle, BrainCircuit } from "lucide-react";
 
 interface Student {
 	id: string;
@@ -85,28 +81,27 @@ const StudentResults: React.FC = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
 
+	const [analytics, setAnalytics] = useState<any>(null);
+
 	const fetchData = async () => {
 		try {
 			setLoading(true);
 			setError(null);
 
-			// Fetch all data in parallel
+			// Fetch all data in parallel + new analytics
 			const [
 				testResultsData,
 				challengeResultsData,
-				studentsData,
-				testsData,
-				challengesData,
+				analyticsData,
 			] = await Promise.all([
 				adminApi.getTestResults(),
-				adminApi.getStudentResults(),
-				adminApi.getStudentResults(), // We'll extract unique students from results
-				adminApi.getTestResults(), // We'll extract unique tests from results
-				adminApi.getStudentResults(), // We'll extract unique challenges from results
+				adminApi.getStudentResults(), // this seems to be challenge results actually based on original code
+				adminApi.getTestResultsAnalytics(), // Our new Redis-cached lightning fast endpoint
 			]);
 
 			setTestResults(testResultsData);
 			setChallengeResults(challengeResultsData);
+			setAnalytics(analyticsData);
 
 			// Extract unique students from results
 			const uniqueStudents = new Map<string, Student>();
@@ -233,10 +228,20 @@ const StudentResults: React.FC = () => {
 		link.click();
 	};
 
-	if (loading) {
+	if (loading && !testResults.length) {
 		return (
-			<div className="flex justify-center items-center h-screen">
-				Loading...
+			<div className="flex flex-col justify-center items-center h-[calc(100vh-100px)]">
+				<div className="relative w-24 h-24">
+					<div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full"></div>
+					<div className="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent animate-spin"></div>
+					<div className="absolute inset-2 border-4 border-purple-500/20 rounded-full"></div>
+					<div className="absolute inset-2 border-4 border-purple-500 rounded-full border-b-transparent animate-spin-slow"></div>
+					<div className="absolute inset-0 flex items-center justify-center">
+						<BrainCircuit className="w-8 h-8 text-indigo-400 animate-pulse" />
+					</div>
+				</div>
+				<h3 className="mt-6 text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Loading Neural Analytics</h3>
+				<p className="text-gray-400 text-sm mt-2">Connecting to cache nodes...</p>
 			</div>
 		);
 	}
@@ -245,19 +250,13 @@ const StudentResults: React.FC = () => {
 		return <div className="text-red-500 text-center p-4">{error}</div>;
 	}
 
-	// ─── Dashboard Stats ─────────────────────────────────────────────────────────
-	const totalAttempts = filteredResults.length;
-	const avgScore = totalAttempts > 0 
-		? (filteredResults.reduce((acc, r) => acc + r.percentageScore, 0) / totalAttempts).toFixed(1)
-		: 0;
-	const passRate = totalAttempts > 0
-		? ((filteredResults.filter(r => r.status === "Passed").length / totalAttempts) * 100).toFixed(1)
-		: 0;
+	// ─── Dashboard Stats (Powered by Analytics API) ─────────────────────────────────────────────────────────
+	const totalAttempts = analytics?.totalAttempts || 0;
+	const avgScore = analytics?.avgScore || 0;
+	const passRate = analytics?.passRate || 0;
 
-	const chartData = filteredResults.slice(0, 10).map((r, i) => ({
-		name: (r as any).studentName.split(" ")[0],
-		score: r.percentageScore,
-	}));
+	// Reverse the timeSeries so oldest is first for the chart, but only if it exists
+	const chartData = analytics?.timeSeries ? [...analytics.timeSeries].reverse() : [];
 
 	return (
 		<div className="container mx-auto px-4 py-8 text-gray-200">
@@ -290,19 +289,27 @@ const StudentResults: React.FC = () => {
 						<h3 className="text-2xl font-bold text-white">{passRate}%</h3>
 					</div>
 				</div>
-				<div className="glass-card p-6 flex flex-col justify-center">
-					<div className="h-16 w-full">
+				<div className="glass-card p-6 flex flex-col justify-center relative overflow-hidden group">
+					<div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+					<div className="h-16 w-full relative z-10">
 						<ResponsiveContainer width="100%" height="100%">
-							<BarChart data={chartData}>
-								<Bar dataKey="score">
-									{chartData.map((_, index) => (
-										<Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#818cf8" : "#34d399"} fillOpacity={0.6} />
-									))}
-								</Bar>
-							</BarChart>
+							<AreaChart data={chartData}>
+								<defs>
+									<linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+										<stop offset="5%" stopColor="#818cf8" stopOpacity={0.8}/>
+										<stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+									</linearGradient>
+								</defs>
+								<Tooltip
+									contentStyle={{ backgroundColor: 'rgba(17, 24, 39, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '8px', backdropFilter: 'blur(8px)' }}
+									itemStyle={{ color: '#818cf8' }}
+									labelStyle={{ color: '#9ca3af' }}
+								/>
+								<Area type="monotone" dataKey="avgScore" stroke="#818cf8" strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" />
+							</AreaChart>
 						</ResponsiveContainer>
 					</div>
-					<p className="text-[10px] font-mono text-gray-500 text-center mt-2 uppercase tracking-tighter">Recent Performance Trend</p>
+					<p className="text-[10px] font-mono text-indigo-400/70 text-center mt-2 uppercase tracking-tighter">Daily Average Performance</p>
 				</div>
 			</div>
 			<div className="flex justify-between items-center mb-6">
@@ -383,83 +390,109 @@ const StudentResults: React.FC = () => {
 				</div>
 			</div>
 
-			<div className="overflow-x-auto glass-card rounded-lg border-none mt-6">
-				<table className="min-w-full text-left border-collapse">
-					<thead>
-						<tr className="bg-white/5 border-b border-white/10 text-gray-300 uppercase tracking-wider text-sm font-medium">
-							<th className="px-4 py-2">Student</th>
-							<th className="px-4 py-2">
-								{resultType === "test" ? "Test" : "Challenge"}
-							</th>
-							<th className="px-4 py-2">Status</th>
-							<th className="px-4 py-2">Score</th>
-							<th className="px-4 py-2">Time Spent</th>
-							<th className="px-4 py-2">Submitted At</th>
-							{resultType === "challenge" && (
-								<th className="px-4 py-2">Test Cases</th>
-							)}
-							<th className="px-4 py-2">Actions</th>
-						</tr>
-					</thead>
-					<tbody>
+			<div className="overflow-hidden glass-card rounded-xl mt-6 border border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+				<div className="overflow-x-auto">
+					<table className="min-w-full text-left border-collapse">
+						<thead>
+							<tr className="bg-white/[0.02] border-b border-white/10 text-indigo-300 uppercase tracking-wider text-xs font-bold">
+								<th className="px-6 py-4">Student</th>
+								<th className="px-6 py-4">
+									{resultType === "test" ? "Test" : "Challenge"}
+								</th>
+								<th className="px-6 py-4">Status</th>
+								<th className="px-6 py-4">Score</th>
+								<th className="px-6 py-4">Time Spent</th>
+								<th className="px-6 py-4">Submitted At</th>
+								{resultType === "challenge" && (
+									<th className="px-6 py-4">Test Cases</th>
+								)}
+								<th className="px-6 py-4 text-right">Actions</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-white/5">
 						{filteredResults.map((result, index) => (
-							<tr key={index} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-								<td className="px-4 py-3">
-									<div className="font-medium text-white">{result.studentName}</div>
-									<div className="text-sm text-gray-400">
-										{result.studentEmail}
+							<tr key={index} className="hover:bg-white/[0.03] transition-colors group">
+								<td className="px-6 py-4">
+									<div className="flex items-center space-x-3">
+										<div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
+											{result.studentName.charAt(0)}
+										</div>
+										<div>
+											<div className="font-semibold text-white group-hover:text-indigo-300 transition-colors">{result.studentName}</div>
+											<div className="text-xs text-gray-400 font-mono">
+												{result.studentEmail}
+											</div>
+										</div>
 									</div>
 								</td>
-								<td className="px-4 py-3 text-gray-300">
+								<td className="px-6 py-4 text-gray-300 font-medium">
 									{resultType === "test"
 										? (result as TestResult).testTitle
 										: (result as ChallengeResult)
 											.challengeTitle}
 								</td>
-								<td className="px-4 py-2">
+								<td className="px-6 py-4">
 									<span
-										className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm border ${result.status === "Passed"
-											? "bg-green-900/40 text-green-300 border-green-500/30"
+										className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full border shadow-[0_0_10px_rgba(0,0,0,0.2)] ${result.status === "Passed"
+											? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-emerald-500/10"
 											: result.status === "Failed"
-												? "bg-red-900/40 text-red-300 border-red-500/30"
-												: "bg-yellow-900/40 text-yellow-300 border-yellow-500/30"
+												? "bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-rose-500/10"
+												: "bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-amber-500/10"
 											}`}
 									>
+										<span className={`w-1.5 h-1.5 rounded-full mr-1.5 animate-pulse ${result.status === "Passed" ? "bg-emerald-400" : result.status === "Failed" ? "bg-rose-400" : "bg-amber-400"}`}></span>
 										{result.status}
 									</span>
 								</td>
-								<td className="px-4 py-3 font-medium text-white">
-									{result.pointsScored}/{result.totalPoints}
-									<div className="text-sm font-normal text-gray-400">
-										({result.percentageScore}%)
+								<td className="px-6 py-4">
+									<div className="flex flex-col gap-1 w-full max-w-[120px]">
+										<div className="flex justify-between items-end">
+											<span className="font-bold text-white text-sm">
+												{result.pointsScored}/{result.totalPoints}
+											</span>
+											<span className={`text-xs font-mono font-bold ${result.percentageScore >= 70 ? 'text-emerald-400' : 'text-rose-400'}`}>
+												{result.percentageScore}%
+											</span>
+										</div>
+										<div className="w-full bg-gray-700/50 rounded-full h-1.5 overflow-hidden">
+											<div 
+												className={`h-1.5 rounded-full transition-all duration-1000 ${result.percentageScore >= 70 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_8px_theme(colors.emerald.500)]' : 'bg-gradient-to-r from-rose-500 to-rose-400 shadow-[0_0_8px_theme(colors.rose.500)]'}`} 
+												style={{ width: `${result.percentageScore}%` }}
+											></div>
+										</div>
 									</div>
 								</td>
-								<td className="px-4 py-3 text-gray-300">
+								<td className="px-6 py-4 text-gray-300 text-sm font-mono">
 									{formatTime(result.timeSpent)}
 								</td>
-								<td className="px-4 py-3 text-gray-400 text-sm">
+								<td className="px-6 py-4 text-gray-400 text-sm">
 									{new Date(
 										result.submittedAt
-									).toLocaleString()}
+									).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
 								</td>
 								{resultType === "challenge" && (
-									<td className="px-4 py-2">
-										{(result as ChallengeResult).testCases?.passed || 0}/
-										{(result as ChallengeResult).testCases?.total || 0}
+									<td className="px-6 py-4">
+										<div className="flex items-center space-x-2">
+											<div className="font-mono text-sm text-indigo-300 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
+												{(result as ChallengeResult).testCases?.passed || 0}/
+												{(result as ChallengeResult).testCases?.total || 0}
+											</div>
+										</div>
 									</td>
 								)}
-								<td className="px-4 py-3">
+								<td className="px-6 py-4 text-right">
 									<Link
 										to={`/student-results/${(result as TestResult).id || index}`}
-										className="text-xs font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest decoration-indigo-500/30 underline-offset-4 hover:underline"
+										className="inline-flex items-center px-3 py-1.5 border border-indigo-500/50 rounded text-xs font-bold text-indigo-400 hover:text-white hover:bg-indigo-600 hover:border-indigo-500 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all uppercase tracking-widest"
 									>
-										View Details
+										View
 									</Link>
 								</td>
 							</tr>
 						))}
-					</tbody>
-				</table>
+						</tbody>
+					</table>
+				</div>
 			</div>
 		</div>
 	);

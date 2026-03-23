@@ -15,6 +15,8 @@ type User struct {
 	Institution string             `bson:"institution" json:"institution"`
 	Department  string             `bson:"department" json:"department"`
 	StudentID   string             `bson:"studentId" json:"studentId"`
+	TargetRole  string             `bson:"targetRole" json:"targetRole"`
+	Preferences []string           `bson:"preferences" json:"preferences"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }

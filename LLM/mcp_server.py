@@ -89,6 +89,50 @@ async def update_question(question_id: str, updated_data: dict) -> dict:
         )
         return response.json()
 
+async def generate_questions_from_context(context_text: str, role: str) -> list:
+    """Uses LLM to generate new MCQ questions based on crawled context."""
+    if not _groq_client:
+        print("Groq client not configured")
+        return []
+
+    prompt = f"""
+    You are an expert technical interviewer and programming instructor.
+    Based on the following crawled documentation/tutorial context, generate 2 high-quality Multiple Choice Questions (MCQs).
+    The questions should be tailored for a "{role}" role.
+    
+    Context:
+    {context_text[:4000]} # Limit context to avoid token limits
+    
+    Format the output strictly as a JSON object containing a 'questions' array.
+    {{
+        "questions": [
+            {{
+                "content": "The question text here",
+                "type": "mcq",
+                "points": 5,
+                "difficulty": 2,
+                "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+                "correctAnswer": "The exact string of the correct option",
+                "explanation": "Why this is correct",
+                "tags": ["{role}", "auto-generated"]
+            }}
+        ]
+    }}
+    """
+
+    try:
+        completion = _groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
+        import json
+        result = json.loads(completion.choices[0].message.content)
+        return result.get("questions", [])
+    except Exception as e:
+        print(f"Error generating questions: {e}")
+        return []
 
 if __name__ == "__main__":
     mcp.run()
