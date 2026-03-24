@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { getTest, submitTest } from "../api";
+import { chatApi } from "../api/chatApi";
 import { useAuth } from "../contexts/AuthContext";
 import {
 	Test,
@@ -13,30 +14,43 @@ import {
 import MCQQuestionComponent from "./questions/MCQQuestion";
 import SubjectiveQuestionComponent from "./questions/SubjectiveQuestion";
 import CodingQuestionComponent from "./questions/CodingQuestion";
+import { 
+	ChevronLeft, 
+	ChevronRight, 
+	Clock, 
+	AlertTriangle, 
+	Sparkles, 
+	Send, 
+	Layout, 
+	XCircle,
+	Camera,
+	Maximize2
+} from "lucide-react";
+import toast from "react-hot-toast";
 
-// Type predicates
-const isMCQQuestion = (question: Question): question is MCQQuestion =>
-	question.type === "mcq";
-const isSubjectiveQuestion = (
-	question: Question
-): question is SubjectiveQuestion => question.type === "subjective";
-const isCodingQuestion = (question: Question): question is CodingQuestion =>
-	question.type === "coding";
+const isMCQQuestion = (question: Question): question is MCQQuestion => question.type === "mcq";
+const isSubjectiveQuestion = (question: Question): question is SubjectiveQuestion => question.type === "subjective";
+const isCodingQuestion = (question: Question): question is CodingQuestion => question.type === "coding";
 
 const TestAttempt: React.FC = () => {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { user } = useAuth();
+	
 	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 	const [answers, setAnswers] = useState<Record<string, string>>({});
 	const [showConfirmation, setShowConfirmation] = useState(false);
+	const [timeLeft, setTimeLeft] = useState<number | null>(null);
+	
+	// AI Hint state
+	const [hint, setHint] = useState<string | null>(null);
+	const [isGeneratingHint, setIsGeneratingHint] = useState(false);
 
 	// Proctoring States
 	const [warnings, setWarnings] = useState(0);
-	const [proctoringActive, setProctoringActive] = useState(false);
-	const [violationMessage, setViolationMessage] = useState<string | null>(null);
 	const [hasStarted, setHasStarted] = useState(false);
+	
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const streamRef = useRef<MediaStream | null>(null);
 	const lastViolationRef = useRef<number>(0);
@@ -44,25 +58,48 @@ const TestAttempt: React.FC = () => {
 	
 	useEffect(() => {
 		answersRef.current = answers;
-	}, [answers]);
+		// Auto-save to localStorage
+		if (id && Object.keys(answers).length > 0) {
+			localStorage.setItem(`test_draft_${id}`, JSON.stringify(answers));
+		}
+	}, [answers, id]);
 
 	const { data: test, isLoading } = useQuery<Test>(
 		["test", id],
 		() => getTest(id!),
 		{
 			enabled: !!id,
+			onSuccess: (data) => {
+				// Initialize timer
+				setTimeLeft(data.duration * 60);
+				// Load draft
+				const draft = localStorage.getItem(`test_draft_${id}`);
+				if (draft) {
+					try {
+						setAnswers(JSON.parse(draft));
+						toast.success("Draft restored", { icon: '💾' });
+					} catch (e) { console.error("Failed to restore draft", e); }
+				}
+			}
 		}
 	);
 
+	// Timer Logic
+	useEffect(() => {
+		if (hasStarted && timeLeft !== null && timeLeft > 0) {
+			const timer = setInterval(() => {
+				setTimeLeft(prev => (prev !== null ? prev - 1 : null));
+			}, 1000);
+			return () => clearInterval(timer);
+		} else if (timeLeft === 0 && hasStarted) {
+			toast.error("Time's up! Submitting automatically...");
+			handleSubmit();
+		}
+	}, [hasStarted, timeLeft]);
+
 	const submitTestMutation = useMutation(
 		(data: { testId: string; answers: Record<string, string> }) => {
-			// Ensure user and required properties exist before submitting
-			if (!user || !user.id || !user.email) {
-				throw new Error(
-					"User not authenticated or missing required information for submission."
-				);
-			}
-
+			if (!user?.id || !user.email) throw new Error("Authentication required");
 			return submitTest(data.testId, {
 				testId: data.testId,
 				studentId: user.id,
@@ -70,547 +107,368 @@ const TestAttempt: React.FC = () => {
 				studentEmail: user.email,
 				institution: user.institution || "",
 				department: user.department || "",
-				answers: Object.entries(data.answers).map(
-					([questionId, answer]) => ({
-						questionId,
-						answer: answer,
-					})
-				),
+				answers: Object.entries(data.answers).map(([questionId, answer]) => ({
+					questionId,
+					answer,
+				})),
 			});
 		},
 		{
 			onSuccess: (submission) => {
-				console.log(
-					"Test submitted successfully, redirecting...",
-					submission
-				);
-				queryClient.invalidateQueries("tests");
-				queryClient.invalidateQueries("testResults"); // Invalidate test results cache as well
-				navigate(`/results/${(submission as any).id || (submission as any)._id}`);
+				localStorage.removeItem(`test_draft_${id}`);
+				queryClient.invalidateQueries("testResults");
+				navigate(`/results/${(submission as { id?: string; _id?: string }).id || (submission as { id?: string; _id?: string })._id}`);
 			},
 			onError: (error) => {
-				console.error("Failed to submit test:", error);
-				// Provide user feedback on submission failure
-				alert(
-					`Submission failed: ${
-						error instanceof Error
-							? error.message
-							: "An unknown error occurred."
-					}`
-				);
+				toast.error(`Submission failed: ${error instanceof Error ? error.message : "Error"}`);
 			},
 		}
 	);
 
-	// Proctoring Logic
 	const handleStartTest = async () => {
 		try {
-			// 1. Request Webcam
 			const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
 			streamRef.current = stream;
-			if (videoRef.current) {
-				videoRef.current.srcObject = stream;
-			}
-			setProctoringActive(true);
-
-			// 2. Request Fullscreen
+			if (videoRef.current) videoRef.current.srcObject = stream;
+			
 			const elem = document.documentElement;
 			if (elem.requestFullscreen && !document.fullscreenElement) {
-				await elem.requestFullscreen().catch(e => console.log("Fullscreen request denied", e));
+				await elem.requestFullscreen();
 			}
-
 			setHasStarted(true);
+			toast.success("Assessment Started", { icon: '🚀' });
 		} catch (err) {
-			console.error("Proctoring failed to start:", err);
-			alert("Proctoring Error: Please ensure you grant webcam permissions. Access is required to start.");
+			toast.error("Cam access required to start proctored exam");
 		}
 	};
 
-	// Proctoring Event Listeners
-	useEffect(() => {
-		if (isLoading || !test || !hasStarted) return;
-
-		// 3. Tab switching & window blur tracking
-		const handleVisibilityChange = () => {
-			if (document.hidden) {
-				handleViolation();
-			}
-		};
-
-		const handleBlur = () => {
-			handleViolation();
-		};
-		
-		document.addEventListener("visibilitychange", handleVisibilityChange);
-		window.addEventListener("blur", handleBlur);
-
-		return () => {
-			document.removeEventListener("visibilitychange", handleVisibilityChange);
-			window.removeEventListener("blur", handleBlur);
-		};
-	}, [isLoading, test, hasStarted]);
-
-	useEffect(() => {
-		return () => {
-			if (streamRef.current) {
-				streamRef.current.getTracks().forEach(track => track.stop());
-			}
-			if (document.fullscreenElement) {
-				document.exitFullscreen().catch(e => console.log(e));
-			}
-		};
-	}, []);
-
 	const handleViolation = () => {
 		const now = Date.now();
-		if (now - lastViolationRef.current < 2000) return; // Debounce 2s to prevent dual blur/visibility triggers
+		if (now - lastViolationRef.current < 2000) return;
 		lastViolationRef.current = now;
 
 		setWarnings(prev => {
 			const current = prev + 1;
 			if (current >= 3) {
-				setViolationMessage("SECURITY VIOLATION: You have exceeded the maximum number of warnings. Your test is being automatically submitted.");
-				// Force submit
-				if (test && user) {
-					submitTestMutation.mutate({
-						testId: test.id,
-						answers: answersRef.current,
-					});
-				}
+				toast.error("MAX WARNINGS EXCEEDED: Auto-submitting assessment for security violations.");
+				handleSubmit();
 			} else {
-				setViolationMessage(`PROCTORING WARNING (${current}/3): Please stay on this page. Leaving the tab or window will cause the test to auto-submit.`);
+				toast.error(`PROCTORING WARNING (${current}/3): Window focus lost!`, { duration: 4000 });
 			}
 			return current;
 		});
 	};
 
-	if (isLoading || !test) {
-		return (
-			<div className="flex items-center justify-center min-h-screen">
-				<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-			</div>
-		);
-	}
+	useEffect(() => {
+		if (!hasStarted) return;
+		const handleVisibilityChange = () => document.hidden && handleViolation();
+		const handleBlur = () => handleViolation();
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		window.addEventListener("blur", handleBlur);
+		return () => {
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+			window.removeEventListener("blur", handleBlur);
+		};
+	}, [hasStarted]);
 
-	if (!hasStarted) {
-		return (
-			<div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-8 text-center pt-24">
-				<div className="max-w-2xl w-full">
-					<h2 className="text-4xl font-bold mb-4 text-gray-900">{test.title}</h2>
-					<p className="text-lg text-gray-600 mb-10">{test.description}</p>
-					
-					<div className="bg-white rounded-2xl shadow-xl p-8 border-t-4 border-indigo-600 mb-8 mx-auto">
-						<h3 className="text-2xl font-semibold mb-6 text-indigo-900 flex items-center justify-center gap-2">
-							<svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-							Before You Begin
-						</h3>
-						
-						<ul className="text-left space-y-4 mb-8 text-gray-700 bg-gray-50 p-6 rounded-xl">
-							<li className="flex items-start">
-								<svg className="w-5 h-5 text-indigo-500 mr-3 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-								<span><strong>Webcam Required:</strong> You must grant webcam access for AI proctoring tracking.</span>
-							</li>
-							<li className="flex items-start">
-								<svg className="w-5 h-5 text-indigo-500 mr-3 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-								<span><strong>Fullscreen Mode:</strong> The assessment will automatically open in fullscreen.</span>
-							</li>
-							<li className="flex items-start">
-								<svg className="w-5 h-5 text-indigo-500 mr-3 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-								<span><strong>No Tab Switching:</strong> Switching tabs or minimizing the window is prohibited. Doing so 3 times will result in immediate termination and auto-submission.</span>
-							</li>
-						</ul>
-						
-						<button 
-							onClick={handleStartTest}
-							className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 text-lg"
-						>
-							Grant Permissions & Start
-						</button>
-					</div>
-				</div>
-			</div>
-		);
-	}
+	useEffect(() => {
+		return () => {
+			if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+			if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+		};
+	}, []);
 
-	console.log("Test data received:", test);
-
-	const currentQuestion = test.questions[currentQuestionIndex];
-
-	const handleAnswerChange = (questionId: string, answer: string) => {
-		setAnswers((prev) => ({
-			...prev,
-			[questionId]: answer,
-		}));
-	};
-
-	const handleNext = () => {
-		if (currentQuestionIndex < test.questions.length - 1) {
-			setCurrentQuestionIndex((prev) => prev + 1);
-		} else {
-			setShowConfirmation(true);
-		}
-	};
-
-	const handlePrevious = () => {
-		if (currentQuestionIndex > 0) {
-			setCurrentQuestionIndex((prev) => prev - 1);
+	const handleGetHint = async () => {
+		const q = test?.questions[currentQuestionIndex];
+		if (!q) return;
+		setIsGeneratingHint(true);
+		try {
+			const res = await chatApi.getTestHint(q.content, q.type);
+			setHint(res.hint);
+		} catch (e) {
+			toast.error("AI Hint currently unavailable");
+		} finally {
+			setIsGeneratingHint(false);
 		}
 	};
 
 	const handleSubmit = () => {
-		console.log("Checking user object before submission validation:", user);
-		// Check for user and required fields
-		if (!user || !user.id || !user.email) {
-			console.error(
-				"User not authenticated or missing required info",
-				user
-			);
-			alert(
-				"Missing required user information. Please make sure you are properly logged in. If the issue persists, try logging out and back in."
-			);
-			return;
-		}
-
-		// Validate that all questions have been answered
-		const unansweredQuestions = test.questions.filter(
-			(question) => !answers[question.id]
-		);
-
-		if (unansweredQuestions.length > 0) {
-			alert(
-				`Please answer all questions before submitting. You have ${unansweredQuestions.length} unanswered questions.`
-			);
-			return;
-		}
-
-		console.log("Submitting answers:", {
-			testId: test.id,
-			answers: Object.entries(answers).map(([questionId, answer]) => {
-				const question = test.questions.find(
-					(q) => q.id === questionId
-				);
-				return {
-					questionId,
-					answer,
-					questionType: question?.type,
-					questionContent: question?.content,
-				};
-			}),
-		});
-
-		submitTestMutation.mutate({
-			testId: test.id,
-			answers,
-		});
+		if (!test || !user) return;
+		submitTestMutation.mutate({ testId: test.id, answers: answersRef.current });
 	};
 
-	const renderQuestion = (question: Question) => {
-		if (!question) return null;
-
-		console.log("Attempting to render question:", question);
-
-		// Use dedicated question components for better separation of concerns
-		switch (question.type) {
-			case "mcq":
-				console.log("Attempting to render MCQ question");
-				if (isMCQQuestion(question)) {
-					console.log("MCQ type guard passed");
-					// Additional check for expected properties
-					if (!question.options || question.options.length === 0) {
-						console.error(
-							"Error: MCQ question is missing options.",
-							question
-						);
-						return <p>Error: MCQ question is missing options.</p>;
-					}
-
-					// Handle both index-based and string-based answers for backwards compatibility
-					let answerIndex: number | undefined;
-					const storedAnswer = answers[question.id];
-					if (storedAnswer !== undefined) {
-						// Try parsing as index first
-						const parsedIndex = parseInt(storedAnswer);
-						if (
-							!isNaN(parsedIndex) &&
-							parsedIndex >= 0 &&
-							parsedIndex < question.options.length
-						) {
-							answerIndex = parsedIndex;
-						} else {
-							// If not a valid index, find the index of the option string
-							answerIndex = question.options.findIndex(
-								(option) => option === storedAnswer
-							);
-							if (answerIndex === -1) {
-								answerIndex = undefined;
-							}
-						}
-					}
-
-					return (
-						<MCQQuestionComponent
-							question={question}
-							answer={answerIndex}
-							onChange={(value: number) =>
-								handleAnswerChange(
-									question.id,
-									value.toString()
-								)
-							}
-						/>
-					);
-				} else {
-					console.error(
-						"Type guard failed for MCQ question:",
-						question
-					);
-					return (
-						<p>
-							Error: MCQ question type string matched, but type
-							guard failed.
-						</p>
-					);
-				}
-
-			case "subjective":
-				console.log("Attempting to render Subjective question");
-				if (isSubjectiveQuestion(question)) {
-					console.log("Subjective type guard passed");
-					// Additional check for expected properties (subjective questions currently have no required unique properties beyond BaseQuestion)
-					// If maxLength was strictly required, we would add a check here.
-					// if (question.maxLength === undefined) {
-					//    console.error('Error: Subjective question is missing maxLength.', question);
-					//    return <p>Error: Subjective question is missing maxLength.</p>;
-					// }
-					return (
-						<SubjectiveQuestionComponent
-							question={question}
-							answer={answers[question.id] || ""}
-							onChange={(value: string) =>
-								handleAnswerChange(question.id, value)
-							}
-						/>
-					);
-				} else {
-					console.error(
-						"Type guard failed for Subjective question:",
-						question
-					);
-					return (
-						<p>
-							Error: Subjective question type string matched, but
-							type guard failed.
-						</p>
-					);
-				}
-
-			case "coding":
-				console.log("Attempting to render Coding question");
-				if (isCodingQuestion(question)) {
-					console.log("Coding type guard passed");
-					// Additional check for expected properties
-					if (!question.starterCode) {
-						console.error(
-							"Error: Coding question is missing starter code.",
-							question
-						);
-						return (
-							<p>
-								Error: Coding question is missing starter code.
-							</p>
-						);
-					}
-					if (
-						!question.testCases ||
-						question.testCases.length === 0
-					) {
-						console.error(
-							"Error: Coding question is missing test cases.",
-							question
-						);
-						return (
-							<p>Error: Coding question is missing test cases.</p>
-						);
-					}
-					return (
-						<CodingQuestionComponent
-							question={question}
-							answer={
-								answers[question.id] || question.starterCode
-							}
-							onChange={(value: string) =>
-								handleAnswerChange(question.id, value)
-							}
-						/>
-					);
-				} else {
-					console.error(
-						"Type guard failed for Coding question:",
-						question
-					);
-					return (
-						<p>
-							Error: Coding question type string matched, but type
-							guard failed.
-						</p>
-					);
-				}
-
-			default:
-				// This case handles types not covered by the specific cases
-				console.error("Unsupported question type received:", question);
-				// We are casting to any here just to safely access the type for the error message
-				return (
-					<p>
-						Unsupported question type received:{" "}
-						{(question as any).type}
-					</p>
-				);
-		}
-
-		// This fallback should ideally not be reached if the default case handles all unknown types
-		// and the type guard failure cases within the switch return explicitly.
-		console.error(
-			"Reached final fallback in renderQuestion. This should not happen with current logic.",
-			question
-		);
-		return <p>Error: Unexpected error in renderQuestion.</p>;
+	const formatTime = (seconds: number) => {
+		const mins = Math.floor(seconds / 60);
+		const secs = seconds % 60;
+		return `${mins}:${secs.toString().padStart(2, '0')}`;
 	};
+
+	if (isLoading || !test) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-indigo-500"></div></div>;
+
+	if (!hasStarted) {
+		return (
+			<div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+				<div className="glass-card max-w-2xl w-full p-8 relative overflow-hidden">
+					<div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-3xl rounded-full -mr-32 -mt-32"></div>
+					<div className="relative z-10 text-center">
+						<h2 className="text-3xl font-bold text-white mb-2">{test.title}</h2>
+						<p className="text-gray-400 mb-8">{test.description}</p>
+						
+						<div className="grid grid-cols-2 gap-4 mb-8">
+							<div className="bg-white/5 border border-white/10 rounded-xl p-4">
+								<Clock className="w-6 h-6 text-indigo-400 mx-auto mb-2" />
+								<div className="text-xl font-bold text-white">{test.duration}m</div>
+								<div className="text-[10px] text-gray-500 uppercase tracking-widest">Duration</div>
+							</div>
+							<div className="bg-white/5 border border-white/10 rounded-xl p-4">
+								<Layout className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
+								<div className="text-xl font-bold text-white">{test.questions.length}</div>
+								<div className="text-[10px] text-gray-500 uppercase tracking-widest">Questions</div>
+							</div>
+						</div>
+
+						<div className="text-left bg-black/30 rounded-xl p-6 border border-white/10 space-y-4 mb-8">
+							<h3 className="text-lg font-bold text-indigo-300 flex items-center gap-2">
+								<AlertTriangle className="w-5 h-5" /> Requirements
+							</h3>
+							<ul className="space-y-3 text-sm text-gray-400">
+								<li className="flex items-center gap-3">
+									<Camera className="w-4 h-4 text-emerald-500" /> Webcam monitored via AI proctoring.
+								</li>
+								<li className="flex items-center gap-3">
+									<Maximize2 className="w-4 h-4 text-emerald-500" /> Fullscreen mode strictly enforced.
+								</li>
+								<li className="flex items-center gap-3">
+									<XCircle className="w-4 h-4 text-red-500" /> Tab switching will trigger auto-submission.
+								</li>
+							</ul>
+						</div>
+
+						<button 
+							onClick={handleStartTest}
+							className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl text-lg font-bold tracking-wider transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-indigo-500/50"
+						>
+							INITIALIZE ASSESSMENT
+						</button>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	const currentQuestion = test.questions[currentQuestionIndex];
 
 	return (
-		<div className="max-w-3xl mx-auto relative pt-12 pb-24">
-			{/* Proctoring HUD */}
-			{proctoringActive && (
-				<div className="fixed bottom-4 right-4 z-50 glass-card p-2 flex flex-col items-center gap-2 border-emerald-500/30">
-					<div className="text-[10px] text-emerald-400 font-medium uppercase tracking-widest flex items-center gap-2">
-						<span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-						Proctoring Active
+		<div className="fixed inset-0 bg-[#0f172a] text-gray-200 flex flex-col pt-16">
+			{/* Top Bar */}
+			<div className="h-16 border-b border-white/10 px-6 flex items-center justify-between bg-white/[0.02] backdrop-blur-md z-20">
+				<div className="flex items-center gap-4">
+					<div className="text-lg font-bold text-white flex items-center gap-2">
+						<Layout className="w-5 h-5 text-indigo-400" />
+						{test.title}
 					</div>
-					<video 
-						ref={videoRef} 
-						autoPlay 
-						muted 
-						playsInline
-						className="w-48 h-32 object-cover rounded shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-black"
-					/>
-					{warnings > 0 && (
-						<div className="text-xs text-red-400 font-bold">
-							Warnings: {warnings}/3
-						</div>
-					)}
+					<div className="h-4 w-px bg-white/10"></div>
+					<div className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${timeLeft && timeLeft < 300 ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-white/5 border-white/10 text-emerald-400'}`}>
+						<Clock className={`w-4 h-4 ${timeLeft && timeLeft < 300 ? 'animate-pulse' : ''}`} />
+						<span className="font-mono font-bold text-sm">
+							{timeLeft !== null ? formatTime(timeLeft) : "--:--"}
+						</span>
+					</div>
 				</div>
-			)}
-			
-			<div className="bg-white shadow sm:rounded-lg">
-				<div className="px-4 py-5 sm:p-6">
-					<div className="flex justify-between items-center mb-4">
-						<h3 className="text-lg font-medium text-gray-900">
-							Question {currentQuestionIndex + 1} of{" "}
-							{test.questions.length}
-						</h3>
-						<button
-							onClick={() => navigate("/")}
-							className="text-sm text-gray-500 hover:text-gray-700"
-						>
-							Exit Test
-						</button>
-					</div>
-					<div className="mt-4">
-						{/* Render the current question */}
-						{(() => {
-							try {
-								return renderQuestion(currentQuestion);
-							} catch (error) {
-								console.error(
-									"Error rendering question component:",
-									error,
-									currentQuestion
-								);
+
+				<div className="flex items-center gap-3">
+					<button 
+						onClick={() => setShowConfirmation(true)}
+						className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-bold transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)]"
+					>
+						<Send className="w-4 h-4" /> Final Submit
+					</button>
+				</div>
+			</div>
+
+			<div className="flex-grow flex overflow-hidden">
+				{/* left Sidebar: Navigator & Proctor */}
+				<div className="w-80 border-r border-white/10 flex flex-col bg-black/20 overflow-y-auto custom-scrollbar">
+					<div className="p-6">
+						<h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-4">Question Navigator</h3>
+						<div className="grid grid-cols-5 gap-2">
+							{test.questions.map((q, idx) => {
+								const isAnswered = answers[q.id];
+								const isCurrent = idx === currentQuestionIndex;
 								return (
-									<p>
-										Error rendering question: An unexpected
-										error occurred.
-									</p>
+									<button
+										key={q.id}
+										onClick={() => {
+											setCurrentQuestionIndex(idx);
+											setHint(null);
+										}}
+										className={`aspect-square rounded-lg flex items-center justify-center text-xs font-bold border transition-all ${
+											isCurrent ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]' :
+											isAnswered ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' :
+											'bg-white/5 border-white/10 text-gray-500 hover:border-white/30'
+										}`}
+									>
+										{idx + 1}
+									</button>
 								);
-							}
-						})()}
+							})}
+						</div>
 					</div>
-					<div className="mt-6 flex justify-between">
-						<button
-							onClick={handlePrevious}
-							disabled={currentQuestionIndex === 0}
-							className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+
+					<div className="mt-auto p-4 border-t border-white/10">
+						<div className="glass-card !bg-black/40 border-indigo-500/30 p-4 relative overflow-hidden group">
+							<div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-50"></div>
+							<div className="flex items-center justify-between mb-3">
+								<div className="text-[10px] font-bold text-indigo-400 tracking-widest flex items-center gap-2">
+									<div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+									PROCTOR FEED
+								</div>
+								{warnings > 0 && (
+									<div className="text-[10px] font-bold text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded border border-red-500/30">
+										{warnings}/3 WARNINGS
+									</div>
+								)}
+							</div>
+							<video 
+								ref={videoRef} 
+								autoPlay 
+								muted 
+								playsInline
+								className="w-full aspect-video object-cover rounded shadow-inner grayscale group-hover:grayscale-0 transition-all duration-700"
+							/>
+						</div>
+					</div>
+				</div>
+
+				{/* Center Area: Question & Answer */}
+				<div className="flex-grow flex flex-col relative overflow-hidden">
+					<div className="flex-grow p-8 overflow-y-auto custom-scrollbar">
+						<div className="max-w-4xl mx-auto space-y-8">
+							<div className="space-y-4">
+								<div className="flex items-center gap-3">
+									<span className="px-3 py-1 rounded bg-indigo-500/10 text-indigo-400 text-xs font-bold font-mono border border-indigo-500/20 uppercase">
+										{currentQuestion.type}
+									</span>
+									<span className="text-gray-500 text-xs font-mono">
+										Points: {currentQuestion.points || 1}
+									</span>
+								</div>
+								<h1 className="text-2xl font-bold text-white leading-relaxed">
+									{currentQuestion.content}
+								</h1>
+							</div>
+
+							<div className="glass-card !bg-white/[0.03] border border-white/5 p-8">
+								{/* Render Content */}
+								{currentQuestion.type === 'mcq' && isMCQQuestion(currentQuestion) && (
+									<MCQQuestionComponent
+										question={currentQuestion}
+										answer={answers[currentQuestion.id] ? parseInt(answers[currentQuestion.id]) : undefined}
+										onChange={(val) => setAnswers(prev => ({ ...prev, [currentQuestion.id]: val.toString() }))}
+									/>
+								)}
+								{currentQuestion.type === 'subjective' && isSubjectiveQuestion(currentQuestion) && (
+									<SubjectiveQuestionComponent
+										question={currentQuestion}
+										answer={answers[currentQuestion.id] || ""}
+										onChange={(val) => setAnswers(prev => ({ ...prev, [currentQuestion.id]: val }))}
+									/>
+								)}
+								{currentQuestion.type === 'coding' && isCodingQuestion(currentQuestion) && (
+									<CodingQuestionComponent
+										question={currentQuestion}
+										answer={answers[currentQuestion.id] || currentQuestion.starterCode}
+										onChange={(val) => setAnswers(prev => ({ ...prev, [currentQuestion.id]: val }))}
+									/>
+								)}
+							</div>
+
+							{hint && (
+								<div className="p-6 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl animate-in slide-in-from-bottom-4 flex gap-4">
+									<Sparkles className="w-6 h-6 text-indigo-400 flex-shrink-0" />
+									<div className="space-y-1">
+										<p className="text-xs font-bold text-indigo-300 uppercase tracking-widest">AI Assistance Hint</p>
+										<p className="text-sm text-indigo-100">{hint}</p>
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+
+					{/* Navigation Bar */}
+					<div className="h-20 border-t border-white/10 px-8 flex items-center justify-between bg-black/20">
+						<div className="flex gap-4">
+							<button 
+								onClick={() => {
+									setCurrentQuestionIndex(prev => Math.max(0, prev - 1));
+									setHint(null);
+								}}
+								disabled={currentQuestionIndex === 0}
+								className="flex items-center gap-2 px-6 py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-all disabled:opacity-30"
+							>
+								<ChevronLeft className="w-4 h-4" /> Previous
+							</button>
+							<button 
+								onClick={() => {
+									if (currentQuestionIndex < test.questions.length - 1) {
+										setCurrentQuestionIndex(prev => prev + 1);
+										setHint(null);
+									} else {
+										setShowConfirmation(true);
+									}
+								}}
+								className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white hover:border-indigo-500/50 transition-all font-bold group"
+							>
+								{currentQuestionIndex === test.questions.length - 1 ? 'Review' : 'Save & Next'}
+								<ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+							</button>
+						</div>
+
+						<button 
+							onClick={handleGetHint}
+							disabled={isGeneratingHint || hint !== null}
+							className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-tr from-purple-500/20 to-indigo-500/20 border border-indigo-500/30 text-indigo-300 hover:text-indigo-100 transition-all disabled:opacity-50"
 						>
-							Previous
-						</button>
-						<button
-							onClick={handleNext}
-							className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-						>
-							{currentQuestionIndex === test.questions.length - 1
-								? "Review"
-								: "Next"}
+							{isGeneratingHint ? <div className="animate-spin text-lg">⏳</div> : <Sparkles className="w-4 h-4" />}
+							{hint ? "Hint Applied" : "Request AI Hint"}
 						</button>
 					</div>
 				</div>
 			</div>
 
+			{/* Confirmation Modal */}
 			{showConfirmation && (
-				<div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
-					<div className="bg-white rounded-lg px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-						<div className="sm:flex sm:items-start">
-							<div className="mt-3 text-center sm:mt-0 sm:text-left">
-								<h3 className="text-lg font-medium text-gray-900">
-									Submit Test
-								</h3>
-								<div className="mt-2">
-									<p className="text-sm text-gray-500">
-										Are you sure you want to submit your
-										test? You cannot change your answers
-										after submission.
-									</p>
-								</div>
-							</div>
+				<div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+					<div className="glass-card max-w-md w-full p-8 text-center border-indigo-500/30">
+						<div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-400">
+							<Send className="w-8 h-8" />
 						</div>
-						<div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-							<button
-								type="button"
-								className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-								onClick={handleSubmit}
-							>
-								Submit
-							</button>
-							<button
-								type="button"
-								className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm"
+						<h3 className="text-2xl font-bold text-white mb-2">Ready to Submit?</h3>
+						<p className="text-gray-400 mb-8 text-sm">You have answered {Object.keys(answers).length} of {test.questions.length} questions. Once submitted, you cannot modify your responses.</p>
+						<div className="flex gap-4">
+							<button 
 								onClick={() => setShowConfirmation(false)}
+								className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 font-bold hover:bg-white/5 transition-all"
 							>
-								Cancel
+								Return to Test
+							</button>
+							<button 
+								onClick={handleSubmit}
+								className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-all shadow-lg"
+							>
+								Finish & Submit
 							</button>
 						</div>
 					</div>
 				</div>
 			)}
-
-			{violationMessage && (
-				<div className="fixed inset-0 bg-red-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-					<div className="bg-gray-900 border border-red-500 rounded-lg p-6 max-w-md w-full text-center shadow-[0_0_30px_rgba(239,68,68,0.3)]">
-						<div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/50">
-							<svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-							</svg>
-						</div>
-						<h3 className="text-xl font-bold text-white mb-2">Proctoring Alert</h3>
-						<p className="text-red-200 mb-6">{violationMessage}</p>
-						<button 
-							onClick={() => setViolationMessage(null)}
-							className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium w-full transition-colors"
-						>
-							I Understand
-						</button>
-					</div>
-				</div>
-			)}
+			
+			<style>{`
+				.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+				.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+				.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+				.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.2); }
+			`}</style>
 		</div>
 	);
 };

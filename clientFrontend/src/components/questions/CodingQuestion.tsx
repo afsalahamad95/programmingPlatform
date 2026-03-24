@@ -1,14 +1,7 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import Editor from "@monaco-editor/react";
 import axios, { AxiosError } from "axios";
 import { CodingQuestion as CodingQuestionType } from "../../types";
-
-interface TestCase {
-	input: string;
-	output: string;
-	hidden?: boolean;
-	description?: string;
-}
 
 interface CodingQuestionProps {
 	question: CodingQuestionType;
@@ -28,9 +21,9 @@ export default function CodingQuestion({
 			input: string;
 			expectedOutput: string;
 			actualOutput: string;
-			rawResponse?: any;
-			requestPayload?: any;
-			statusCheckResponse?: any; // Add the status check response here
+			rawResponse?: unknown;
+			requestPayload?: unknown;
+			statusCheckResponse?: unknown;
 		}[]
 	>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -106,7 +99,7 @@ export default function CodingQuestion({
 
 						// Determine if the test passed (if test_cases are present)
 						const passed = testCases.every(
-							(test: any) => test.passed
+							(test: { passed: boolean }) => test.passed
 						);
 
 						// If there was no validation or test_cases, return an error status
@@ -224,7 +217,7 @@ export default function CodingQuestion({
 						defaultLanguage="javascript"
 						theme="vs-light"
 						value={answer || question.starterCode}
-						onChange={(value) => onChange(value || "")}
+						onChange={(value: string | undefined) => onChange(value || "")}
 						options={{
 							minimap: { enabled: false },
 							fontSize: 14,
@@ -308,7 +301,7 @@ export default function CodingQuestion({
 										</span>
 										<pre className="mt-1 text-xs text-gray-600 whitespace-pre-wrap overflow-x-auto">
 											{JSON.stringify(
-												result.rawResponse,
+												result.rawResponse as any,
 												null,
 												2
 											)}
@@ -316,14 +309,14 @@ export default function CodingQuestion({
 									</div>
 
 									{/* Show Status Check Response */}
-									{result.statusCheckResponse && (
+									{!!result.statusCheckResponse && (
 										<div>
 											<span className="text-sm font-medium text-gray-700">
 												Status Check Response:
 											</span>
 											<pre className="mt-1 text-xs text-gray-600 whitespace-pre-wrap overflow-x-auto">
 												{JSON.stringify(
-													result.statusCheckResponse,
+													result.statusCheckResponse as any,
 													null,
 													2
 												)}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getChallenges } from "../api";
-import { CodingChallenge } from "../types";
+import { Challenge } from "../types";
 
 type ChallengeListProps = {
 	filter?: {
@@ -11,7 +11,7 @@ type ChallengeListProps = {
 };
 
 const ChallengeList: React.FC<ChallengeListProps> = ({ filter }) => {
-	const [challenges, setChallenges] = useState<CodingChallenge[]>([]);
+	const [challenges, setChallenges] = useState<Challenge[]>([]);
 	const [loading, setLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -104,7 +104,7 @@ const ChallengeList: React.FC<ChallengeListProps> = ({ filter }) => {
 									</div>
 									<div className="mt-2 flex items-center text-sm text-gray-400 sm:mt-0">
 										<p>
-											Time Limit: {challenge.timeLimit}{" "}
+											Time Limit: {challenge.timeLimit || 0}{" "}
 											minutes
 										</p>
 									</div>

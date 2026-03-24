@@ -10,6 +10,8 @@ interface User {
 	institution?: string; // Make institution optional
 	department?: string; // Make department optional
 	studentId: string;
+	targetRole?: string;
+	preferences?: string[];
 	exp?: number; // JWT expiration timestamp
 	iat?: number; // JWT issued at timestamp
 }
@@ -50,13 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			// Decode the token
 			const decoded = jwtDecode<User>(token);
 
-			// Check if token is expired
-			if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-				localStorage.removeItem("token");
-				setUser(null);
-				setError("Token expired");
-				return;
-			}
+			// We no longer automatically log out the user on the frontend if the token is expired to enforce session persistence.
+			// The token might still be rejected by the backend, but the user will visually remain logged in.
+			// if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+			// 	localStorage.removeItem("token");
+			// 	setUser(null);
+			// 	setError("Token expired");
+			// 	return;
+			// }
 
 			// Map userId to id for consistency if backend sends userId
 			const userWithId: User = {
