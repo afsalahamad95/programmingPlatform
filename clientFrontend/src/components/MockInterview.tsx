@@ -1,13 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   Bot, Video, Mic, MicOff, VideoOff, Play, Square, MessageSquare, 
-  Activity, User, X, CheckCircle
+  Activity, User, X, CheckCircle, Target, AlertTriangle, Award
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { chatApi, ChatMessage } from '../api/chatApi';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 // Type definitions for Web Speech API
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+interface ParsedFeedback {
+  chartData: { subject: string; score: number; fullMark: number }[];
+  strengths: string[];
+  weaknesses: string[];
+  verdict: string;
+}
 
 const MockInterview = () => {
   const [isStarted, setIsStarted] = useState(false);
@@ -18,7 +26,8 @@ const MockInterview = () => {
   const [showChat, setShowChat] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  
+  const [parsedFeedback, setParsedFeedback] = useState<ParsedFeedback | null>(null);
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -178,7 +187,7 @@ const MockInterview = () => {
   const handleStart = async () => {
     setIsStarted(true);
     setIsFinished(false);
-    setFeedback(null);
+    setParsedFeedback(null);
     toast.success("Interview Started!");
     
     const initMsg: ChatMessage = { 
@@ -193,7 +202,7 @@ const MockInterview = () => {
     setIsRecording(false);
     if (recognitionRef.current) recognitionRef.current.stop();
     
-    toast.success("Interview Ended. Analyzing your performance...");
+    toast.success("Interview Ended. Synthesizing performance report...");
     setIsFinished(true);
     setIsTyping(true);
     
@@ -202,18 +211,62 @@ const MockInterview = () => {
       ...messages,
       { 
         role: "user", 
-        content: "The interview is now over. Based on my answers, please provide a comprehensive performance review. Highlight my strengths, note any weaknesses, and suggest specific areas for improvement. Format the output with clear headings." 
+        content: `The interview is now over. Please evaluate my performance across the entire conversation context strictly based on my answers. You MUST return ONLY a valid JSON object matching this exact structure:
+{
+  "scores": {
+    "Communication": 85,
+    "Problem Solving": 70,
+    "System Design": 60,
+    "Best Practices": 80
+  },
+  "strengths": ["list of 2-3 specific strengths"],
+  "weaknesses": ["list of 2-3 specific areas for improvement"],
+  "verdict": "A short, 1-2 sentence overall verdict."
+}
+Return ONLY the raw JSON format.` 
       }
     ];
 
     try {
-      const response = await chatApi.sendMessage(evalRequest, "You are a senior technical recruiter evaluating a candidate post-interview.");
-      setFeedback(response.answer);
+      const response = await chatApi.sendMessage(evalRequest, "You are a senior technical evaluator. Output strictly JSON. Do not include markdown formatting like ```json or any other text.");
+      let jsonStr = response.answer;
+      
+      // Strip markdown code blocks if the LLM stubbornly returns them
+      if (jsonStr.startsWith("\`\`\`json")) {
+         jsonStr = jsonStr.replace(/\`\`\`json/g, "").replace(/\`\`\`/g, "").trim();
+      } else if (jsonStr.startsWith("\`\`\`")) {
+         jsonStr = jsonStr.replace(/\`\`\`/g, "").trim();
+      }
+      
+      const data = JSON.parse(jsonStr);
+      
+      const chartData = Object.keys(data.scores || {}).map(key => ({
+        subject: key,
+        score: parseInt(data.scores[key]) || 0,
+        fullMark: 100
+      }));
+      
+      setParsedFeedback({
+        chartData,
+        strengths: data.strengths || [],
+        weaknesses: data.weaknesses || [],
+        verdict: data.verdict || "Evaluation complete."
+      });
     } catch (err) {
-      console.warn("LLM Chat API failed, falling back to mock feedback. Backend might be down.", err);
-      // Fallback if backend is down
+      console.warn("LLM Eval failed, using mock JSON fallback.", err);
+      // Fallback if backend is down or JSON parsing fundamentally fails
       setTimeout(() => {
-        setFeedback("### Interview Performance Review\\n\\n**Strengths:**\\nYou communicated your ideas clearly and demonstrated a solid understanding of fundamental software engineering principles.\\n\\n**Areas for Improvement:**\\nTry to dive deeper into the technical trade-offs of the solutions you propose. You can also improve by formulating responses using the STAR format (Situation, Task, Action, Result) to make your examples highly structured.\\n\\n**Verdict:**\\nGood effort! Keep practicing your system design explanations.");
+        setParsedFeedback({
+          chartData: [
+            { subject: "Communication", score: 85, fullMark: 100 },
+            { subject: "Problem Solving", score: 70, fullMark: 100 },
+            { subject: "System Design", score: 60, fullMark: 100 },
+            { subject: "Best Practices", score: 80, fullMark: 100 }
+          ],
+          strengths: ["Clear communication of ideas", "Good understanding of fundamentals"],
+          weaknesses: ["Needs to dive deeper into technical trade-offs", "Could structure answers using STAR method better"],
+          verdict: "Good effort! Keep practicing your foundational system design explanations."
+        });
       }, 2000);
     } finally {
       setIsTyping(false);
@@ -298,26 +351,91 @@ const MockInterview = () => {
       </div>
 
       {isFinished ? (
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 animate-slide-up shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <CheckCircle className="w-64 h-64 text-emerald-500" />
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 lg:p-10 animate-slide-up shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+            <CheckCircle className="w-96 h-96 text-indigo-500" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-            <Activity className="w-8 h-8 text-emerald-400" />
-            Interview Performance Review
+          
+          <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3 relative z-10">
+            <Activity className="w-8 h-8 text-indigo-400" />
+            Interview Intelligence Report
           </h2>
           
-          <div className="prose prose-invert prose-indigo max-w-none relative z-10 space-y-4">
-             {isTyping && !feedback ? (
-               <div className="flex items-center gap-3 text-indigo-400 animate-pulse text-lg">
-                 <Bot className="w-6 h-6 animate-spin" /> Gathering feedback insights...
+          {isTyping && !parsedFeedback ? (
+            <div className="flex flex-col items-center justify-center py-20 relative z-10">
+               <Bot className="w-16 h-16 text-indigo-400 animate-bounce mb-6" />
+               <div className="text-xl text-indigo-300 font-medium animate-pulse">Synthesizing performance parameters...</div>
+               <div className="mt-6 flex gap-3">
+                 <div className="w-3 h-3 bg-indigo-500 rounded-full animate-ping" style={{ animationDelay: '0ms' }}></div>
+                 <div className="w-3 h-3 bg-purple-500 rounded-full animate-ping" style={{ animationDelay: '200ms' }}></div>
+                 <div className="w-3 h-3 bg-pink-500 rounded-full animate-ping" style={{ animationDelay: '400ms' }}></div>
                </div>
-             ) : (
-               <div className="bg-black/20 p-6 rounded-xl border border-white/5 whitespace-pre-wrap leading-relaxed text-gray-300">
-                  {feedback?.replace(/\\n/g, '\n')}
-               </div>
-             )}
-          </div>
+            </div>
+          ) : parsedFeedback ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
+              
+              {/* Left Column: Spider Graph */}
+              <div className="bg-black/40 border border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[400px] shadow-inner">
+                <h3 className="text-lg font-bold tracking-widest uppercase text-white mb-4 self-start flex items-center gap-2">
+                  <Target className="w-5 h-5 text-indigo-400" /> Vector Analysis
+                </h3>
+                <ResponsiveContainer width="100%" height={350}>
+                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={parsedFeedback.chartData}>
+                    <PolarGrid stroke="#4f46e5" strokeOpacity={0.3} />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#d1d5db', fontSize: 13, fontWeight: 600 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name="Score"
+                      dataKey="score"
+                      stroke="#818cf8"
+                      strokeWidth={3}
+                      fill="#6366f1"
+                      fillOpacity={0.4}
+                      activeDot={{ r: 6, fill: '#fff', stroke: '#4f46e5' }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Right Column: Feedback Details */}
+              <div className="space-y-6 flex flex-col justify-center">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 shadow-[0_0_30px_rgba(16,185,129,0.05)] hover:bg-emerald-500/20 transition-colors">
+                  <h3 className="text-emerald-400 font-bold mb-4 flex items-center gap-2 text-lg">
+                    <CheckCircle className="w-6 h-6" /> Key Strengths
+                  </h3>
+                  <ul className="space-y-3">
+                    {parsedFeedback.strengths.map((str, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-emerald-50 font-medium">
+                        <span className="text-emerald-500 mt-1">✓</span> {str}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6 shadow-[0_0_30px_rgba(245,158,11,0.05)] hover:bg-amber-500/20 transition-colors">
+                  <h3 className="text-amber-400 font-bold mb-4 flex items-center gap-2 text-lg">
+                    <AlertTriangle className="w-6 h-6" /> Areas for Improvement
+                  </h3>
+                  <ul className="space-y-3">
+                    {parsedFeedback.weaknesses.map((weak, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-amber-50 font-medium">
+                        <span className="text-amber-500 mt-1">⚡</span> {weak}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-indigo-500/10 border-l-4 border-indigo-500 rounded-r-2xl p-6">
+                  <h3 className="text-indigo-300 font-bold mb-2 flex items-center gap-2 text-sm uppercase tracking-widest">
+                    <Award className="w-4 h-4" /> Final Verdict
+                  </h3>
+                  <p className="text-white font-semibold text-lg leading-relaxed">
+                    "{parsedFeedback.verdict}"
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
