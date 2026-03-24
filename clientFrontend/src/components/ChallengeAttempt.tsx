@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getChallenge, submitChallengeAttempt, checkChallengeAttempt } from "../api";
+import { getChallenge, submitChallengeAttempt } from "../api";
 import { Challenge, ValidationResult } from "../types";
 import CodeEditor from "./CodeEditor";
 import ChallengeTimer from "./ChallengeTimer";
@@ -40,7 +40,6 @@ const ChallengeAttempt: React.FC = () => {
 	const [showingResult, setShowingResult] = useState<boolean>(false);
 	const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
 	const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
-	const [checking, setChecking] = useState<boolean>(false);
 	const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 	const [hasPassedCheck, setHasPassedCheck] = useState<boolean>(false);
 
@@ -106,32 +105,6 @@ const ChallengeAttempt: React.FC = () => {
 		setTimeSpent(time);
 	};
 
-	const handleCheck = useCallback(async () => {
-		try {
-			if (!challenge || !id) return;
-			setChecking(true);
-			setError(null);
-			setShowingResult(false);
-			
-			const result = await checkChallengeAttempt(id, code);
-			if (result && result.result) {
-				setValidationResult(result.result);
-				setShowingResult(true);
-				if (result.result.passed) {
-					setHasPassedCheck(true);
-					setShowDebugInfo(false);
-				} else {
-					setHasPassedCheck(false);
-					setShowDebugInfo(true);
-				}
-			}
-		} catch (err: any) {
-			console.error("Failed to check code:", err);
-			setError(`Failed to check code: ${err.message || "Unknown error"}`);
-		} finally {
-			setChecking(false);
-		}
-	}, [challenge, id, code]);
 
 	const handleStartChallenge = async () => {
 		try {
@@ -270,7 +243,7 @@ const ChallengeAttempt: React.FC = () => {
 					) {
 						console.group("Test Case Details:");
 						result.result.testCases.forEach(
-							(tc: any, idx: number) => {
+							(tc: { passed: boolean; input: string; expectedOutput?: string; actualOutput?: string }, idx: number) => {
 								console.group(`Test Case ${idx + 1}:`);
 								console.log("Passed:", tc.passed);
 								console.log("Input:", tc.input);
@@ -372,7 +345,6 @@ const ChallengeAttempt: React.FC = () => {
 	// Cleanup timer when user navigates away without submitting
 	const cleanupTimer = useCallback(() => {
 		if (id && !isSubmitted && !isTimeExpired) {
-			const timerKey = `challenge_timer_${id}`;
 			// We'll keep the timer data in localStorage when navigating away
 			// so users can come back and continue where they left off
 		}
@@ -386,7 +358,7 @@ const ChallengeAttempt: React.FC = () => {
 	}, [cleanupTimer]);
 
 	// Render the debug view for a test case
-	const renderDebugView = (result: any, index: number) => {
+	const renderDebugView = (result: any) => {
 		if (!showDebugInfo) return null;
 
 		const normalizedExpected = normalizeOutput(result.expectedOutput || "");
@@ -559,9 +531,9 @@ const ChallengeAttempt: React.FC = () => {
 					<div className="flex space-x-2 items-center">
 						<span
 							className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${
-								challenge.difficulty === "Easy"
+								challenge.difficulty === "easy"
 									? "bg-green-100 text-green-800"
-									: challenge.difficulty === "Medium"
+									: challenge.difficulty === "medium"
 									? "bg-yellow-100 text-yellow-800"
 									: "bg-red-100 text-red-800"
 							}`}
@@ -577,7 +549,7 @@ const ChallengeAttempt: React.FC = () => {
 				{/* Timer */}
 				<div className="mb-4">
 					<ChallengeTimer
-						timeLimit={challenge.timeLimit}
+						timeLimit={challenge.timeLimit || 0}
 						onTimeExpired={handleTimeExpired}
 						onTimeUpdate={handleTimeUpdate}
 						challengeId={id || "unknown"}
@@ -602,8 +574,7 @@ const ChallengeAttempt: React.FC = () => {
 						Example Test Cases
 					</h2>
 					<div className="space-y-3">
-						{challenge.testCases
-							.filter((tc) => !tc.hidden)
+						{challenge.testCases?.filter((tc) => !tc.hidden)
 							.map((testCase, index) => (
 								<div
 									key={index}
@@ -626,7 +597,7 @@ const ChallengeAttempt: React.FC = () => {
 												Expected Output:
 											</p>
 											<pre className="mt-1 text-sm text-gray-800 bg-gray-100 p-2 rounded">
-												{testCase.expectedOutput}
+												{formatCodeOutput(testCase.output || "")}
 											</pre>
 										</div>
 									</div>
@@ -652,10 +623,10 @@ const ChallengeAttempt: React.FC = () => {
 					)}
 				</h2>
 				<CodeEditor
-					code={code}
-					language={challenge.language}
+					code={code || ""}
+					language={challenge.language || "javascript"}
 					onChange={handleCodeChange}
-					readOnly={isTimeExpired || isSubmitted || submitting || checking}
+					readOnly={isTimeExpired || isSubmitted || submitting}
 				/>
 				<div className="mt-4 flex justify-end">
 					{submitting ? (
@@ -695,23 +666,10 @@ const ChallengeAttempt: React.FC = () => {
 							<button
 								onClick={handleSubmit}
 								disabled={
-									checking || submitting || isTimeExpired || isSubmitted
-								}
-								className={`px-6 py-2 rounded-md font-medium border border-indigo-600 ${
-									checking || submitting || isTimeExpired || isSubmitted
-										? "opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-300"
-										: "text-indigo-600 hover:bg-indigo-50 bg-white"
-								}`}
-							>
-								{checking ? "Checking..." : "Check Code"}
-							</button>
-							<button
-								onClick={handleSubmit}
-								disabled={
-									submitting || checking || isTimeExpired || isSubmitted
+									submitting || isTimeExpired || isSubmitted
 								}
 								className={`px-6 py-2 rounded-md text-white font-medium ${
-									submitting || checking || isTimeExpired || isSubmitted
+									submitting || isTimeExpired || isSubmitted
 										? "bg-gray-400 cursor-not-allowed"
 										: "bg-indigo-600 hover:bg-indigo-700"
 								}`}
@@ -892,7 +850,7 @@ const ChallengeAttempt: React.FC = () => {
 									)}
 
 									{!result.passed &&
-										renderDebugView(result, index)}
+										renderDebugView(result)}
 								</div>
 							))
 						) : (
@@ -934,14 +892,14 @@ const ChallengeAttempt: React.FC = () => {
 											const newTimerData = {
 												startTime: Date.now(),
 												timeLimitInSeconds:
-													challenge.timeLimit * 60,
-											};
-											localStorage.setItem(
-												timerKey,
-												JSON.stringify(newTimerData)
-											);
-										}
-										setCode(challenge.starterCode);
+												(challenge?.timeLimit || 0) * 60,
+										};
+										localStorage.setItem(
+											timerKey,
+											JSON.stringify(newTimerData)
+										);
+									}
+									setCode(challenge?.starterCode || "");
 									}
 								}}
 								className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"

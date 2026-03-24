@@ -8,7 +8,10 @@ import {
 	getScheduledTests,
 	getConnectionStatus,
 	onConnectionStatusChange,
+	getRecommendedTests,
 } from "../api";
+import { Sparkles, BrainCircuit, Target, ArrowRight } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function TestList() {
 	const navigate = useNavigate();
@@ -42,10 +45,16 @@ export default function TestList() {
 		retry: 3,
 		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
 		refetchOnWindowFocus: true,
-		refetchInterval: 30000, // Refetch every 30 seconds
+		refetchInterval: 30000,
 	});
 
-	const isLoading = isLoadingActive || isLoadingScheduled;
+	const { data: recommendedTest, isLoading: isLoadingRecommended } = useQuery(
+		"recommendedTests",
+		getRecommendedTests,
+		{ staleTime: 10 * 60 * 1000 } // Recommendations can be stale longer
+	);
+
+	const isLoading = isLoadingActive || isLoadingScheduled || isLoadingRecommended;
 	const error = activeError || scheduledError;
 
 	// Ensure we have arrays of tests
@@ -122,6 +131,41 @@ export default function TestList() {
 					</div>
 				</div>
 			</div>
+
+			{/* Recommended Section */}
+			{recommendedTest && (
+				<div className="p-6 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border-b border-white/10">
+					<div className="flex items-center gap-2 mb-4">
+						<div className="p-1 px-2 rounded-md bg-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 border border-indigo-500/30">
+							<Sparkles className="w-3 h-3" /> Personalized for You
+						</div>
+					</div>
+					<div 
+						onClick={() => navigate(`/tests/${recommendedTest.id}`)}
+						className="glass-card !bg-white/5 border border-indigo-500/20 p-5 hover:border-indigo-500/50 transition-all cursor-pointer group relative overflow-hidden"
+					>
+						<div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-all"></div>
+						<div className="flex justify-between items-center relative z-10">
+							<div className="space-y-1">
+								<h3 className="text-xl font-bold text-white group-hover:text-indigo-300 transition-colors flex items-center gap-2">
+									{recommendedTest.title}
+									<Target className="w-5 h-5 text-indigo-400 opacity-50" />
+								</h3>
+								<p className="text-sm text-gray-400 max-w-xl">
+									{recommendedTest.description}
+								</p>
+								<div className="flex gap-4 mt-3 text-xs font-medium text-gray-500">
+									<span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {recommendedTest.duration} mins</span>
+									<span className="flex items-center gap-1"><BrainCircuit className="w-3.5 h-3.5" /> {recommendedTest.questions?.length || 0} Questions</span>
+								</div>
+							</div>
+							<div className="p-3 rounded-full bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-lg">
+								<ArrowRight className="w-6 h-6" />
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{!tests.length ? (
 				<div className="p-12 text-center">

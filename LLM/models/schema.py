@@ -62,3 +62,15 @@ class CareerResponse(BaseModel):
     """Response body for resume and roadmap generation."""
     answer: str
     metadata: Optional[dict] = None
+
+class HintRequest(BaseModel):
+    """Request body for generating a hint for a specific question."""
+    question_content: str
+    question_type: str
+    student_id: Optional[str] = None
+    previous_answers: Optional[str] = None
+
+class HintResponse(BaseModel):
+    """Response body for the hint endpoint."""
+    hint: str
+    explanation: Optional[str] = None

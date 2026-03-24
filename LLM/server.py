@@ -32,6 +32,8 @@ from models.schema import (
     RoadmapRequest,
     CareerResponse,
     RoadmapFromResultRequest,
+    HintRequest,
+    HintResponse,
 )
 import httpx
 from contextlib import asynccontextmanager
@@ -492,4 +494,35 @@ async def auto_schedule_test(req: AutoScheduleRequest):
         return AutoScheduleResponse(**data)
     except Exception as e:
         logger.error(f"Auto-schedule generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/llm/test-hint", response_model=HintResponse, tags=["test-assistance"])
+async def generate_test_hint(req: HintRequest):
+    """Generate a helpful, non-spoiling hint for a test question."""
+    if not _groq_client:
+        raise HTTPException(status_code=500, detail="Groq not configured")
+
+    prompt = (
+        f"You are an AI Teaching Assistant for a programming platform. "
+        f"A student is stuck on a {req.question_type} question and needs a hint. "
+        f"CRITICAL: Do NOT provide the direct answer. Provide a conceptual hint that points them in the right direction.\n\n"
+        f"Question Content:\n{req.question_content}\n\n"
+        f"Requirements:\n"
+        f"1. Keep the hint concise (1-2 sentences).\n"
+        f"2. Focus on the core logic or syntax needed.\n"
+        f"3. Do not reveal the correct option if it is an MCQ.\n"
+        f"4. If it is a coding question, suggest a logical step or a relevant function/method name."
+    )
+
+    try:
+        completion = _groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=256,
+        )
+        hint_text = completion.choices[0].message.content or "Try breaking the problem into smaller steps."
+        return HintResponse(hint=hint_text)
+    except Exception as e:
+        logger.error(f"Hint generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

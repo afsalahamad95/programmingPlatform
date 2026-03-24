@@ -110,10 +110,10 @@ api.interceptors.response.use(
 
 		// Handle authentication errors
 		if (error.response.status === 401) {
-			localStorage.removeItem("token");
-			window.location.href = "/login";
+			// Session persistence enabled: we do not automatically log the user out or redirect to login.
+			// The specific request will fail, but the session state remains intact.
 			return Promise.reject(
-				new Error("Session expired - please login again")
+				new Error("Unauthorized request - please ensure your session is valid or login again manually")
 			);
 		}
 
@@ -229,8 +229,8 @@ export const deleteUser = async (id: string): Promise<void> => {
 };
 
 // Challenge endpoints
-export const getChallenges = async (): Promise<Challenge[]> => {
-	const response = await api.get("/challenges");
+export const getChallenges = async (filter?: any): Promise<Challenge[]> => {
+	const response = await api.get("/challenges", { params: filter });
 	return response.data;
 };
 
@@ -293,7 +293,15 @@ export const submitChallengeAttempt = async (
 	challengeId: string,
 	submission: any
 ): Promise<any> => {
-	const response = await api.post(`/challenges/${challengeId}/submit`, submission);
+	const response = await api.post(
+		`/challenges/${challengeId}/submit`,
+		submission
+	);
+	return response.data;
+};
+
+export const getRecommendedTests = async (): Promise<any> => {
+	const response = await api.get("/recommended-tests");
 	return response.data;
 };
 

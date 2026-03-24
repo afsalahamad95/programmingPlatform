@@ -5,8 +5,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
 	plugins: [react()],
 	optimizeDeps: {
-		exclude: ["lucide-react"],
-		include: ["@monaco-editor/react"],
+		include: ["@monaco-editor/react", "lucide-react"],
 	},
 	build: {
 		chunkSizeWarningLimit: 2000, // Monaco editor is large
@@ -19,7 +18,7 @@ export default defineConfig({
 		},
 	},
 	server: {
-		port: 5173,
+		port: 5175,
 		fs: {
 			// Allow serving files from node_modules for Monaco editor
 			allow: [".."],

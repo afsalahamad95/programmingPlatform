@@ -1,7 +1,5 @@
-import React from "react";
 import { QueryClient, QueryClientProvider } from "react-query";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import { UNSAFE_NavigationContext as NavigationContext } from "react-router-dom";
 import TestAttempt from "./components/TestAttempt";
 import TestList from "./components/TestList";
 import ChallengesPage from "./components/ChallengesPage";
@@ -16,6 +14,8 @@ import TestResult from "./components/TestResult";
 import ChatBot from "./components/ChatBot";
 import RoadmapGenerator from "./components/RoadmapGenerator";
 import ResumeGenerator from "./components/ResumeGenerator";
+import Profile from "./components/Profile";
+import MockInterview from "./components/MockInterview";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -73,6 +73,18 @@ function Navigation() {
 									className="border-transparent text-emerald-300 hover:text-emerald-100 hover:border-emerald-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
 								>
 									AI Resume
+								</Link>
+								<Link
+									to="/mock-interview"
+									className="border-transparent text-pink-300 hover:text-pink-100 hover:border-pink-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+								>
+									AI Interview
+								</Link>
+								<Link
+									to="/profile"
+									className="border-transparent text-purple-300 hover:text-purple-100 hover:border-purple-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+								>
+									Profile
 								</Link>
 							</div>
 						)}
@@ -162,6 +174,22 @@ function App() {
 									element={
 										<ProtectedRoute>
 											<ResumeGenerator />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/profile"
+									element={
+										<ProtectedRoute>
+											<Profile />
+										</ProtectedRoute>
+									}
+								/>
+								<Route
+									path="/mock-interview"
+									element={
+										<ProtectedRoute>
+											<MockInterview />
 										</ProtectedRoute>
 									}
 								/>

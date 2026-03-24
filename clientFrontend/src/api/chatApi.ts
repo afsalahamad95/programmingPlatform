@@ -97,17 +97,31 @@ export const chatApi = {
     return res.json();
   },
 
-  /** Generate a tailored resume based on student's profile */
-  async generateResume(studentId: string): Promise<{ answer: string }> {
-    const res = await fetch(`${LLM_BASE}/resume`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ student_id: studentId }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Unknown error" }));
-      throw new Error(err.detail ?? "Resume generation failed");
-    }
-    return res.json();
-  },
+	/** Generate a tailored resume based on student's profile */
+	async generateResume(studentId: string): Promise<{ answer: string }> {
+		const res = await fetch(`${LLM_BASE}/resume`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ student_id: studentId }),
+		});
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+			throw new Error(err.detail ?? "Resume generation failed");
+		}
+		return res.json();
+	},
+
+	/** Generate a hint for a specific question */
+	async getTestHint(questionContent: string, questionType: string): Promise<{ hint: string }> {
+		const res = await fetch(`${LLM_BASE}/test-hint`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ question_content: questionContent, question_type: questionType }),
+		});
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+			throw new Error(err.detail ?? "Hint generation failed");
+		}
+		return res.json();
+	},
 };

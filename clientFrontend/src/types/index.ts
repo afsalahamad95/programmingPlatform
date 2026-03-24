@@ -26,6 +26,7 @@ export interface MCQQuestion extends BaseQuestion {
 export interface SubjectiveQuestion extends BaseQuestion {
 	type: "subjective";
 	maxLength: number;
+	expectedWordCount?: number;
 }
 
 export interface CodingQuestion extends BaseQuestion {
@@ -40,7 +41,9 @@ export interface Student {
 	id: string;
 	fullName: string;
 	email: string;
-	department: string;
+	department?: string;
+	targetRole: string;
+	preferences: string[];
 }
 
 export interface Test {
@@ -90,6 +93,8 @@ export interface Challenge {
 	points: number;
 	starterCode?: string;
 	language?: string;
+	timeLimit?: number;
+	testCases?: TestCase[];
 	endTime?: Date;
 	createdAt: Date;
 	updatedAt: Date;
