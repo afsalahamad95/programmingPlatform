@@ -16,7 +16,11 @@ const validateStudentData = [
 ];
 
 router.get('/:id', studentController.getStudent);
+router.get('/:id/recommendations', studentController.getRecommendations);
+router.get('/:id/insights', studentController.getInsights);
+router.get('/:id/milestones', studentController.getMilestones);
 router.post('/', validateStudentData, studentController.createStudent);
+router.post('/:id/activity', studentController.trackActivity);
 router.put('/:id', validateStudentData, studentController.updateStudent);
 router.delete('/:id', studentController.deleteStudent);
 

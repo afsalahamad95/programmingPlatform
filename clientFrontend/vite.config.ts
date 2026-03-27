@@ -24,11 +24,16 @@ export default defineConfig({
 			allow: [".."],
 		},
 		proxy: {
+			"/api/students": {
+				target: "http://localhost:8080",
+				changeOrigin: true,
+				secure: false,
+			},
 			"/api": {
 				target: "http://localhost:3000",
 				changeOrigin: true,
 				secure: false,
-				ws: true, // Enable WebSocket proxying
+				ws: true,
 				configure: (proxy, _options) => {
 					proxy.on("error", (err, _req, _res) => {
 						console.log("proxy error", err);

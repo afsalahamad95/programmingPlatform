@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Editor from "@monaco-editor/react";
 import axios, { AxiosError } from "axios";
+import { Bot, Sparkles, Lightbulb } from "lucide-react";
 import { CodingQuestion as CodingQuestionType } from "../../types";
 
 interface CodingQuestionProps {
@@ -28,6 +29,8 @@ export default function CodingQuestion({
 	>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [selectedLanguage, setSelectedLanguage] = useState<number>(63); // Default: JavaScript
+	const [mentorHint, setMentorHint] = useState<string | null>(null);
+	const [isHintLoading, setIsHintLoading] = useState(false);
 
 	const languages = [
 		{ id: 63, name: "JavaScript" },
@@ -179,6 +182,28 @@ export default function CodingQuestion({
 			setIsLoading(false);
 		}
 	};
+    
+    const getMentorHint = async () => {
+        try {
+            setIsHintLoading(true);
+            setMentorHint(null);
+            
+            // Call the LLM backend for a contextual hint
+            const response = await axios.post("http://localhost:5175/llm/test-hint", {
+                question_content: question.content,
+                question_type: "coding",
+                // Pass current code to help LLM give SPECIFIC feedback
+                previous_answers: answer || question.starterCode
+            });
+            
+            setMentorHint(response.data.hint);
+        } catch (error) {
+            console.error("Failed to get mentor hint:", error);
+            setMentorHint("I'm having trouble analyzing your code right now. Try double-checking your logic around the main loop!");
+        } finally {
+            setIsHintLoading(false);
+        }
+    };
 
 	return (
 		<div className="space-y-4">
@@ -228,14 +253,53 @@ export default function CodingQuestion({
 					/>
 				</div>
 
-				{/* Test Code Button */}
-				<button
-					onClick={testCode}
-					className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-					disabled={isLoading}
-				>
-					{isLoading ? "Running..." : "Test Code"}
-				</button>
+				{/* Action Buttons */}
+				<div className="flex gap-3">
+                    <button
+                        onClick={testCode}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-lg shadow-indigo-500/20"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Running Tests..." : "Run Test Cases"}
+                    </button>
+                    
+                    <button
+                        onClick={getMentorHint}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 font-bold rounded-xl hover:bg-emerald-600/20 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                        disabled={isHintLoading}
+                    >
+                        <Sparkles className={`w-4 h-4 ${isHintLoading ? 'animate-spin' : ''}`} />
+                        {isHintLoading ? "Analyzing..." : "Ask AI Mentor"}
+                    </button>
+                </div>
+
+                {/* AI Mentor Hint Panel */}
+                {mentorHint && (
+                    <div className="bg-gradient-to-br from-gray-900 to-black border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden animate-slide-up shadow-2xl">
+                        <div className="absolute top-0 right-0 p-4 opacity-5">
+                            <Bot className="w-24 h-24 text-emerald-500" />
+                        </div>
+                        <div className="flex items-start gap-4 relative z-10">
+                            <div className="p-3 bg-emerald-500/20 rounded-xl">
+                                <Lightbulb className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="text-emerald-400 font-bold uppercase tracking-widest text-xs mb-2 flex items-center gap-2">
+                                    AI Mentor Insight <Sparkles className="w-3 h-3" />
+                                </h4>
+                                <p className="text-gray-200 leading-relaxed text-sm italic">
+                                    "{mentorHint}"
+                                </p>
+                                <button 
+                                    onClick={() => setMentorHint(null)}
+                                    className="mt-4 text-[10px] uppercase font-bold text-gray-500 hover:text-white transition-colors"
+                                >
+                                    Dismiss Insight
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
 				{/* Test Results */}
 				{testResults.length > 0 && (

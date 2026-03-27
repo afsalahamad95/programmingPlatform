@@ -302,6 +302,7 @@ def chat(req: ChatRequest):
             max_tokens=1024,
         )
         answer = completion.choices[0].message.content or ""
+        return ChatResponse(answer=answer, sources=sources)
     except Exception as exc:
         logger.error("Groq API error: %s", exc)
         raise HTTPException(

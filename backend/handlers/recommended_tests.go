@@ -8,44 +8,30 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // GetRecommendedTests dynamically fetches questions matching the current user's role and preferences
 // and packages them as a pseudo-test or recommended practice set.
 func GetRecommendedTests(c *fiber.Ctx) error {
-	// 1. Get current user
-	token := c.Cookies("session_token")
-	if token == "" {
-		token = c.Cookies("auth_token") // Also check auth_token from OAuth/JWT login
-	}
-	
-	// If no token but authorization header exists
-	if token == "" {
-		authHeader := c.Get("Authorization")
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			token = authHeader[7:]
-		}
+	// 1. Get current user ID from AuthMiddleware locals
+	userIDStr := c.Locals("userId")
+	if userIDStr == nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "User not authenticated"})
 	}
 
-	if token == "" {
-		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Not authenticated"})
+	userID, err := primitive.ObjectIDFromHex(userIDStr.(string))
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Invalid user ID"})
 	}
 
-	// We'll decode the token or fetch session to find user ID
-	// For simplicity, we just find the user via token in sessions or decode it
-	// Since we are likely in AuthMiddleware, we might already have the user info
-	// But let's fetch it safely.
-	var user presenter.User
-	var session presenter.Session
-	err := db.SessionsCollection.FindOne(context.Background(), bson.M{"token": token}).Decode(&session)
-	if err == nil {
-		err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": session.UserID}).Decode(&user)
-	} else {
-		// Try parsing as JWT if session not found (for oauth flow)
-		// We can just rely on AuthMiddleware having placed claims in Locals if we configured it
-		// But let's do a direct DB lookup for the first user if testing, or just use a default role.
-		// Actually, let's just make it simpler: fetch the user by email from the JWT claims.
+	var user presenter.AuthUser
+	err = db.UsersCollection.FindOne(context.Background(), bson.M{"_id": userID}).Decode(&user)
+	if err != nil {
+		// Fallback role if user not found (shouldn't happen with valid token)
+		user.TargetRole = "fullstack"
+		user.Preferences = []string{}
 	}
 
 	// If we still don't have a user, default to fullstack

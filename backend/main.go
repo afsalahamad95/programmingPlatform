@@ -173,7 +173,9 @@ func main() {
 	protectedApi := api.Group("/protected")
 	protectedApi.Use(handlers.AuthMiddleware())
 	protectedApi.Get("/user", handlers.GetCurrentUser)
-	protectedApi.Get("/recommended-tests", handlers.GetRecommendedTests)
+
+	// Recommendation routes
+	api.Get("/recommended-tests", handlers.AuthMiddleware(), handlers.GetRecommendedTests)
 
 	// Admin routes - requires authentication and admin role
 	adminApi := api.Group("/admin-protected")

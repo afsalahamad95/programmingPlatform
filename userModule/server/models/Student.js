@@ -46,6 +46,24 @@ const studentSchema = new mongoose.Schema(
         credentialUrl: String,
       },
     ],
+    activityLog: [
+      {
+        action: { type: String, required: true },
+        timestamp: { type: Date, default: Date.now },
+        metadata: mongoose.Schema.Types.Mixed,
+      },
+    ],
+    preferences: {
+      theme: { type: String, default: "dark" },
+      learningGoals: [String],
+      difficultyPreference: { type: String, enum: ["Easy", "Medium", "Hard"], default: "Medium" },
+    },
+    analytics: {
+      totalTimeSpent: { type: Number, default: 0 },
+      skillProgression: { type: Map, of: Number, default: {} },
+      dailyStreak: { type: Number, default: 0 },
+      lastActive: Date,
+    },
   },
   {
     timestamps: true,
