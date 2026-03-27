@@ -74,3 +74,7 @@ class HintResponse(BaseModel):
     """Response body for the hint endpoint."""
     hint: str
     explanation: Optional[str] = None
+
+class TranscriptionResponse(BaseModel):
+    """Response body for the audio transcription endpoint."""
+    text: str

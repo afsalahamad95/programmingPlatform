@@ -7,6 +7,63 @@ import toast from 'react-hot-toast';
 import { chatApi, ChatMessage } from '../api/chatApi';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
+// --- Sub-component: Audio Visualizer ---
+const AudioVisualizer = ({ stream, isActive }: { stream: MediaStream | null; isActive: boolean }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>();
+
+  useEffect(() => {
+    if (!isActive || !stream || !canvasRef.current) {
+        if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        return;
+    }
+
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    const draw = () => {
+      if (!ctx) return;
+      animationRef.current = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * canvas.height;
+        ctx.fillStyle = `rgb(99, 102, 241, ${0.3 + (barHeight/canvas.height)})`;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+        x += barWidth + 1;
+      }
+    };
+
+    draw();
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      audioContext.close();
+    };
+  }, [isActive, stream]);
+
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className="w-full h-12 opacity-80" 
+      width={300} 
+      height={50}
+    />
+  );
+};
+
 // Type definitions for Web Speech API
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -36,6 +93,11 @@ const MockInterview = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
+  const [fillerCount, setFillerCount] = useState(0);
 
   const isRecordingRef = useRef(isRecording);
   const micEnabledRef = useRef(micEnabled);
@@ -117,35 +179,99 @@ const MockInterview = () => {
     };
   }, []);
 
-  // Handle Speech Recognition Toggle
-  const toggleSpeechRecognition = () => {
-    if (!SpeechRecognition) {
-      toast.error("Your browser doesn't support speech transcription (Try Chrome/Edge).");
-      return;
-    }
+  // Handle Speech Recognition Toggle (STT)
+  const toggleSpeechRecognition = async () => {
     if (!micEnabled) {
       toast.error("Please enable your microphone first.");
       return;
     }
-    
+
     if (isRecordingRef.current) {
-      isRecordingRef.current = false; // Synchronous update to avoid race condition with onend
+      // STOP RECORDING
+      isRecordingRef.current = false;
       setIsRecording(false);
       setInterimText('');
-      recognitionRef.current?.stop();
-      toast.success("Voice recording paused");
+      
+      // Stop Browser Recognition
+      if (recognitionRef.current) recognitionRef.current.stop();
+      
+      // Stop MediaRecorder (for backend Whisper)
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      
+      toast.success("Recording paused. Processing...");
     } else {
+      // START RECORDING
       isRecordingRef.current = true;
       setIsRecording(true);
+      
+      // Start Browser Recognition (for real-time interim display)
       try {
-        recognitionRef.current?.start();
-        toast.success("Recording started... Speak now.");
+        if (recognitionRef.current) recognitionRef.current.start();
       } catch (err) {
-        console.error("Could not start recognition", err);
-        // Fallback for double starts
-        recognitionRef.current?.stop();
+        console.warn("Speech API restart failed (usual behavior)", err);
       }
+
+      // Start MediaRecorder (for backend Whisper accuracy)
+      if (streamRef.current) {
+        audioChunksRef.current = [];
+        const mediaRecorder = new MediaRecorder(streamRef.current);
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) audioChunksRef.current.push(event.data);
+        };
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          if (audioBlob.size > 1000) { // Only send if significant
+            try {
+              const result = await chatApi.transcribe(audioBlob);
+              if (result.text && result.text.length > 2) {
+                // Count fillers in the new chunk
+                const fillers = (result.text.match(/\b(um|uh|ah|like|you know)\b/gi) || []).length;
+                setFillerCount(prev => prev + fillers);
+                
+                setInputText(prev => {
+                   const cleaned = result.text.trim();
+                   if (!prev) return cleaned;
+                   if (prev.toLowerCase().includes(cleaned.toLowerCase().substring(0, 10))) return prev; // Avoid dups
+                   return prev + " " + cleaned;
+                });
+              }
+            } catch (err) {
+              console.error("Backend transcription failed, relying on browser STT", err);
+            }
+          }
+        };
+        mediaRecorder.start();
+        mediaRecorderRef.current = mediaRecorder;
+      }
+      
+      toast.success("Recording started. Speak your mind.");
     }
+  };
+
+  // TTS Synthesis
+  const speak = (text: string) => {
+    if (!window.speechSynthesis) return;
+    
+    // Stop any current speaking
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Pick a good voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const premiumVoice = voices.find(v => v.name.includes('Google') || v.name.includes('Premium') || v.name.includes('Female'));
+    if (premiumVoice) utterance.voice = premiumVoice;
+    
+    utterance.pitch = 1.0;
+    utterance.rate = 1.0;
+    
+    utterance.onstart = () => setIsAISpeaking(true);
+    utterance.onend = () => setIsAISpeaking(false);
+    utterance.onerror = () => setIsAISpeaking(false);
+    
+    window.speechSynthesis.speak(utterance);
   };
 
   // Initialize camera if enabled
@@ -155,9 +281,10 @@ const MockInterview = () => {
       setCameraError(null);
       if (cameraEnabled && navigator.mediaDevices) {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: micEnabled });
+          const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          streamRef.current = s;
           if (videoRef.current) {
-            videoRef.current.srcObject = stream;
+            videoRef.current.srcObject = s;
           }
         } catch (err: any) {
           console.error("Camera access denied or unavailable", err);
@@ -170,11 +297,11 @@ const MockInterview = () => {
     startCamera();
     
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [cameraEnabled]); // Note: removing micEnabled to prevent camera flicker when toggling mic
+  }, [cameraEnabled]); 
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -188,13 +315,18 @@ const MockInterview = () => {
     setIsStarted(true);
     setIsFinished(false);
     setParsedFeedback(null);
+    setFillerCount(0);
     toast.success("Interview Started!");
     
+    const introduction = 'Hello! I am your AI Interviewer. I will be assessing your technical and behavioral skills today. To begin, could you briefly introduce yourself and highlight a recent project you are proud of?';
     const initMsg: ChatMessage = { 
       role: 'assistant', 
-      content: 'Hello! I am your AI Interviewer. I will be assessing your technical and behavioral skills today. To begin, could you briefly introduce yourself and highlight a recent project you are proud of?' 
+      content: introduction
     };
     setMessages([initMsg]);
+    
+    // Speak introduction
+    setTimeout(() => speak(introduction), 1000);
   };
 
   const handleEnd = async () => {
@@ -289,7 +421,11 @@ Return ONLY the raw JSON format.`
       const contextHint = `You are a strict, senior technical interviewer conducting a mock interview. \nCRITICAL RULES:\n1. If the candidate's answer is incorrect, overly vague, or fundamentally flawed, you MUST politely point out the error, explain why it's wrong, and ask them to clarify.\n2. Do NOT blindly accept wrong answers.\n3. Keep your responses concise and conversational (1-2 short paragraphs maximum).\n4. Always end your turn with exactly one follow-up technical or behavioral question based on their response.`;
       
       const response = await chatApi.sendMessage(updatedMessages, contextHint);
-      setMessages(prev => [...prev, { role: 'assistant', content: response.answer }]);
+      const answer = response.answer;
+      setMessages(prev => [...prev, { role: 'assistant', content: answer }]);
+      
+      // AI Speaks the answer
+      speak(answer);
     } catch (err) {
       console.warn("LLM API failed, using mock interviewer response", err);
       
@@ -304,6 +440,7 @@ Return ONLY the raw JSON format.`
       
       setTimeout(() => {
         setMessages(prev => [...prev, { role: 'assistant', content: randomFallback }]);
+        speak(randomFallback);
       }, 1500);
     } finally {
       setIsTyping(false);
@@ -475,14 +612,36 @@ Return ONLY the raw JSON format.`
               </div>
 
               {/* AI Portrait overlay (Bottom Right) */}
-              <div className={`absolute bottom-6 right-6 w-32 h-40 sm:w-48 sm:h-64 bg-gray-900 rounded-2xl border-2 transition-colors duration-500 overflow-hidden shadow-2xl flex flex-col items-center justify-center ${isTyping ? 'border-indigo-500' : 'border-white/10'}`}>
-                <Bot className={`w-12 h-12 ${isTyping ? 'text-indigo-400 animate-bounce' : isStarted ? 'text-indigo-300' : 'text-gray-600'}`} />
-                <div className="absolute bottom-2 left-0 right-0 text-center">
-                  <span className="text-xs font-bold text-white bg-black/50 px-2 py-1 rounded-md">
-                    {isTyping ? 'Thinking...' : 'AI Interviewer'}
+              <div className={`absolute bottom-6 right-6 w-32 h-40 sm:w-48 sm:h-64 bg-gray-900/80 backdrop-blur-xl rounded-2xl border-2 transition-all duration-500 overflow-hidden shadow-2xl flex flex-col items-center justify-center ${isTyping || isAISpeaking ? 'border-indigo-500 shadow-indigo-500/20' : 'border-white/10'}`}>
+                <div className={`absolute top-4 right-4 flex gap-1 ${isAISpeaking ? 'opacity-100' : 'opacity-0'}`}>
+                   {[1,2,3].map(i => (
+                     <div key={i} className={`w-1 h-3 bg-indigo-500 rounded-full animate-pulse`} style={{ animationDelay: `${i*150}ms` }} />
+                   ))}
+                </div>
+                <Bot className={`w-16 h-16 transition-all duration-500 ${isTyping ? 'text-indigo-400 animate-bounce' : isAISpeaking ? 'text-indigo-300 scale-110' : isStarted ? 'text-indigo-300/50' : 'text-gray-600'}`} />
+                <div className="mt-4 flex flex-col items-center">
+                  <span className="text-xs font-bold text-white bg-indigo-600/50 px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                    {isTyping ? 'Thinking...' : isAISpeaking ? 'Speaking...' : 'AI Interviewer'}
                   </span>
+                  {isAISpeaking && (
+                    <div className="mt-3 flex gap-1">
+                      <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
+                      <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping delay-75" />
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* User Voice Visualizer (Bottom Center) */}
+              {isRecording && (
+                <div className="absolute bottom-28 left-1/2 transform -translate-x-1/2 w-64 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 p-2 overflow-hidden animate-slide-up">
+                  <div className="flex items-center gap-2 mb-1 px-2">
+                    <Mic className="w-3 h-3 text-red-500 animate-pulse" />
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Live User Audio</span>
+                  </div>
+                  <AudioVisualizer stream={streamRef.current} isActive={isRecording} />
+                </div>
+              )}
 
               {/* Controls Bar */}
               <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-black/70 backdrop-blur-xl px-6 py-3 rounded-2xl border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
@@ -597,6 +756,20 @@ Return ONLY the raw JSON format.`
                 <div className="px-4 py-3 bg-indigo-500/10 border-t border-white/5 text-indigo-300 text-sm italic font-medium flex items-center gap-2">
                   <Mic className="w-4 h-4 animate-pulse" />
                   <span>{interimText}</span><span className="animate-pulse">|</span>
+                </div>
+              )}
+
+              {/* Performance Stats in Sidebar */}
+              {isStarted && (
+                <div className="px-4 py-2 bg-black/40 border-t border-white/5 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-3 h-3" />
+                    <span>Transcripts: {messages.length}</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${fillerCount > 5 ? 'text-amber-500' : ''}`}>
+                    <Activity className="w-3 h-3" />
+                    <span>Filler Words: {fillerCount}</span>
+                  </div>
                 </div>
               )}
               <form onSubmit={sendMessage} className="p-4 border-t border-white/10 bg-black/20">

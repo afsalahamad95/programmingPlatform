@@ -15,7 +15,7 @@ import logging
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 import chromadb
@@ -34,6 +34,7 @@ from models.schema import (
     RoadmapFromResultRequest,
     HintRequest,
     HintResponse,
+    TranscriptionResponse,
 )
 import httpx
 from contextlib import asynccontextmanager
@@ -526,3 +527,26 @@ async def generate_test_hint(req: HintRequest):
     except Exception as e:
         logger.error(f"Hint generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/llm/transcribe", response_model=TranscriptionResponse, tags=["audio"])
+async def transcribe_audio(file: UploadFile = File(...)):
+    """Transcribe audio using Groq Whisper-large-v3."""
+    if not _groq_client:
+        raise HTTPException(status_code=503, detail="Groq not configured")
+    
+    try:
+        # Read file into memory
+        contents = await file.read()
+        filename = file.filename or "audio.wav"
+        
+        # Call Groq Whisper API
+        # Groq expects a tuple (filename, file_body, content_type)
+        transcription = _groq_client.audio.transcriptions.create(
+            file=(filename, contents),
+            model="whisper-large-v3",
+            response_format="json",
+        )
+        return TranscriptionResponse(text=transcription.text)
+    except Exception as e:
+        logger.error(f"Transcription failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
