@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "react-query";
-import { getTest, submitTest } from "../api";
+import { getTest, submitTest, trackActivity } from "../api";
 import { chatApi } from "../api/chatApi";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -116,6 +116,13 @@ const TestAttempt: React.FC = () => {
 		{
 			onSuccess: (submission) => {
 				localStorage.removeItem(`test_draft_${id}`);
+				if (user?.id) {
+					trackActivity(user.id, "TEST_COMPLETED", {
+						testId: id,
+						score: (submission as any).score,
+						points: Math.floor((submission as any).score * 10), // Example points logic
+					}).catch(err => console.error("Failed to track activity:", err));
+				}
 				queryClient.invalidateQueries("testResults");
 				navigate(`/results/${(submission as { id?: string; _id?: string }).id || (submission as { id?: string; _id?: string })._id}`);
 			},

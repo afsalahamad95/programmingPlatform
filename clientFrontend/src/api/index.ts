@@ -331,3 +331,35 @@ export const getTestAttempt = async (
 	const response = await api.get(`/tests/attempts/${attemptId}`);
 	return response.data;
 };
+// Student Analytics & Activity (Node.js userModule)
+export const getStudentAnalytics = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}`);
+	return response.data;
+};
+
+export const trackActivity = async (
+	studentId: string,
+	action: string,
+	metadata: any = {}
+): Promise<any> => {
+	const response = await api.post(`/students/${studentId}/activity`, {
+		action,
+		metadata,
+	});
+	return response.data;
+};
+
+export const getStudentRecommendations = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/recommendations`);
+	return response.data;
+};
+
+export const getStudentInsights = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/insights`);
+	return response.data;
+};
+
+export const getStudentMilestones = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/milestones`);
+	return response.data;
+};

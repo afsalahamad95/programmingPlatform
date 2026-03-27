@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from "react-query";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import TestAttempt from "./components/TestAttempt";
-import TestList from "./components/TestList";
 import ChallengesPage from "./components/ChallengesPage";
 import ChallengeAttempt from "./components/ChallengeAttempt";
 import Login from "./components/Login";
@@ -16,6 +15,7 @@ import RoadmapGenerator from "./components/RoadmapGenerator";
 import ResumeGenerator from "./components/ResumeGenerator";
 import Profile from "./components/Profile";
 import MockInterview from "./components/MockInterview";
+import Dashboard from "./components/Dashboard";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -54,7 +54,7 @@ function Navigation() {
 									to="/"
 									className="border-purple-400 text-white inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
 								>
-									Tests
+									Dashboard
 								</Link>
 								<Link
 									to="/challenges"
@@ -123,7 +123,7 @@ function App() {
 									path="/"
 									element={
 										<ProtectedRoute>
-											<TestList />
+											<Dashboard />
 										</ProtectedRoute>
 									}
 								/>

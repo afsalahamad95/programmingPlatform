@@ -51,3 +51,22 @@ export const deleteStudent = async (req, res, next) => {
     next(error);
   }
 };
+
+export const trackActivity = async (req, res, next) => {
+  try {
+    const { action, metadata } = req.body;
+    const student = await studentService.trackActivity(req.params.id, action, metadata);
+    res.json(student);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getRecommendations = async (req, res, next) => {
+  try {
+    const recommendations = await studentService.getPersonalizedRecommendations(req.params.id);
+    res.json(recommendations);
+  } catch (error) {
+    next(error);
+  }
+};

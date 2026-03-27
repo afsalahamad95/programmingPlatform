@@ -245,6 +245,13 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
 	}
 
+	// Update LastLogin
+	db.UsersCollection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": user.ID},
+		bson.M{"$set": bson.M{"lastLogin": time.Now()}},
+	)
+
 	// Return the user data and token
 	return c.JSON(fiber.Map{
 		"token": token,
@@ -369,16 +376,19 @@ func Register(c *fiber.Ctx) error {
 	// Create new user
 	now := time.Now()
 	newUser := presenter.AuthUser{
-		ID:           primitive.NewObjectID(),
-		Email:        strings.ToLower(req.Email),
-		PasswordHash: hashedPassword,
-		FirstName:    req.FirstName,
-		LastName:     req.LastName,
-		Role:         "user", // Default role
-		TargetRole:   req.TargetRole,
-		Preferences:  req.Preferences,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:            primitive.NewObjectID(),
+		Email:         strings.ToLower(req.Email),
+		PasswordHash:  hashedPassword,
+		FirstName:     req.FirstName,
+		LastName:      req.LastName,
+		Role:          "user", // Default role
+		TargetRole:    req.TargetRole,
+		Preferences:   req.Preferences,
+		LearningGoals: req.LearningGoals,
+		Experience:    req.Experience,
+		LastLogin:     now,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	// Insert into database

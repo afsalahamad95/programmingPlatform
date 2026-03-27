@@ -12,7 +12,9 @@ interface User {
 	studentId: string;
 	targetRole?: string;
 	preferences?: string[];
-	exp?: number; // JWT expiration timestamp
+	learningGoals?: string[];
+	experience?: string;
+	exp?: number;
 	iat?: number; // JWT issued at timestamp
 }
 
@@ -28,6 +30,8 @@ interface AuthContextType {
 		lastName: string;
 		targetRole: string;
 		preferences: string[];
+		learningGoals: string[];
+		experience: string;
 	}) => Promise<void>;
 	logout: () => Promise<void>;
 	checkAuth: () => void;
@@ -115,6 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		lastName: string;
 		targetRole: string;
 		preferences: string[];
+		learningGoals: string[];
+		experience: string;
 	}) => {
 		try {
 			setLoading(true);

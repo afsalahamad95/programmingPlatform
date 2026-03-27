@@ -119,8 +119,14 @@ const ChatBot: React.FC = () => {
     setLoading(true);
 
     try {
-      // Strip sources before sending to avoid schema mismatch/payload bloat
-      const historyToSend = next.map(({ role, content }) => ({ role, content }));
+      // Inject user context to personalize the AI response
+      const contextPrefix = `[Context: User is a ${user?.targetRole || "developer"} interested in ${user?.preferences?.join(", ") || "software development"}. Experience: ${user?.experience || "N/A"}] `;
+      
+      const historyToSend = next.map(({ role, content }) => ({ 
+        role, 
+        content: role === "user" ? (content === next[next.length - 1].content ? contextPrefix + content : content) : content 
+      }));
+
       const res = await chatApi.sendMessage(historyToSend);
       setMessages((prev) => [
         ...prev,

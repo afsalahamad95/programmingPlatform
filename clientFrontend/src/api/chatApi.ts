@@ -124,4 +124,21 @@ export const chatApi = {
 		}
 		return res.json();
 	},
+
+  /** Transcribe audio blob using the backend Whisper engine */
+  async transcribe(audioBlob: Blob): Promise<{ text: string }> {
+    const formData = new FormData();
+    formData.append("file", audioBlob, "recording.webm");
+
+    const res = await fetch(`${LLM_BASE}/transcribe`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Transcription failed" }));
+      throw new Error(err.detail ?? "Transcription failed");
+    }
+    return res.json();
+  },
 };
