@@ -35,10 +35,21 @@ from models.schema import (
     HintRequest,
     HintResponse,
     TranscriptionResponse,
+    CodeAnalysisRequest,
+    CodeAnalysisResponse,
+    DebugRequest,
+    DebugResponse,
+    SkillUpdateRequest,
+    SkillUpdateResponse,
+    InterviewFeedbackRequest,
+    InterviewFeedbackResponse,
+    OrchestratorRequest,
+    OrchestratorResponse,
 )
 import httpx
 from contextlib import asynccontextmanager
 from automation import start_scheduler
+from orchestrator import Orchestrator
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 load_dotenv()
@@ -96,12 +107,14 @@ logger.info(
 
 # ── Groq client ───────────────────────────────────────────────────────────────
 _groq_client: Optional[Groq] = None
+_orchestrator: Optional[Orchestrator] = None
 if GROQ_API_KEY:
     _groq_client = Groq(api_key=GROQ_API_KEY)
-    logger.info("Groq client initialised with model '%s'", GROQ_MODEL)
+    _orchestrator = Orchestrator(groq_client=_groq_client, model=GROQ_MODEL)
+    logger.info("Groq client + Orchestrator initialised with model '%s'", GROQ_MODEL)
 else:
     logger.warning(
-        "GROQ_API_KEY not set — /llm/chat will return an error. "
+        "GROQ_API_KEY not set — /llm/chat and agent endpoints will return errors. "
         "/llm/ingest and /health still work."
     )
 
@@ -551,3 +564,145 @@ async def transcribe_audio(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Transcription failed: {e}")
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+
+
+# ── Agent Endpoints ───────────────────────────────────────────────────────────
+
+def _require_orchestrator():
+    if not _orchestrator:
+        raise HTTPException(status_code=503, detail="Groq / Orchestrator not configured. Set GROQ_API_KEY.")
+
+
+@app.post("/llm/analyze-code", response_model=CodeAnalysisResponse, tags=["agents"])
+async def analyze_code(req: CodeAnalysisRequest):
+    """Code Analyzer Agent — static analysis, bug detection, quality score, complexity."""
+    _require_orchestrator()
+    try:
+        result = _orchestrator.dispatch(
+            task="analyze_code",
+            payload={
+                "code": req.code,
+                "language": req.language,
+                "question": req.question,
+            },
+            student_id=req.student_id,
+        )
+        return CodeAnalysisResponse(**result["result"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("analyze-code failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/debug-assist", response_model=DebugResponse, tags=["agents"])
+async def debug_assist(req: DebugRequest):
+    """Debug Assistant Agent — root cause analysis + fix steps for runtime errors."""
+    _require_orchestrator()
+    try:
+        result = _orchestrator.dispatch(
+            task="debug",
+            payload={
+                "code": req.code,
+                "error_message": req.error_message,
+                "language": req.language,
+            },
+            student_id=req.student_id,
+        )
+        return DebugResponse(**result["result"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("debug-assist failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/skill-graph-update", response_model=SkillUpdateResponse, tags=["agents"])
+async def skill_graph_update(req: SkillUpdateRequest):
+    """Skill Graph Updater Agent — maps test scores to skill graph deltas.
+
+    After calling this endpoint, you should persist the updated_skills back
+    to the user module via POST /api/students/{id}/activity with skill metadata.
+    """
+    _require_orchestrator()
+    try:
+        result = _orchestrator.dispatch(
+            task="update_skills",
+            payload={
+                "student_id": req.student_id,
+                "test_title": req.test_title,
+                "score_pct": req.score_pct,
+                "subject_breakdown": req.subject_breakdown,
+                "languages_used": req.languages_used,
+            },
+            student_id=req.student_id,
+        )
+        skill_data = result["result"]
+
+        # Persist each updated skill back to the user module in the background
+        async def _persist_skills():
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    for skill, score in skill_data.get("updated_skills", {}).items():
+                        await client.post(
+                            f"http://localhost:3000/api/students/{req.student_id}/activity",
+                            json={
+                                "action": "SKILL_UPDATED",
+                                "metadata": {"skill": skill, "score": score},
+                            },
+                        )
+            except Exception as persist_err:
+                logger.warning("Failed to persist skill updates: %s", persist_err)
+
+        import asyncio
+        asyncio.create_task(_persist_skills())
+
+        return SkillUpdateResponse(**skill_data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("skill-graph-update failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/interview-feedback", response_model=InterviewFeedbackResponse, tags=["agents"])
+async def interview_feedback(req: InterviewFeedbackRequest):
+    """Interview Coach Agent — evaluates a completed mock interview transcript."""
+    _require_orchestrator()
+    try:
+        result = _orchestrator.dispatch(
+            task="interview_feedback",
+            payload={
+                "transcript": req.transcript,
+                "role": req.role,
+                "difficulty": req.difficulty,
+            },
+            student_id=req.student_id,
+        )
+        return InterviewFeedbackResponse(**result["result"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("interview-feedback failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/orchestrate", response_model=OrchestratorResponse, tags=["agents"])
+async def orchestrate(req: OrchestratorRequest):
+    """Generic orchestrator endpoint — dispatches any registered task by name.
+
+    Supported tasks: analyze_code, debug, update_skills, interview_feedback.
+    """
+    _require_orchestrator()
+    try:
+        result = _orchestrator.dispatch(
+            task=req.task,
+            payload=req.payload,
+            student_id=req.student_id,
+        )
+        return OrchestratorResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("orchestrate failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))

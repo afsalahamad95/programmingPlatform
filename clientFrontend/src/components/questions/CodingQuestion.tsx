@@ -3,6 +3,7 @@ import Editor from "@monaco-editor/react";
 import axios, { AxiosError } from "axios";
 import { Bot, Sparkles, Lightbulb } from "lucide-react";
 import { CodingQuestion as CodingQuestionType } from "../../types";
+import { chatApi } from "../../api/chatApi";
 
 interface CodingQuestionProps {
 	question: CodingQuestionType;
@@ -77,9 +78,9 @@ export default function CodingQuestion({
 					);
 
 					try {
-						// Make the POST request to the backend at http://localhost:8080/execute
+						// Make the POST request to the execute endpoint (proxied to Go backend)
 						const response = await axios.post(
-							"http://localhost:8080/execute",
+							"/execute",
 							payload,
 							{
 								headers: {
@@ -123,7 +124,7 @@ export default function CodingQuestion({
 
 						// Make a second request to /status/{id}
 						const statusResponse = await axios.get(
-							`http://localhost:8080/status/${id}`
+							`/status/${id}`
 						);
 						console.log(
 							"Status Response:",
@@ -187,16 +188,8 @@ export default function CodingQuestion({
         try {
             setIsHintLoading(true);
             setMentorHint(null);
-            
-            // Call the LLM backend for a contextual hint
-            const response = await axios.post("http://localhost:5175/llm/test-hint", {
-                question_content: question.content,
-                question_type: "coding",
-                // Pass current code to help LLM give SPECIFIC feedback
-                previous_answers: answer || question.starterCode
-            });
-            
-            setMentorHint(response.data.hint);
+            const response = await chatApi.getTestHint(question.content, "coding", answer || question.starterCode);
+            setMentorHint(response.hint);
         } catch (error) {
             console.error("Failed to get mentor hint:", error);
             setMentorHint("I'm having trouble analyzing your code right now. Try double-checking your logic around the main loop!");

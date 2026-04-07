@@ -125,7 +125,8 @@ const TestResult: React.FC = () => {
 					subjects[subject].correct++;
 				} else {
 					incorrect++;
-					weakTopics.push(q.content);
+					const topic = q.subject || "General";
+					if (!weakTopics.includes(topic)) weakTopics.push(topic);
 				}
 				return { q, given, selectedIdx, isCorrect, pts, status: isCorrect ? "correct" : "incorrect" as const };
 			} else {

@@ -12,16 +12,26 @@ const validateStudentData = [
   body('basicInfo.branch').trim().notEmpty().withMessage('Branch is required'),
   body('basicInfo.university').trim().notEmpty().withMessage('University is required'),
   body('basicInfo.currentSemester').isInt({ min: 1, max: 8 }).withMessage('Valid semester is required'),
-  validateRequest
+  validateRequest,
 ];
 
+// Profile
 router.get('/:id', studentController.getStudent);
+router.post('/', validateStudentData, studentController.createStudent);
+router.put('/:id', validateStudentData, studentController.updateStudent);
+router.delete('/:id', studentController.deleteStudent);
+
+// Activity
+router.post('/:id/activity', studentController.trackActivity);
+
+// AI & Recommendations
 router.get('/:id/recommendations', studentController.getRecommendations);
 router.get('/:id/insights', studentController.getInsights);
 router.get('/:id/milestones', studentController.getMilestones);
-router.post('/', validateStudentData, studentController.createStudent);
-router.post('/:id/activity', studentController.trackActivity);
-router.put('/:id', validateStudentData, studentController.updateStudent);
-router.delete('/:id', studentController.deleteStudent);
+
+// Analytics
+router.get('/:id/analytics/skills', studentController.getSkillAnalytics);
+router.get('/:id/analytics/heatmap', studentController.getActivityHeatmap);
+router.get('/:id/analytics/timeline', studentController.getPerformanceTimeline);
 
 export default router;

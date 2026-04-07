@@ -112,11 +112,11 @@ export const chatApi = {
 	},
 
 	/** Generate a hint for a specific question */
-	async getTestHint(questionContent: string, questionType: string): Promise<{ hint: string }> {
+	async getTestHint(questionContent: string, questionType: string, previousAnswers?: string): Promise<{ hint: string }> {
 		const res = await fetch(`${LLM_BASE}/test-hint`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ question_content: questionContent, question_type: questionType }),
+			body: JSON.stringify({ question_content: questionContent, question_type: questionType, previous_answers: previousAnswers ?? null }),
 		});
 		if (!res.ok) {
 			const err = await res.json().catch(() => ({ detail: "Unknown error" }));

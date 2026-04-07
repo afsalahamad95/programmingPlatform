@@ -83,15 +83,25 @@ export function useInterviewEngine() {
     try {
       const resp = await chatApi.sendMessage([...messages, evalPrompt], "Output strictly JSON, no markdown.");
       let jsonStr = resp.answer.replace(/```json|```/g, "").trim();
-      const data = JSON.parse(jsonStr);
+      // Extract JSON object if the model wrapped it in prose
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON object found in evaluation response");
+      const data = JSON.parse(jsonMatch[0]);
       setParsedFeedback({
-        chartData: Object.keys(data.scores).map(k => ({ subject: k, score: data.scores[k], fullMark: 100 })),
-        strengths: data.strengths,
-        weaknesses: data.weaknesses,
-        verdict: data.verdict
+        chartData: Object.keys(data.scores ?? {}).map(k => ({ subject: k, score: data.scores[k], fullMark: 100 })),
+        strengths: Array.isArray(data.strengths) ? data.strengths : [],
+        weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
+        verdict: data.verdict ?? "Interview complete. Review your performance above."
       });
     } catch (err) {
       console.error("Evaluation failed", err);
+      toast.error("Could not parse interview feedback. Your session data was saved.");
+      setParsedFeedback({
+        chartData: [],
+        strengths: [],
+        weaknesses: [],
+        verdict: "Feedback generation encountered an issue. Please try again."
+      });
     } finally {
       setIsTyping(false);
     }

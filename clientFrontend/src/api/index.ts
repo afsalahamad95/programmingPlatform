@@ -363,3 +363,24 @@ export const getStudentMilestones = async (studentId: string): Promise<any> => {
 	const response = await api.get(`/students/${studentId}/milestones`);
 	return response.data;
 };
+
+// Returns the authenticated user's own test results (no admin required)
+export const getMyResults = async (): Promise<any[]> => {
+	const response = await api.get("/protected/my-results");
+	return response.data ?? [];
+};
+
+export const getStudentSkillAnalytics = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/analytics/skills`);
+	return response.data;
+};
+
+export const getStudentActivityHeatmap = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/analytics/heatmap`);
+	return response.data;
+};
+
+export const getStudentPerformanceTimeline = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/analytics/timeline`);
+	return response.data;
+};
