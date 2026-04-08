@@ -6,88 +6,67 @@ interface WebSocketProviderProps {
 	children: React.ReactNode;
 }
 
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const [isConnected, setIsConnected] = useState(false);
 	const [socket, setSocket] = useState<WebSocket | null>(null);
 	const [connectionAttempts, setConnectionAttempts] = useState(0);
 	const queryClient = useQueryClient();
+	const reconnectTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
-		console.log("WebSocket Provider mounted");
-		console.log("Attempting to connect to WebSocket...");
+		if (connectionAttempts > MAX_RECONNECT_ATTEMPTS) {
+			console.warn("WebSocket: max reconnect attempts reached, giving up");
+			return;
+		}
 
-		// Try both localhost and window.location.hostname
-		const wsUrl = `ws://localhost:3000/ws`;
-		console.log("Connecting to:", wsUrl);
-
+		const wsUrl = `ws://localhost:8080/ws`;
 		const ws = new WebSocket(wsUrl);
 
 		ws.onopen = () => {
-			console.log("WebSocket connected successfully");
-			console.log("WebSocket readyState:", ws.readyState);
 			setIsConnected(true);
 			setConnectionAttempts(0);
 		};
 
-		ws.onclose = (event) => {
-			console.log("WebSocket disconnected:", {
-				code: event.code,
-				reason: event.reason,
-				wasClean: event.wasClean,
-				readyState: ws.readyState,
-			});
+		ws.onclose = () => {
 			setIsConnected(false);
-
-			// Attempt to reconnect after 5 seconds
-			console.log("Will attempt to reconnect in 5 seconds...");
-			setTimeout(() => {
-				console.log("Attempting to reconnect...");
+			// Exponential backoff: 2s, 4s, 8s … up to 30s
+			const delay = Math.min(2000 * Math.pow(2, connectionAttempts), 30000);
+			reconnectTimerRef.current = setTimeout(() => {
 				setConnectionAttempts((prev) => prev + 1);
 				setSocket(null);
-			}, 5000);
+			}, delay);
 		};
 
-		ws.onerror = (error) => {
-			console.error("WebSocket error:", error);
-			console.log("WebSocket state:", {
-				readyState: ws.readyState,
-				url: ws.url,
-				bufferedAmount: ws.bufferedAmount,
-			});
+		ws.onerror = () => {
 			setIsConnected(false);
 		};
 
 		ws.onmessage = (event) => {
 			try {
-				console.log("WebSocket message received:", event.data);
 				const data = JSON.parse(event.data);
-				console.log("Parsed WebSocket message:", data);
-
 				if (data.type === "test_update") {
-					console.log("Test update received, invalidating queries");
-					// Invalidate and refetch tests query when a test is updated
+					queryClient.invalidateQueries("activeTests");
+					queryClient.invalidateQueries("scheduledTests");
 					queryClient.invalidateQueries("tests");
+				} else if (data.type === "challenge_update") {
+					queryClient.invalidateQueries("challenges");
+				} else if (data.type === "results_update") {
+					queryClient.invalidateQueries("myResults");
 				}
-			} catch (error) {
-				console.error("Error parsing WebSocket message:", error);
+			} catch {
+				// ignore parse errors
 			}
 		};
 
 		setSocket(ws);
 
-		// Cleanup on unmount
 		return () => {
-			if (ws) {
-				console.log("Closing WebSocket connection");
-				ws.close();
-			}
+			if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+			ws.close();
 		};
 	}, [queryClient, connectionAttempts]);
-
-	// Log connection status changes
-	useEffect(() => {
-		console.log("WebSocket connection status changed:", isConnected);
-	}, [isConnected]);
 
 	return (
 		<WebSocketContext.Provider value={{ isConnected }}>

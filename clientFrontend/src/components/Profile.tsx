@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery } from "react-query";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api, getMyResults, getStudentAnalytics, getStudentInsights, getStudentMilestones, getStudentSkillAnalytics, getStudentPerformanceTimeline } from "../api";
+import { SkillGraph } from "./SkillGraph";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,11 @@ const Profile = () => {
 	const avgScore = timeline?.overallAvgScore ?? 0;
 	const timeSpent = studentData?.analytics?.totalTimeSpent ?? 0;
 	const skillMap: { skill: string; score: number; level: string }[] = skillData?.skillRadar ?? [];
+	// Convert to {[skill]: score} map for SkillGraph component
+	const skillGraphData = useMemo(
+		() => Object.fromEntries(skillMap.map(s => [s.skill, s.score])),
+		[skillMap]
+	);
 
 	// ── Handlers ─────────────────────────────────────────────────────────────
 	const handlePreferenceToggle = (pref: string) => {
@@ -330,24 +336,32 @@ const Profile = () => {
 				<div className="space-y-6">
 					{skillMap.length > 0 ? (
 						<>
-							<div className="glass-card p-6">
-								<h3 className="font-semibold text-white mb-5 flex items-center gap-2">
-									<BarChart2 className="w-4 h-4 text-indigo-400" /> Skill Progression
-								</h3>
-								<div className="space-y-4">
-									{skillMap.map(s => (
-										<div key={s.skill} className="flex items-center gap-3">
-											<span className="text-sm text-gray-300 w-32 truncate">{s.skill}</span>
-											<div className="flex-1 bg-gray-700/50 rounded-full h-2.5 overflow-hidden">
-												<div
-													className={`h-2.5 rounded-full bg-gradient-to-r ${s.score >= 80 ? 'from-yellow-500 to-amber-400' : s.score >= 60 ? 'from-emerald-500 to-green-400' : s.score >= 40 ? 'from-blue-500 to-indigo-400' : 'from-gray-500 to-gray-400'} transition-all duration-700`}
-													style={{ width: `${Math.max(s.score, 2)}%` }}
-												/>
+							{/* Radar chart (needs ≥3 skills) and bar chart side by side */}
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+								<SkillGraph
+									skills={skillGraphData}
+									title="Skill Radar"
+									mode={skillMap.length >= 3 ? "radar" : "bars"}
+								/>
+								<div className="glass-card p-6">
+									<h3 className="font-semibold text-white mb-5 flex items-center gap-2">
+										<BarChart2 className="w-4 h-4 text-indigo-400" /> Skill Breakdown
+									</h3>
+									<div className="space-y-4">
+										{skillMap.map(s => (
+											<div key={s.skill} className="flex items-center gap-3">
+												<span className="text-sm text-gray-300 w-32 truncate">{s.skill}</span>
+												<div className="flex-1 bg-gray-700/50 rounded-full h-2.5 overflow-hidden">
+													<div
+														className={`h-2.5 rounded-full bg-gradient-to-r ${s.score >= 80 ? 'from-yellow-500 to-amber-400' : s.score >= 60 ? 'from-emerald-500 to-green-400' : s.score >= 40 ? 'from-blue-500 to-indigo-400' : 'from-gray-500 to-gray-400'} transition-all duration-700`}
+														style={{ width: `${Math.max(s.score, 2)}%` }}
+													/>
+												</div>
+												<span className={`text-xs font-mono w-14 text-right ${levelColor(s.level)}`}>{s.level}</span>
+												<span className="text-xs font-mono text-gray-500 w-10 text-right">{s.score}%</span>
 											</div>
-											<span className={`text-xs font-mono w-14 text-right ${levelColor(s.level)}`}>{s.level}</span>
-											<span className="text-xs font-mono text-gray-500 w-10 text-right">{s.score}%</span>
-										</div>
-									))}
+										))}
+									</div>
 								</div>
 							</div>
 

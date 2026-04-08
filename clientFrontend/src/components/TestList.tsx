@@ -33,8 +33,8 @@ export default function TestList() {
 	} = useQuery("activeTests", getActiveTests, {
 		retry: 3,
 		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-		refetchOnWindowFocus: true,
-		refetchInterval: 30000, // Refetch every 30 seconds
+		refetchOnWindowFocus: false,
+		refetchInterval: 60000, // Refetch every 60 seconds
 	});
 
 	const {
@@ -44,8 +44,8 @@ export default function TestList() {
 	} = useQuery("scheduledTests", getScheduledTests, {
 		retry: 3,
 		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-		refetchOnWindowFocus: true,
-		refetchInterval: 30000,
+		refetchOnWindowFocus: false,
+		refetchInterval: 60000,
 	});
 
 	const { data: recommendedTest, isLoading: isLoadingRecommended } = useQuery(

@@ -125,6 +125,53 @@ export const chatApi = {
 		return res.json();
 	},
 
+  /** Analyze code quality and get improvement suggestions */
+  async analyzeCode(code: string, language: string, studentId?: string): Promise<{
+    score: number;
+    issues: string[];
+    suggestions: string[];
+    complexity: string;
+    summary: string;
+  }> {
+    const res = await fetch(`${LLM_BASE}/analyze-code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, language, student_id: studentId ?? null }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+      throw new Error(err.detail ?? "Code analysis failed");
+    }
+    return res.json();
+  },
+
+  /** Get AI debugging help for failing code */
+  async debugCode(code: string, language: string, errorMessage: string, studentId?: string): Promise<{
+    root_cause: string;
+    fix_steps: string[];
+    corrected_snippet?: string;
+    explanation: string;
+  }> {
+    const res = await fetch(`${LLM_BASE}/debug`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, language, error_message: errorMessage, student_id: studentId ?? null }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+      throw new Error(err.detail ?? "Debug request failed");
+    }
+    return res.json();
+  },
+
+  /** Get a contextual hint for a coding challenge */
+  async getChallengeHint(challengeTitle: string, code: string, language: string): Promise<{ hint: string; sources: string[] }> {
+    return chatApi.sendMessage(
+      [{ role: "user", content: `I'm working on: "${challengeTitle}". Here's my code so far:\n\`\`\`${language}\n${code}\n\`\`\`\n\nGive me a hint to move forward without giving the full solution.` }],
+      `coding challenge: ${challengeTitle}`
+    ).then(r => ({ hint: r.answer, sources: r.sources }));
+  },
+
   /** Transcribe audio blob using the backend Whisper engine */
   async transcribe(audioBlob: Blob): Promise<{ text: string }> {
     const formData = new FormData();

@@ -1,6 +1,6 @@
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery } from "react-query";
-import { getRecommendedTests, getStudentAnalytics, api } from "../api";
+import { getRecommendedTests, getStudentAnalytics, getStudentInsights, getStudentMilestones } from "../api";
 import { 
   Sparkles, 
   BrainCircuit, 
@@ -33,18 +33,18 @@ const Dashboard = () => {
 		{ enabled: !!user?.id }
 	);
 
-	// Fetch futuristic AI coaching insights
+	// Fetch AI coaching insights
 	const { data: aiInsights } = useQuery(
 		["aiInsights", user?.userId],
-		() => api.get(`/students/${user?.id}/insights`).then(res => res.data),
-		{ enabled: !!user?.id, refetchInterval: 60000 }
+		() => getStudentInsights(user?.id || ""),
+		{ enabled: !!user?.id, refetchInterval: 60000, retry: 1 }
 	);
 
 	// Fetch predictive milestones
 	const { data: milestones } = useQuery(
 		["milestones", user?.userId],
-		() => api.get(`/students/${user?.id}/milestones`).then(res => res.data),
-		{ enabled: !!user?.id }
+		() => getStudentMilestones(user?.id || ""),
+		{ enabled: !!user?.id, retry: 1 }
 	);
 
 	const stats = [

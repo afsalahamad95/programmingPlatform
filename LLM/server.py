@@ -139,14 +139,21 @@ app = FastAPI(
     version="1.0.0",
 )
 
+BACKEND_API_BASE = os.getenv("BACKEND_API_BASE", "http://localhost:8080")
+
+_allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:8080",
+]
+_extra_origins = os.getenv("CORS_ORIGINS", "")
+if _extra_origins:
+    _allowed_origins.extend(o.strip() for o in _extra_origins.split(",") if o.strip())
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # client frontend
-        "http://localhost:5174",  # admin frontend
-        "http://localhost:3000",
-        "*",  # allow all during dev
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -332,7 +339,7 @@ async def generate_resume(req: ResumeRequest):
         raise HTTPException(status_code=500, detail="Groq not configured")
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:3000/api/users/{req.student_id}")
+        resp = await client.get(f"{BACKEND_API_BASE}/api/users/{req.student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student_data = resp.json()
@@ -363,7 +370,7 @@ async def generate_roadmap(req: RoadmapRequest):
         raise HTTPException(status_code=500, detail="Groq not configured")
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:3000/api/users/{req.student_id}")
+        resp = await client.get(f"{BACKEND_API_BASE}/api/users/{req.student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student_data = resp.json()
@@ -391,7 +398,7 @@ async def generate_roadmap(req: RoadmapRequest):
 async def adaptive_ingest(student_id: str):
     """Automatically fetch and ingest docs based on user learning goals."""
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"http://localhost:3000/api/users/{student_id}")
+        resp = await client.get(f"{BACKEND_API_BASE}/api/users/{student_id}")
         if resp.status_code != 200:
             raise HTTPException(status_code=404, detail="Student not found")
         student = resp.json()
@@ -645,7 +652,7 @@ async def skill_graph_update(req: SkillUpdateRequest):
                 async with httpx.AsyncClient(timeout=10) as client:
                     for skill, score in skill_data.get("updated_skills", {}).items():
                         await client.post(
-                            f"http://localhost:3000/api/students/{req.student_id}/activity",
+                            f"{BACKEND_API_BASE}/api/students/{req.student_id}/activity",
                             json={
                                 "action": "SKILL_UPDATED",
                                 "metadata": {"skill": skill, "score": score},

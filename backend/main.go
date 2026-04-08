@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"qms-backend/db"
@@ -22,6 +26,78 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// startLLMServer launches the Python LLM service as a subprocess if
+// AUTO_START_LLM=true (default) and we are not running inside Docker.
+func startLLMServer() {
+	if util.GetEnvWithDefault("AUTO_START_LLM", "true") != "true" {
+		fmt.Println("AUTO_START_LLM=false — skipping LLM server startup")
+		return
+	}
+
+	// Detect the LLM directory relative to the backend binary / source.
+	_, callerFile, _, ok := runtime.Caller(0)
+	var llmDir string
+	if ok {
+		llmDir = filepath.Join(filepath.Dir(callerFile), "..", "LLM")
+	} else {
+		// Fallback: look relative to CWD
+		cwd, _ := os.Getwd()
+		llmDir = filepath.Join(cwd, "..", "LLM")
+	}
+	llmDir = filepath.Clean(llmDir)
+
+	serverScript := filepath.Join(llmDir, "server.py")
+	if _, err := os.Stat(serverScript); os.IsNotExist(err) {
+		fmt.Printf("⚠️  LLM server.py not found at %s — skipping LLM startup\n", serverScript)
+		return
+	}
+
+	// Check if LLM service is already running
+	resp, err := http.Get("http://localhost:8000/llm/health")
+	if err == nil {
+		resp.Body.Close()
+		fmt.Println("✅ LLM service already running on :8000")
+		return
+	}
+
+	// Find python/uvicorn
+	pythonBin := "python3"
+	if p := os.Getenv("PYTHON_BIN"); p != "" {
+		pythonBin = p
+	}
+
+	fmt.Printf("🚀 Starting LLM server from %s ...\n", llmDir)
+	cmd := exec.Command(pythonBin, "-m", "uvicorn", "server:app",
+		"--host", "0.0.0.0",
+		"--port", "8000",
+	)
+	cmd.Dir = llmDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if startErr := cmd.Start(); startErr != nil {
+		fmt.Printf("⚠️  Failed to start LLM server: %v\n", startErr)
+		return
+	}
+
+	fmt.Printf("✅ LLM server started (PID %d)\n", cmd.Process.Pid)
+
+	// Wait up to 20s for the LLM service to become ready
+	go func() {
+		deadline := time.Now().Add(20 * time.Second)
+		for time.Now().Before(deadline) {
+			time.Sleep(2 * time.Second)
+			r, e := http.Get("http://localhost:8000/llm/health")
+			if e == nil {
+				r.Body.Close()
+				fmt.Println("✅ LLM service is healthy and ready")
+				return
+			}
+		}
+		fmt.Println("⚠️  LLM service did not become healthy within 20s")
+	}()
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.SetOutput(os.Stdout)
@@ -34,6 +110,9 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("No .env file found, using default configuration")
 	}
+
+	// Start LLM pipeline as a subprocess (skipped in Docker / if disabled)
+	startLLMServer()
 
 	port := util.GetEnvWithDefault("PORT", "8080")
 	mongoURI := util.GetEnvWithDefault("MONGODB_URI", "mongodb://localhost:27017")
@@ -51,7 +130,7 @@ func main() {
 	maxRetries := 5
 	retryInterval := time.Second * 3
 
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		fmt.Printf("Attempting to connect to MongoDB (attempt %d/%d)...\n", i+1, maxRetries)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

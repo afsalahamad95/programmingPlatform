@@ -12,31 +12,16 @@ export const api = axios.create({
 	withCredentials: true, // Important for handling cookies
 });
 
-// Add request interceptor for logging and auth
+// Add request interceptor for auth
 api.interceptors.request.use(
 	(config) => {
-		// Add auth token if available
 		const token = localStorage.getItem("token");
 		if (token) {
 			config.headers.Authorization = `Bearer ${token}`;
 		}
-
-		// Remove X-Requested-With header as it's causing CORS issues
-		// config.headers["X-Requested-With"] = "XMLHttpRequest";
-
-		console.log("API Request:", {
-			method: config.method?.toUpperCase(),
-			url: config.url,
-			params: config.params,
-			data: config.data,
-			headers: config.headers,
-		});
 		return config;
 	},
-	(error) => {
-		console.error("API Request Error:", error);
-		return Promise.reject(error);
-	}
+	(error) => Promise.reject(error)
 );
 
 // Active tests endpoints
@@ -75,49 +60,31 @@ const updateConnectionStatus = (status: boolean) => {
 	}
 };
 
-// Add response interceptor for logging and error handling
+// Add response interceptor for error handling
 api.interceptors.response.use(
 	(response) => {
-		console.log("API Response:", {
-			status: response.status,
-			data: response.data,
-			headers: response.headers,
-		});
 		updateConnectionStatus(true);
 		return response;
 	},
 	(error) => {
-		console.error("API Error:", {
-			status: error.response?.status,
-			data: error.response?.data,
-			message: error.message,
-			config: {
-				url: error.config?.url,
-				method: error.config?.method,
-				headers: error.config?.headers,
-			},
-		});
-
-		// Handle CORS errors
 		if (!error.response) {
 			updateConnectionStatus(false);
 			return Promise.reject(
-				new Error(
-					"Network error - please check your connection and ensure the backend server is running on port 8080"
-				)
+				new Error("Network error — ensure the backend is running on port 8080")
 			);
 		}
 
-		// Handle authentication errors
 		if (error.response.status === 401) {
-			// Session persistence enabled: we do not automatically log the user out or redirect to login.
-			// The specific request will fail, but the session state remains intact.
-			return Promise.reject(
-				new Error("Unauthorized request - please ensure your session is valid or login again manually")
-			);
+			// Clear invalid/expired token and force re-login
+			localStorage.removeItem("token");
+			delete api.defaults.headers.common["Authorization"];
+			if (!window.location.pathname.includes("/login")) {
+				window.location.href = "/login";
+			}
+			return Promise.reject(new Error("Session expired. Please log in again."));
 		}
 
-		updateConnectionStatus(false);
+		updateConnectionStatus(error.response.status < 500);
 		return Promise.reject(error);
 	}
 );
