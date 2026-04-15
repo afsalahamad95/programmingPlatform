@@ -45,6 +45,12 @@ from models.schema import (
     InterviewFeedbackResponse,
     OrchestratorRequest,
     OrchestratorResponse,
+    PerformanceInsightRequest,
+    PerformanceInsightResponse,
+    StudentFeedbackRequest,
+    StudentFeedbackResponse,
+    BadgeSuggestionRequest,
+    BadgeSuggestionResponse,
 )
 import httpx
 from contextlib import asynccontextmanager
@@ -712,4 +718,60 @@ async def orchestrate(req: OrchestratorRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error("orchestrate failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/performance-insights", response_model=PerformanceInsightResponse, tags=["insights"])
+async def performance_insights(req: PerformanceInsightRequest):
+    """Performance Analyzer Agent — generates AI-powered cohort insights for admins."""
+    _require_orchestrator()
+    try:
+        payload = req.model_dump()
+        # Map snake_case to camelCase keys the agent expects
+        payload["totalAttempts"]    = payload.pop("total_attempts")
+        payload["avgScore"]         = payload.pop("avg_score")
+        payload["passRate"]         = payload.pop("pass_rate")
+        payload["uniqueStudents"]   = payload.pop("unique_students")
+        payload["uniqueTests"]      = payload.pop("unique_tests")
+        payload["scoreDistribution"]= payload.pop("score_distribution")
+        payload["test_breakdown"]   = payload.pop("test_breakdown")
+        payload["student_breakdown"]= payload.pop("student_breakdown")
+        result = _orchestrator.dispatch(
+            task="performance_analysis",
+            payload=payload,
+        )
+        return PerformanceInsightResponse(**result["result"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("performance-insights failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/llm/student-feedback", response_model=StudentFeedbackResponse, tags=["insights"])
+async def student_feedback(req: StudentFeedbackRequest):
+    """Student Feedback Agent — personalised AI feedback after a test attempt."""
+    _require_orchestrator()
+    try:
+        result = _orchestrator.dispatch(
+            task="student_feedback",
+            payload={
+                "student_name":       req.student_name,
+                "test_title":         req.test_title,
+                "score_pct":          req.score_pct,
+                "grade":              req.grade,
+                "correct":            req.correct,
+                "incorrect":          req.incorrect,
+                "pending":            req.pending,
+                "total_questions":    req.total_questions,
+                "subject_breakdown":  req.subject_breakdown,
+                "time_spent_seconds": req.time_spent_seconds,
+                "previous_score_pct": req.previous_score_pct,
+            },
+        )
+        return StudentFeedbackResponse(**result["result"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("student-feedback failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

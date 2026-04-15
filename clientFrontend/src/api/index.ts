@@ -75,13 +75,17 @@ api.interceptors.response.use(
 		}
 
 		if (error.response.status === 401) {
-			// Clear invalid/expired token and force re-login
-			localStorage.removeItem("token");
-			delete api.defaults.headers.common["Authorization"];
-			if (!window.location.pathname.includes("/login")) {
-				window.location.href = "/login";
+			// Skip auto-logout for the login/register endpoints themselves —
+			// a 401 there just means wrong credentials, not an expired session.
+			const url = error.config?.url ?? "";
+			const isAuthEndpoint = url.includes("/auth/login") || url.includes("/auth/register");
+			if (!isAuthEndpoint) {
+				localStorage.removeItem("token");
+				delete api.defaults.headers.common["Authorization"];
+				// Dispatch a custom event so AuthContext can react without a hard reload
+				window.dispatchEvent(new CustomEvent("auth:logout", { detail: "session_expired" }));
 			}
-			return Promise.reject(new Error("Session expired. Please log in again."));
+			return Promise.reject(error);
 		}
 
 		updateConnectionStatus(error.response.status < 500);

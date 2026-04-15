@@ -169,3 +169,77 @@ class OrchestratorResponse(BaseModel):
     agent_used: str
     duration_ms: Optional[float] = None
     cached: bool = False
+
+
+# ── Performance Insights ───────────────────────────────────────────────────────
+
+class PerformanceInsightRequest(BaseModel):
+    total_attempts: int
+    avg_score: float
+    pass_rate: float
+    unique_students: int
+    unique_tests: int
+    score_distribution: List[Dict[str, Any]]   # [{range, count}]
+    test_breakdown: List[Dict[str, Any]]        # [{title, attempts, avgScore, passRate}]
+    student_breakdown: List[Dict[str, Any]]     # [{name, attempts, avgScore, bestScore}]
+    hardest_questions: Optional[List[Dict[str, Any]]] = None
+    type_distribution: Optional[List[Dict[str, Any]]] = None
+    time_range_days: Optional[int] = 30
+
+
+class PerformanceInsightResponse(BaseModel):
+    summary: str                        # 2-3 sentence executive summary
+    key_insights: List[str]             # 4-6 bullet insights
+    risk_students: List[str]            # names of students at risk
+    top_performers: List[str]           # names of top performers
+    hardest_content: List[str]          # hardest tests/questions
+    recommendations: List[str]          # 3-5 admin action items
+    trend: str                          # "improving" | "declining" | "stable"
+    trend_explanation: str
+
+
+# ── Student AI Feedback ────────────────────────────────────────────────────────
+
+class StudentFeedbackRequest(BaseModel):
+    student_name: str
+    test_title: str
+    score_pct: float
+    grade: str
+    correct: int
+    incorrect: int
+    pending: int
+    total_questions: int
+    subject_breakdown: Dict[str, Any]
+    time_spent_seconds: Optional[int] = None
+    previous_score_pct: Optional[float] = None  # for trend context
+
+
+class StudentFeedbackResponse(BaseModel):
+    headline: str                       # short motivational headline
+    performance_summary: str            # 2-3 sentence personalised summary
+    strengths: List[str]                # 2-3 strong areas
+    growth_areas: List[str]             # 2-3 areas to improve
+    next_steps: List[str]               # 3-4 concrete next actions
+    motivational_note: str              # encouraging closing message
+    predicted_next_score: Optional[float] = None  # AI prediction
+
+
+# ── Badge Suggestion ───────────────────────────────────────────────────────────
+
+class BadgeSuggestionRequest(BaseModel):
+    student_name: str
+    student_id: str
+    total_tests_completed: int
+    avg_score: float
+    perfect_scores: int                 # tests with 100%
+    pass_streak: int                    # consecutive passes
+    total_points_earned: int
+    subjects_mastered: List[str]
+    fastest_completion_minutes: Optional[int] = None
+    challenge_completions: Optional[int] = 0
+
+
+class BadgeSuggestionResponse(BaseModel):
+    earned_badges: List[Dict[str, str]] # [{id, name, description, tier, icon}]
+    next_badge: Optional[Dict[str, Any]] # next badge to earn + progress %
+    message: str

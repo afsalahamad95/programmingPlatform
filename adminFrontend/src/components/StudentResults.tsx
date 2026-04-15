@@ -35,6 +35,16 @@ import {
 	Download,
 	RefreshCw,
 	Medal,
+	Sparkles,
+	Loader2,
+	AlertTriangle,
+	ArrowUpRight,
+	ArrowDownRight,
+	Minus,
+	Lightbulb,
+	ShieldAlert,
+	Star,
+	BookOpen,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -111,7 +121,18 @@ interface Analytics {
 }
 
 type ResultType = "test" | "challenge";
-type ActiveTab = "overview" | "results" | "leaderboard" | "tests" | "difficulty";
+type ActiveTab = "overview" | "results" | "leaderboard" | "tests" | "difficulty" | "ai_insights";
+
+interface AIInsights {
+	summary: string;
+	key_insights: string[];
+	risk_students: string[];
+	top_performers: string[];
+	hardest_content: string[];
+	recommendations: string[];
+	trend: "improving" | "declining" | "stable";
+	trend_explanation: string;
+}
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
 
@@ -177,6 +198,9 @@ const StudentResults: React.FC = () => {
 	const [autoRefresh, setAutoRefresh] = useState(false);
 	const [analytics, setAnalytics] = useState<Analytics | null>(null);
 	const [timeRange, setTimeRange] = useState<"daily" | "weekly">("daily");
+	const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
+	const [aiLoading, setAILoading] = useState(false);
+	const [aiError, setAIError] = useState<string | null>(null);
 
 	const fetchData = useCallback(async () => {
 		try {
@@ -255,6 +279,32 @@ const StudentResults: React.FC = () => {
 		link.click();
 	};
 
+	const generateAIInsights = async () => {
+		if (!analytics) return;
+		setAILoading(true);
+		setAIError(null);
+		try {
+			const payload = {
+				total_attempts:    analytics.totalAttempts,
+				avg_score:         analytics.avgScore,
+				pass_rate:         analytics.passRate,
+				unique_students:   analytics.uniqueStudents,
+				unique_tests:      analytics.uniqueTests,
+				score_distribution: analytics.scoreDistribution,
+				test_breakdown:    analytics.testBreakdown,
+				student_breakdown: analytics.studentBreakdown,
+				hardest_questions: analytics.hardestQuestions,
+				type_distribution: analytics.typeDistribution,
+			};
+			const data = await adminApi.getAIInsights(payload);
+			setAIInsights(data);
+		} catch (e: any) {
+			setAIError(e?.response?.data?.detail || e.message || "Failed to generate insights.");
+		} finally {
+			setAILoading(false);
+		}
+	};
+
 	// ── Loading state ─────────────────────────────────────────────────────────
 	if (loading && !testResults.length) {
 		return (
@@ -287,6 +337,7 @@ const StudentResults: React.FC = () => {
 		{ id: "leaderboard", label: "Leaderboard", icon: Trophy },
 		{ id: "tests", label: "Test Analysis", icon: Target },
 		{ id: "difficulty", label: "Difficulty", icon: BrainCircuit },
+		{ id: "ai_insights", label: "AI Insights", icon: Sparkles },
 	];
 
 	return (
@@ -814,6 +865,200 @@ const StudentResults: React.FC = () => {
 								</LineChart>
 							</ResponsiveContainer>
 						</div>
+					)}
+				</div>
+			)}
+
+			{/* ═══════════════════ AI INSIGHTS TAB ═══════════════════ */}
+			{activeTab === "ai_insights" && (
+				<div className="space-y-6">
+					{/* Generate button */}
+					{!aiInsights && (
+						<div className="glass-card p-10 flex flex-col items-center text-center gap-6">
+							<div className="relative">
+								<div className="absolute inset-0 bg-indigo-600/20 rounded-full blur-2xl" />
+								<div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-600/30 to-purple-600/30 border border-indigo-500/30 flex items-center justify-center">
+									<BrainCircuit className="w-10 h-10 text-indigo-400" />
+								</div>
+							</div>
+							<div>
+								<h2 className="text-2xl font-bold text-white mb-2">AI Cohort Analysis</h2>
+								<p className="text-gray-400 max-w-lg text-sm leading-relaxed">
+									Let the AI analyse your entire cohort's performance data and surface actionable insights —
+									at-risk students, top performers, content gaps, and admin recommendations.
+								</p>
+							</div>
+							{aiError && (
+								<div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm max-w-md">
+									<AlertTriangle className="w-4 h-4 flex-shrink-0" />
+									{aiError}
+								</div>
+							)}
+							<button
+								onClick={generateAIInsights}
+								disabled={aiLoading || !analytics}
+								className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold shadow-[0_0_30px_rgba(99,102,241,0.35)] hover:shadow-[0_0_40px_rgba(99,102,241,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]">
+								{aiLoading ? <><Loader2 className="w-5 h-5 animate-spin" /> Analysing Cohort…</> : <><Sparkles className="w-5 h-5" /> Generate AI Insights</>}
+							</button>
+						</div>
+					)}
+
+					{aiInsights && (
+						<>
+							{/* Refresh button */}
+							<div className="flex justify-end">
+								<button
+									onClick={() => { setAIInsights(null); generateAIInsights(); }}
+									className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-indigo-500/40 text-sm transition-all">
+									<RefreshCw className="w-3.5 h-3.5" /> Regenerate
+								</button>
+							</div>
+
+							{/* Trend + Summary */}
+							<div className="glass-card p-6">
+								<div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-5">
+									<div className="flex-1">
+										<div className="flex items-center gap-3 mb-2">
+											<span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">Executive Summary</span>
+											<span className={`flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full border ${
+												aiInsights.trend === "improving"
+													? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+													: aiInsights.trend === "declining"
+													? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+													: "bg-gray-500/10 border-gray-500/30 text-gray-400"
+											}`}>
+												{aiInsights.trend === "improving" ? <ArrowUpRight className="w-3 h-3" /> : aiInsights.trend === "declining" ? <ArrowDownRight className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+												{aiInsights.trend.charAt(0).toUpperCase() + aiInsights.trend.slice(1)}
+											</span>
+										</div>
+										<p className="text-base text-gray-200 leading-relaxed">{aiInsights.summary}</p>
+										<p className="text-sm text-gray-500 mt-2 italic">{aiInsights.trend_explanation}</p>
+									</div>
+								</div>
+
+								{/* Key insights grid */}
+								{aiInsights.key_insights.length > 0 && (
+									<div>
+										<p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-3 flex items-center gap-2">
+											<Lightbulb className="w-3.5 h-3.5 text-yellow-400" /> Key Insights
+										</p>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+											{aiInsights.key_insights.map((insight, i) => (
+												<div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/8">
+													<span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+													<p className="text-sm text-gray-300 leading-snug">{insight}</p>
+												</div>
+											))}
+										</div>
+									</div>
+								)}
+							</div>
+
+							{/* 3-col: At-risk / Top performers / Hardest content */}
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+								{/* At-risk students */}
+								<div className="glass-card p-5">
+									<div className="flex items-center gap-2.5 mb-4">
+										<div className="w-8 h-8 rounded-xl bg-rose-500/15 flex items-center justify-center">
+											<ShieldAlert className="w-4 h-4 text-rose-400" />
+										</div>
+										<div>
+											<p className="text-sm font-bold text-white">At-Risk Students</p>
+											<p className="text-[10px] text-gray-500">Avg score below 40%</p>
+										</div>
+									</div>
+									{aiInsights.risk_students.length === 0 ? (
+										<p className="text-sm text-emerald-400 flex items-center gap-2">
+											<CheckCircle className="w-4 h-4" /> No at-risk students identified
+										</p>
+									) : (
+										<ul className="space-y-2">
+											{aiInsights.risk_students.map((name, i) => (
+												<li key={i} className="flex items-center gap-2.5 text-sm text-gray-300">
+													<span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" />
+													{name}
+												</li>
+											))}
+										</ul>
+									)}
+								</div>
+
+								{/* Top performers */}
+								<div className="glass-card p-5">
+									<div className="flex items-center gap-2.5 mb-4">
+										<div className="w-8 h-8 rounded-xl bg-yellow-500/15 flex items-center justify-center">
+											<Star className="w-4 h-4 text-yellow-400" />
+										</div>
+										<div>
+											<p className="text-sm font-bold text-white">Top Performers</p>
+											<p className="text-[10px] text-gray-500">Highest average scores</p>
+										</div>
+									</div>
+									{aiInsights.top_performers.length === 0 ? (
+										<p className="text-sm text-gray-500">Not enough data yet.</p>
+									) : (
+										<ul className="space-y-2">
+											{aiInsights.top_performers.map((name, i) => (
+												<li key={i} className="flex items-center gap-2.5 text-sm text-gray-300">
+													<span className={`text-[10px] font-black ${i === 0 ? "text-yellow-400" : i === 1 ? "text-gray-300" : "text-amber-600"}`}>
+														{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
+													</span>
+													{name}
+												</li>
+											))}
+										</ul>
+									)}
+								</div>
+
+								{/* Hardest content */}
+								<div className="glass-card p-5">
+									<div className="flex items-center gap-2.5 mb-4">
+										<div className="w-8 h-8 rounded-xl bg-indigo-500/15 flex items-center justify-center">
+											<BookOpen className="w-4 h-4 text-indigo-400" />
+										</div>
+										<div>
+											<p className="text-sm font-bold text-white">Hardest Content</p>
+											<p className="text-[10px] text-gray-500">Tests/topics students struggle with</p>
+										</div>
+									</div>
+									{aiInsights.hardest_content.length === 0 ? (
+										<p className="text-sm text-gray-500">No struggling areas identified.</p>
+									) : (
+										<ul className="space-y-2">
+											{aiInsights.hardest_content.map((item, i) => (
+												<li key={i} className="flex items-center gap-2.5 text-sm text-gray-300">
+													<span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
+													{item}
+												</li>
+											))}
+										</ul>
+									)}
+								</div>
+							</div>
+
+							{/* Admin recommendations */}
+							{aiInsights.recommendations.length > 0 && (
+								<div className="glass-card p-6">
+									<div className="flex items-center gap-3 mb-5">
+										<div className="w-8 h-8 rounded-xl bg-purple-500/15 flex items-center justify-center">
+											<Target className="w-4 h-4 text-purple-400" />
+										</div>
+										<div>
+											<p className="font-bold text-white">Admin Action Items</p>
+											<p className="text-xs text-gray-500">AI-generated recommendations for improving cohort outcomes</p>
+										</div>
+									</div>
+									<div className="space-y-3">
+										{aiInsights.recommendations.map((rec, i) => (
+											<div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-purple-500/5 border border-purple-500/15 hover:bg-purple-500/10 transition-colors">
+												<span className="w-7 h-7 rounded-xl bg-purple-500/20 text-purple-300 text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+												<p className="text-sm text-gray-200 leading-relaxed">{rec}</p>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+						</>
 					)}
 				</div>
 			)}

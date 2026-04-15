@@ -257,6 +257,10 @@ export const adminApi = {
 		const response = await axios.post(`/llm/roadmap-from-result`, payload);
 		return response.data;
 	},
+	getAIInsights: async (analyticsPayload: any) => {
+		const response = await axios.post(`/llm/performance-insights`, analyticsPayload);
+		return response.data;
+	},
 };
 
 // Check if user has admin role

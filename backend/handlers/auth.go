@@ -265,6 +265,22 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
+// LogoutJWT handles logout for JWT-based auth. Since JWTs are stateless there
+// is no server-side session to invalidate — the client is responsible for
+// discarding the token. This endpoint exists so the frontend can call it
+// without receiving a 404, and to clear any auth cookies set during OAuth.
+func LogoutJWT(c *fiber.Ctx) error {
+	// Clear any OAuth cookie that may have been set
+	c.Cookie(&fiber.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HTTPOnly: true,
+		SameSite: "Lax",
+	})
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Logged out successfully"})
+}
+
 // Logout handles user logout
 func Logout(c *fiber.Ctx) error {
 	// Get the session token from the cookie
