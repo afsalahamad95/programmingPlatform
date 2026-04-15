@@ -51,12 +51,6 @@ A flexible, secure and efficient platform designed for creating and attempting t
 ---
 
 ## 📝 TODO   
-- Authentication - Oauth2 support, JWT token
-- Improved state management
-- AI proctored tests
-- Dockerized images for easy deployments/testing
-- live image reload (docker) integration with delve debugger
-- inmem caching and DB query optimizations
 - Include contest feature and live meetups(short meetings configurable from 1 to 3 hours)
 
 ---
@@ -71,7 +65,7 @@ A flexible, secure and efficient platform designed for creating and attempting t
 ## ⚙️ Setup and Installation  
 
 ### 🔑 Prerequisites  
-- [Node.js](https://nodejs.org/) and [npm](https://www.npmjs.com/) for frontend.  
+- Node.js, typescript for frontend.  
 - [Go](https://golang.org/) for backend.  
 - MongoDB for database.
 - Install Judge0 for local code execution.
