@@ -33,8 +33,8 @@ export default function TestList() {
 	} = useQuery("activeTests", getActiveTests, {
 		retry: 3,
 		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-		refetchOnWindowFocus: true,
-		refetchInterval: 30000, // Refetch every 30 seconds
+		refetchOnWindowFocus: false,
+		refetchInterval: 60000, // Refetch every 60 seconds
 	});
 
 	const {
@@ -44,8 +44,8 @@ export default function TestList() {
 	} = useQuery("scheduledTests", getScheduledTests, {
 		retry: 3,
 		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-		refetchOnWindowFocus: true,
-		refetchInterval: 30000,
+		refetchOnWindowFocus: false,
+		refetchInterval: 60000,
 	});
 
 	const { data: recommendedTest, isLoading: isLoadingRecommended } = useQuery(
@@ -73,31 +73,18 @@ export default function TestList() {
 
 	if (isLoading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-600 mx-auto" />
-					<p className="mt-2 text-sm text-gray-600">
-						Loading tests...
-					</p>
-				</div>
+			<div className="glass-card p-12 flex flex-col items-center justify-center gap-4">
+				<div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
+				<p className="text-sm text-gray-400 font-mono tracking-widest">Loading tests…</p>
 			</div>
 		);
 	}
 
 	if (error) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
-				<div className="text-center">
-					<div className="text-red-600 mb-4">
-						<p className="text-lg font-semibold">
-							Error loading tests
-						</p>
-						<p className="text-sm mt-1">
-							{(error as Error).message ||
-								"Please try again later"}
-						</p>
-					</div>
-				</div>
+			<div className="glass-card p-12 text-center border-rose-500/20">
+				<p className="text-rose-400 font-semibold">Failed to load tests</p>
+				<p className="text-sm text-gray-500 mt-1">{(error as Error).message || "Please try again later"}</p>
 			</div>
 		);
 	}

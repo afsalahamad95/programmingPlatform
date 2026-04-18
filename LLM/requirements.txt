@@ -13,3 +13,5 @@ duckduckgo-search
 mcp
 httpx
 apscheduler
+beautifulsoup4
+requests

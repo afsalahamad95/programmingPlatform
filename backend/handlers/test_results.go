@@ -221,3 +221,52 @@ func GetTestResultsByTest(c *fiber.Ctx) error {
 
 	return c.JSON(results)
 }
+
+// GetMyResults returns the authenticated student's own test history.
+// Requires AuthMiddleware — does NOT require admin role.
+func GetMyResults(c *fiber.Ctx) error {
+	studentID, ok := c.Locals("userId").(string)
+	if !ok || studentID == "" {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	cacheKey := CacheKey("test_results", "mine", studentID)
+	var cached []fiber.Map
+	if CacheGet(c.Context(), cacheKey, &cached) {
+		return c.JSON(cached)
+	}
+
+	var myAttempts []presenter.TestSubmission
+	cursor, err := db.AttemptCollection.Find(
+		context.Background(),
+		bson.M{"studentId": studentID},
+		options.Find().SetSort(bson.D{{Key: "submittedAt", Value: -1}}).SetLimit(50),
+	)
+	if err != nil {
+		log.Printf("GetMyResults: failed to fetch: %v", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch results"})
+	}
+	defer cursor.Close(context.Background())
+	if err := cursor.All(context.Background(), &myAttempts); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to decode results"})
+	}
+
+	var myResults []fiber.Map
+	for _, attempt := range myAttempts {
+		var myTest presenter.TestData
+		testID, err := primitive.ObjectIDFromHex(attempt.TestID)
+		if err == nil {
+			_ = db.TestsCollection.FindOne(context.Background(), bson.M{"_id": testID}).Decode(&myTest)
+		}
+		if myTest.Title == "" {
+			myTest.Title = "Unknown/Deleted Test"
+		}
+		myResults = append(myResults, buildResultFromAttempt(attempt, myTest))
+	}
+	if myResults == nil {
+		myResults = []fiber.Map{}
+	}
+
+	CacheSet(c.Context(), cacheKey, myResults, 2*time.Minute)
+	return c.JSON(myResults)
+}

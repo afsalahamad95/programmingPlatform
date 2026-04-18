@@ -49,6 +49,11 @@ func SetupRoutes(app *fiber.App) {
 	challenges.Get("/results/student/:studentId", handlers.GetChallengeResultsByStudent)
 	challenges.Get("/results/challenge/:challengeId", handlers.GetChallengeResultsByChallenge)
 
+	// Badge routes
+	api.Get("/badges/definitions", handlers.GetAllBadgeDefinitions)
+	api.Get("/badges/student/:studentId", handlers.GetStudentBadges)
+	api.Get("/badges/certificate/:attemptId", handlers.GetCertificate)
+
 	// Admin routes
 	admin := api.Group("/admin")
 

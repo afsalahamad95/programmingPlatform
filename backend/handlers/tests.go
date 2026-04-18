@@ -531,6 +531,22 @@ func SubmitTest(c *fiber.Ctx) error {
 	// Invalidate test result caches after submission
 	CacheInvalidatePrefix(c.Context(), CacheKey("test_results"))
 
+	// Count total attempts for this student (for milestone badges)
+	totalAttempts, _ := db.AttemptCollection.CountDocuments(context.Background(), bson.M{"studentId": submission.StudentID})
+
+	// Compute percentage score for this attempt (needed for badge awarding)
+	pctScore, _, _ := computeAttemptScore(*submission)
+
+	// Award badges asynchronously to avoid blocking the response
+	go AwardBadgesForAttempt(
+		submission.StudentID,
+		submission.TestID,
+		testData.Title,
+		pctScore,
+		submission.TimeSpent,
+		int(totalAttempts),
+	)
+
 	// Respond with the submission details
 	return c.Status(http.StatusCreated).JSON(submission)
 }

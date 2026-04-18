@@ -1,6 +1,6 @@
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery } from "react-query";
-import { getRecommendedTests, getStudentAnalytics, api } from "../api";
+import { getRecommendedTests, getStudentAnalytics, getStudentInsights, getStudentMilestones } from "../api";
 import { 
   Sparkles, 
   BrainCircuit, 
@@ -33,24 +33,24 @@ const Dashboard = () => {
 		{ enabled: !!user?.id }
 	);
 
-	// Fetch futuristic AI coaching insights
+	// Fetch AI coaching insights
 	const { data: aiInsights } = useQuery(
 		["aiInsights", user?.userId],
-		() => api.get(`/students/${user?.id}/insights`).then(res => res.data),
-		{ enabled: !!user?.id, refetchInterval: 60000 }
+		() => getStudentInsights(user?.id || ""),
+		{ enabled: !!user?.id, refetchInterval: 60000, retry: 1 }
 	);
 
 	// Fetch predictive milestones
 	const { data: milestones } = useQuery(
 		["milestones", user?.userId],
-		() => api.get(`/students/${user?.id}/milestones`).then(res => res.data),
-		{ enabled: !!user?.id }
+		() => getStudentMilestones(user?.id || ""),
+		{ enabled: !!user?.id, retry: 1 }
 	);
 
 	const stats = [
-		{ label: "Tests Completed", value: studentData?.analytics?.totalTestsCompleted || "0", icon: <Award className="w-5 h-5 text-yellow-400" />, color: "bg-yellow-400/10" },
-		{ label: "Points Earned", value: studentData?.points || "0", icon: <Zap className="w-5 h-5 text-blue-400" />, color: "bg-blue-400/10" },
-		{ label: "Daily Streak", value: `${studentData?.analytics?.streak || 0} Days`, icon: <TrendingUp className="w-5 h-5 text-emerald-400" />, color: "bg-emerald-400/10" },
+		{ label: "Tests Completed", value: studentData?.analytics?.totalTests ?? milestones?.totalTests ?? "0", icon: <Award className="w-5 h-5 text-yellow-400" />, color: "bg-yellow-400/10" },
+		{ label: "Points Earned", value: (studentData?.basicInfo?.points ?? studentData?.points ?? 0).toLocaleString(), icon: <Zap className="w-5 h-5 text-blue-400" />, color: "bg-blue-400/10" },
+		{ label: "Daily Streak", value: `${studentData?.analytics?.dailyStreak ?? aiInsights?.streak ?? 0} Days`, icon: <TrendingUp className="w-5 h-5 text-emerald-400" />, color: "bg-emerald-400/10" },
 	];
 
 	return (
@@ -128,8 +128,8 @@ const Dashboard = () => {
 							</div>
 						</div>
 					</div>
-					<button 
-						onClick={() => navigate('/tests')}
+					<button
+						onClick={() => document.getElementById('available-tests')?.scrollIntoView({ behavior: 'smooth' })}
 						className="flex-shrink-0 bg-white/5 hover:bg-white/10 p-3 rounded-2xl border border-white/10 transition-all group-hover:border-indigo-500/50"
 					>
 						<ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-white" />
@@ -153,7 +153,7 @@ const Dashboard = () => {
 							
 							{recommendations ? (
 								<div 
-									onClick={() => navigate(`/test/${recommendations.id}`)}
+									onClick={() => navigate(`/tests/${recommendations.id}`)}
 									className="group glass-card border-indigo-500/30 hover:border-indigo-500/60 p-1 transition-all cursor-pointer relative overflow-hidden"
 								>
 									<div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -199,7 +199,7 @@ const Dashboard = () => {
 						</section>
 
 					{/* Test List Section */}
-					<section className="space-y-6">
+					<section id="available-tests" className="space-y-6 scroll-mt-8">
 						<div className="flex items-center justify-between">
 							<h2 className="text-2xl font-black text-white flex items-center gap-3">
 								<BookOpen className="w-6 h-6 text-indigo-400" /> Available Tests

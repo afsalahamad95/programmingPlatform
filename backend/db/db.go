@@ -19,6 +19,7 @@ var (
 	ChallengeAttemptsCollection *mongo.Collection
 	StudentsCollection          *mongo.Collection
 	SessionsCollection          *mongo.Collection
+	BadgesCollection            *mongo.Collection
 )
 
 // Connect establishes a connection to MongoDB
@@ -49,6 +50,7 @@ func Connect() error {
 	ChallengeAttemptsCollection = db.Collection("challenge_attempts")
 	StudentsCollection = db.Collection("students")
 	SessionsCollection = db.Collection("sessions")
+	BadgesCollection = db.Collection("badges")
 
 	log.Println("Connected to MongoDB!")
 	return nil

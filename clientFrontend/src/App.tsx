@@ -16,6 +16,7 @@ import ResumeGenerator from "./components/ResumeGenerator";
 import Profile from "./components/Profile";
 import MockInterview from "./components/MockInterview";
 import Dashboard from "./components/Dashboard";
+import BadgesPage from "./components/BadgesPage";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -81,6 +82,12 @@ function Navigation() {
 									AI Interview
 								</Link>
 								<Link
+									to="/badges"
+									className="border-transparent text-yellow-300 hover:text-yellow-100 hover:border-yellow-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
+								>
+									Badges
+								</Link>
+								<Link
 									to="/profile"
 									className="border-transparent text-purple-300 hover:text-purple-100 hover:border-purple-400 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors"
 								>
@@ -111,8 +118,8 @@ function Navigation() {
 function App() {
 	return (
 		<QueryClientProvider client={queryClient}>
-			<AuthProvider>
-				<Router {...routerConfig}>
+			<Router {...routerConfig}>
+				<AuthProvider>
 					<div className="min-h-screen text-gray-100 flex flex-col">
 						<Navigation />
 						<div className="flex-grow py-8 px-4 sm:px-6 lg:px-8">
@@ -193,12 +200,20 @@ function App() {
 										</ProtectedRoute>
 									}
 								/>
+								<Route
+									path="/badges"
+									element={
+										<ProtectedRoute>
+											<BadgesPage />
+										</ProtectedRoute>
+									}
+								/>
 							</Routes>
 						</div>
 						<ChatBot />
 					</div>
-				</Router>
-			</AuthProvider>
+				</AuthProvider>
+			</Router>
 		</QueryClientProvider>
 	);
 }

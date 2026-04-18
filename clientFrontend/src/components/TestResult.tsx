@@ -22,15 +22,23 @@ import {
 } from "recharts";
 
 // ─── Custom Markdown Renderer (Minimal) ──────────────────────────────────────
+const escapeHtml = (str: string) =>
+	str
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+
 const SimpleMarkdown = ({ content }: { content: string }) => {
-	// Simple transformation for common markdown patterns
-	const html = content
+	// Escape raw HTML first to prevent XSS, then apply markdown transforms
+	const html = escapeHtml(content)
 		.replace(/### (.*)/g, '<h3 class="text-xl font-bold text-indigo-300 mt-6 mb-2">$1</h3>')
 		.replace(/## (.*)/g, '<h2 class="text-2xl font-bold text-purple-300 mt-8 mb-4 border-b border-purple-500/30 pb-2">$1</h2>')
 		.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-		.replace(/- (.*)/g, '<li class="ml-4 text-gray-300">$1</li>')
+		.replace(/^- (.*)/gm, '<li class="ml-4 text-gray-300">$1</li>')
 		.replace(/\n\n/g, "<br/>")
-		.replace(/\|/g, ""); // strip pipe characters often used in tables if not rendering full tables
+		.replace(/\|/g, "");
 
 	return (
 		<div
@@ -125,7 +133,8 @@ const TestResult: React.FC = () => {
 					subjects[subject].correct++;
 				} else {
 					incorrect++;
-					weakTopics.push(q.content);
+					const topic = q.subject || "General";
+					if (!weakTopics.includes(topic)) weakTopics.push(topic);
 				}
 				return { q, given, selectedIdx, isCorrect, pts, status: isCorrect ? "correct" : "incorrect" as const };
 			} else {

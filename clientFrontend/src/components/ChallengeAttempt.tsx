@@ -4,6 +4,7 @@ import { getChallenge, submitChallengeAttempt } from "../api";
 import { Challenge, ValidationResult } from "../types";
 import CodeEditor from "./CodeEditor";
 import ChallengeTimer from "./ChallengeTimer";
+import { AIDebugger } from "./AIDebugger";
 
 // Helper function to format output
 const formatCodeOutput = (output: string | null | undefined): string => {
@@ -628,6 +629,25 @@ const ChallengeAttempt: React.FC = () => {
 					onChange={handleCodeChange}
 					readOnly={isTimeExpired || isSubmitted || submitting}
 				/>
+
+				{/* AI Debugger — shown after submission attempt or always visible */}
+				{!isSubmitted && (
+					<div className="mt-4">
+						<AIDebugger
+							code={code}
+							language={challenge.language || "javascript"}
+							errorOutput={
+								validationResult && !validationResult.result?.passed
+									? validationResult.result?.testResults
+											?.filter((t: any) => !t.passed)
+											?.map((t: any) => `Expected: ${t.expectedOutput}\nGot: ${t.actualOutput}`)
+											?.join("\n---\n") ?? null
+									: null
+							}
+							onApplyFix={(snippet) => setCode(snippet)}
+						/>
+					</div>
+				)}
 				<div className="mt-4 flex justify-end">
 					{submitting ? (
 						<div className="flex items-center space-x-2 text-indigo-700">

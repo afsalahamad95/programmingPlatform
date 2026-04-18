@@ -1,45 +1,106 @@
 services:
   platformd:
-    image: platformd:dev # need to implement this
-    # environment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: platformd:dev
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+      - MONGODB_URI=mongodb://mongodb:27017
+      - REDIS_ADDR=redis:6379
+      - DB_NAME=qms
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5175
+      - GO_ENV=production
     expose:
       - 8080
     ports:
       - "8080:8080"
-    volumes:
-     - ./:/app
     depends_on:
-      - redis
-      - mongodb
-    # container-name: platformd
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     networks:
-      - default
+      - platform-net
     labels:
       - service=platformd
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  llm:
+    build:
+      context: ../LLM
+      dockerfile: Dockerfile
+    image: platform-llm:dev
+    env_file:
+      - ../LLM/.env
+    environment:
+      - BACKEND_API_BASE=http://platformd:8080
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5175
+    ports:
+      - "8000:8000"
+    depends_on:
+      platformd:
+        condition: service_healthy
+    networks:
+      - platform-net
+    labels:
+      - service=llm
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/llm/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   redis:
-    image: redis:latest
+    image: redis:7-alpine
     ports:
       - "6379:6379"
     networks:
-      - default
+      - platform-net
     labels:
       - service=redis
     volumes:
       - redis-data:/data
     command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   mongodb:
-    image: mongo:latest
+    image: mongo:7
     ports:
       - "27017:27017"
     networks:
-      - default
+      - platform-net
     labels:
       - service=mongodb
     volumes:
       - mongodb-data:/data/db
       - mongodb-config:/data/configdb
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  platform-net:
+    driver: bridge
 
 volumes:
   redis-data:

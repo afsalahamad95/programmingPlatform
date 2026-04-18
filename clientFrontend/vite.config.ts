@@ -24,8 +24,18 @@ export default defineConfig({
 			allow: [".."],
 		},
 		proxy: {
-			"/api/students": {
+			"/execute": {
 				target: "http://localhost:8080",
+				changeOrigin: true,
+				secure: false,
+			},
+			"/status": {
+				target: "http://localhost:8080",
+				changeOrigin: true,
+				secure: false,
+			},
+			"/api/students": {
+				target: "http://localhost:3000",
 				changeOrigin: true,
 				secure: false,
 			},

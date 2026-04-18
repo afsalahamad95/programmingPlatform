@@ -127,12 +127,64 @@ export const studentApi = {
       return response.data;
     } catch (error) {
       console.warn('Failed to create student, using mock data');
-      // For development, return mock data with a random ID
       return {
         ...initialStudentData,
         ...studentData,
         id: Date.now().toString()
       } as Student;
+    }
+  },
+
+  trackActivity: async (id: string, action: string, metadata: Record<string, unknown> = {}): Promise<void> => {
+    try {
+      await api.post(`/students/${id}/activity`, { action, metadata });
+    } catch {
+      console.warn('Failed to track activity');
+    }
+  },
+
+  getInsights: async (id: string): Promise<unknown> => {
+    try {
+      const response = await api.get(`/students/${id}/insights`);
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
+
+  getMilestones: async (id: string): Promise<unknown> => {
+    try {
+      const response = await api.get(`/students/${id}/milestones`);
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
+
+  getSkillAnalytics: async (id: string): Promise<unknown> => {
+    try {
+      const response = await api.get(`/students/${id}/analytics/skills`);
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
+
+  getActivityHeatmap: async (id: string): Promise<unknown> => {
+    try {
+      const response = await api.get(`/students/${id}/analytics/heatmap`);
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
+
+  getPerformanceTimeline: async (id: string): Promise<unknown> => {
+    try {
+      const response = await api.get(`/students/${id}/analytics/timeline`);
+      return response.data;
+    } catch {
+      return null;
     }
   },
 };

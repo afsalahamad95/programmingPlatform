@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"qms-backend/db"
@@ -21,6 +25,120 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+// resolvePythonBin returns the best available Python executable:
+//  1. PYTHON_BIN env var (explicit override)
+//  2. .venv/bin/python3 relative to llmDir's parent (the monorepo root)
+//  3. .venv/bin/python3 relative to llmDir itself
+//  4. system python3
+func resolvePythonBin(llmDir string) string {
+	if p := os.Getenv("PYTHON_BIN"); p != "" {
+		return p
+	}
+	// Check for a virtualenv one level up (monorepo root) or inside llmDir
+	candidates := []string{
+		filepath.Join(llmDir, "..", ".venv", "bin", "python3"),
+		filepath.Join(llmDir, ".venv", "bin", "python3"),
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			abs, _ := filepath.Abs(c)
+			fmt.Printf("🐍 Using venv Python: %s\n", abs)
+			return abs
+		}
+	}
+	return "python3"
+}
+
+// llmHealthClient is a dedicated HTTP client with a short timeout used only
+// for the LLM health-check probes. Using the default http.Client (no timeout)
+// would cause startLLMServer to hang if something is half-listening on :8000.
+var llmHealthClient = &http.Client{Timeout: 3 * time.Second}
+
+// startLLMServerAsync launches the Python LLM service as a background goroutine.
+// It NEVER blocks main() — any delay or failure is isolated from the Go server.
+func startLLMServerAsync() {
+	go func() {
+		if util.GetEnvWithDefault("AUTO_START_LLM", "true") != "true" {
+			fmt.Println("[LLM] AUTO_START_LLM=false — skipping")
+			return
+		}
+
+		// Resolve the LLM directory.
+		// Prefer an explicit env var, then CWD-relative path, then source-relative path.
+		llmDir := os.Getenv("LLM_DIR")
+		if llmDir == "" {
+			cwd, _ := os.Getwd()
+			// When running from backend/, go up one level to find LLM/
+			candidate := filepath.Clean(filepath.Join(cwd, "..", "LLM"))
+			if _, err := os.Stat(filepath.Join(candidate, "server.py")); err == nil {
+				llmDir = candidate
+			}
+		}
+		if llmDir == "" {
+			// Last resort: use source-file-relative path (works for `go run`)
+			_, callerFile, _, ok := runtime.Caller(0)
+			if ok {
+				llmDir = filepath.Clean(filepath.Join(filepath.Dir(callerFile), "..", "LLM"))
+			}
+		}
+
+		serverScript := filepath.Join(llmDir, "server.py")
+		if _, err := os.Stat(serverScript); os.IsNotExist(err) {
+			fmt.Printf("[LLM] server.py not found at %s — skipping startup\n", serverScript)
+			return
+		}
+
+		// Check if LLM service is already running (with timeout so we never hang)
+		resp, err := llmHealthClient.Get("http://localhost:8000/llm/health")
+		if err == nil {
+			resp.Body.Close()
+			fmt.Println("[LLM] ✅ already running on :8000")
+			return
+		}
+
+		pythonBin := resolvePythonBin(llmDir)
+		fmt.Printf("[LLM] 🚀 starting from %s using %s\n", llmDir, pythonBin)
+
+		// Write LLM subprocess output to a dedicated log file so it never
+		// interleaves with the Go server logs or blocks on a shared pipe.
+		logPath := filepath.Join(llmDir, "server.log")
+		logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if logErr != nil {
+			// Fall back to discarding output rather than sharing os.Stdout
+			logFile = nil
+		}
+
+		cmd := exec.Command(pythonBin, "-m", "uvicorn", "server:app",
+			"--host", "0.0.0.0",
+			"--port", "8000",
+		)
+		cmd.Dir = llmDir
+		if logFile != nil {
+			cmd.Stdout = logFile
+			cmd.Stderr = logFile
+		}
+
+		if startErr := cmd.Start(); startErr != nil {
+			fmt.Printf("[LLM] ⚠️  failed to start: %v\n", startErr)
+			return
+		}
+		fmt.Printf("[LLM] ✅ started (PID %d) — logs at %s\n", cmd.Process.Pid, logPath)
+
+		// Poll until healthy (up to 2 minutes — embedding model can be slow on first load)
+		deadline := time.Now().Add(2 * time.Minute)
+		for time.Now().Before(deadline) {
+			time.Sleep(4 * time.Second)
+			r, e := llmHealthClient.Get("http://localhost:8000/llm/health")
+			if e == nil {
+				r.Body.Close()
+				fmt.Println("[LLM] ✅ healthy and ready")
+				return
+			}
+		}
+		fmt.Println("[LLM] ⚠️  did not become healthy within 2 min — check LLM/server.log")
+	}()
+}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -51,7 +169,7 @@ func main() {
 	maxRetries := 5
 	retryInterval := time.Second * 3
 
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		fmt.Printf("Attempting to connect to MongoDB (attempt %d/%d)...\n", i+1, maxRetries)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -166,6 +284,7 @@ func main() {
 	auth := api.Group("/auth")
 	auth.Post("/login", handlers.Login)
 	auth.Post("/register", handlers.Register)
+	auth.Post("/logout", handlers.LogoutJWT)
 	auth.Get("/oauth/:provider", handlers.OAuthRedirect)
 	auth.Get("/oauth/:provider/callback", handlers.OAuthCallback)
 
@@ -173,6 +292,7 @@ func main() {
 	protectedApi := api.Group("/protected")
 	protectedApi.Use(handlers.AuthMiddleware())
 	protectedApi.Get("/user", handlers.GetCurrentUser)
+	protectedApi.Get("/my-results", handlers.GetMyResults)
 
 	// Recommendation routes
 	api.Get("/recommended-tests", handlers.AuthMiddleware(), handlers.GetRecommendedTests)
@@ -252,6 +372,8 @@ func main() {
 	students := api.Group("/students")
 	students.Post("/", handlers.CreateStudent)
 	students.Get("/", handlers.GetStudents)
+	students.Get("/:id/milestones", handlers.GetStudentMilestones)
+	students.Get("/:id/insights", handlers.GetStudentInsights)
 	students.Get("/:id", handlers.GetStudent)
 	students.Put("/:id", handlers.UpdateStudent)
 	students.Delete("/:id", handlers.DeleteStudent)
@@ -266,6 +388,10 @@ func main() {
 	fmt.Printf("WebSocket endpoint available at ws://localhost:%s/ws\n", port)
 	fmt.Printf("CORS allowed origins: %s\n", allowedOrigins)
 	fmt.Println("==========================================")
+
+	// Start LLM pipeline in background AFTER the HTTP server banner is printed.
+	// It runs in a goroutine so it never delays or blocks the Go server startup.
+	startLLMServerAsync()
 
 	if err := app.Listen(":" + port); err != nil {
 		fmt.Printf("Failed to start server: %v\n", err)

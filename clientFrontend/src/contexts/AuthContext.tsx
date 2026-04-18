@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { jwtDecode } from "jwt-decode";
 
@@ -43,8 +44,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const navigate = useNavigate();
 
-	const checkAuth = () => {
+	// Listen for the custom event dispatched by the API interceptor on 401
+	useEffect(() => {
+		const handleSessionExpired = () => {
+			setUser(null);
+			setLoading(false);
+			setError("Session expired. Please log in again.");
+			navigate("/login", { replace: true });
+		};
+		window.addEventListener("auth:logout", handleSessionExpired);
+		return () => window.removeEventListener("auth:logout", handleSessionExpired);
+	}, [navigate]);
+
+	const checkAuth = useCallback(() => {
 		try {
 			const token = localStorage.getItem("token");
 			if (!token) {
@@ -56,14 +70,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			// Decode the token
 			const decoded = jwtDecode<User>(token);
 
-			// We no longer automatically log out the user on the frontend if the token is expired to enforce session persistence.
-			// The token might still be rejected by the backend, but the user will visually remain logged in.
-			// if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-			// 	localStorage.removeItem("token");
-			// 	setUser(null);
-			// 	setError("Token expired");
-			// 	return;
-			// }
+			if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+				localStorage.removeItem("token");
+				setUser(null);
+				setError("Session expired. Please log in again.");
+				return;
+			}
 
 			// Map userId to id for consistency if backend sends userId
 			const userWithId: User = {
@@ -80,11 +92,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []); // useCallback with empty deps — stable reference
 
 	useEffect(() => {
 		checkAuth();
-	}, []);
+	}, [checkAuth]);
 
 	const login = async (email: string, password: string) => {
 		try {

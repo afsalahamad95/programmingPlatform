@@ -10,6 +10,7 @@ import InterviewPrep from './pages/InterviewPrep';
 import Settings from './pages/Settings';
 import ResumeBuilder from './pages/ResumeBuilder';
 import CareerRoadmap from './pages/CareerRoadmap';
+import SkillGraph from './pages/SkillGraph';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/skills" element={<SkillGraph />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/resume" element={<ResumeBuilder />} />

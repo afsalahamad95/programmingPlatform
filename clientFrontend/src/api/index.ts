@@ -12,31 +12,16 @@ export const api = axios.create({
 	withCredentials: true, // Important for handling cookies
 });
 
-// Add request interceptor for logging and auth
+// Add request interceptor for auth
 api.interceptors.request.use(
 	(config) => {
-		// Add auth token if available
 		const token = localStorage.getItem("token");
 		if (token) {
 			config.headers.Authorization = `Bearer ${token}`;
 		}
-
-		// Remove X-Requested-With header as it's causing CORS issues
-		// config.headers["X-Requested-With"] = "XMLHttpRequest";
-
-		console.log("API Request:", {
-			method: config.method?.toUpperCase(),
-			url: config.url,
-			params: config.params,
-			data: config.data,
-			headers: config.headers,
-		});
 		return config;
 	},
-	(error) => {
-		console.error("API Request Error:", error);
-		return Promise.reject(error);
-	}
+	(error) => Promise.reject(error)
 );
 
 // Active tests endpoints
@@ -75,49 +60,35 @@ const updateConnectionStatus = (status: boolean) => {
 	}
 };
 
-// Add response interceptor for logging and error handling
+// Add response interceptor for error handling
 api.interceptors.response.use(
 	(response) => {
-		console.log("API Response:", {
-			status: response.status,
-			data: response.data,
-			headers: response.headers,
-		});
 		updateConnectionStatus(true);
 		return response;
 	},
 	(error) => {
-		console.error("API Error:", {
-			status: error.response?.status,
-			data: error.response?.data,
-			message: error.message,
-			config: {
-				url: error.config?.url,
-				method: error.config?.method,
-				headers: error.config?.headers,
-			},
-		});
-
-		// Handle CORS errors
 		if (!error.response) {
 			updateConnectionStatus(false);
 			return Promise.reject(
-				new Error(
-					"Network error - please check your connection and ensure the backend server is running on port 8080"
-				)
+				new Error("Network error — ensure the backend is running on port 8080")
 			);
 		}
 
-		// Handle authentication errors
 		if (error.response.status === 401) {
-			// Session persistence enabled: we do not automatically log the user out or redirect to login.
-			// The specific request will fail, but the session state remains intact.
-			return Promise.reject(
-				new Error("Unauthorized request - please ensure your session is valid or login again manually")
-			);
+			// Skip auto-logout for the login/register endpoints themselves —
+			// a 401 there just means wrong credentials, not an expired session.
+			const url = error.config?.url ?? "";
+			const isAuthEndpoint = url.includes("/auth/login") || url.includes("/auth/register");
+			if (!isAuthEndpoint) {
+				localStorage.removeItem("token");
+				delete api.defaults.headers.common["Authorization"];
+				// Dispatch a custom event so AuthContext can react without a hard reload
+				window.dispatchEvent(new CustomEvent("auth:logout", { detail: "session_expired" }));
+			}
+			return Promise.reject(error);
 		}
 
-		updateConnectionStatus(false);
+		updateConnectionStatus(error.response.status < 500);
 		return Promise.reject(error);
 	}
 );
@@ -361,5 +332,26 @@ export const getStudentInsights = async (studentId: string): Promise<any> => {
 
 export const getStudentMilestones = async (studentId: string): Promise<any> => {
 	const response = await api.get(`/students/${studentId}/milestones`);
+	return response.data;
+};
+
+// Returns the authenticated user's own test results (no admin required)
+export const getMyResults = async (): Promise<any[]> => {
+	const response = await api.get("/protected/my-results");
+	return response.data ?? [];
+};
+
+export const getStudentSkillAnalytics = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/analytics/skills`);
+	return response.data;
+};
+
+export const getStudentActivityHeatmap = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/analytics/heatmap`);
+	return response.data;
+};
+
+export const getStudentPerformanceTimeline = async (studentId: string): Promise<any> => {
+	const response = await api.get(`/students/${studentId}/analytics/timeline`);
 	return response.data;
 };
